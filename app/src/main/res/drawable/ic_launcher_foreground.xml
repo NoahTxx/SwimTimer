@@ -1,0 +1,30 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Stopwatch Body -->
+    <path
+        android:fillColor="#00E5FF"
+        android:pathData="M54,26 C37.43,26 24,39.43 24,56 C24,72.57 37.43,86 54,86 C70.57,86 84,72.57 84,56 C84,39.43 70.57,26 54,26 Z M54,80 C40.75,80 30,69.25 30,56 C30,42.75 40.75,32 54,32 C67.25,32 78,42.75 78,56 C78,69.25 67.25,80 54,80 Z"/>
+    <!-- Top Crown / Pusher -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M51,16 h6 v7 h-6 z M48,14 h12 v3 h-12 z"/>
+    <!-- Side Pusher Lap -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M73.5,27.5 L78,32 L74,36 L69.5,31.5 Z"/>
+    <!-- Timer Hand / Needle -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M52,38 h4 v20 h-4 z"/>
+    <!-- Center Dot -->
+    <path
+        android:fillColor="#00E5FF"
+        android:pathData="M54,53 A3,3 0 1,0 54,59 A3,3 0 1,0 54,53 Z"/>
+    <!-- Swim Waves / Lane Accent -->
+    <path
+        android:fillColor="#00E5FF"
+        android:pathData="M38,64 Q46,60 54,64 T70,64 v3 Q62,63 54,67 T38,67 Z"/>
+</vector>
