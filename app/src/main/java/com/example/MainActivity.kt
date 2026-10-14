@@ -1,7 +1,6 @@
 package com.example
 
 import android.os.Bundle
-import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -86,24 +85,6 @@ class MainActivity : ComponentActivity() {
                 MainAppContent(viewModel = viewModel)
             }
         }
-    }
-
-    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (event?.repeatCount == 0) {
-            when (keyCode) {
-                KeyEvent.KEYCODE_VOLUME_UP -> {
-                    if (viewModel.onVolumeKeyPressed(isVolumeUp = true, context = this)) {
-                        return true
-                    }
-                }
-                KeyEvent.KEYCODE_VOLUME_DOWN -> {
-                    if (viewModel.onVolumeKeyPressed(isVolumeUp = false, context = this)) {
-                        return true
-                    }
-                }
-            }
-        }
-        return super.onKeyDown(keyCode, event)
     }
 }
 

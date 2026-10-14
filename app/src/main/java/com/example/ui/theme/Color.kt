@@ -25,9 +25,6 @@ val PaceRedContainer = Color(0xFF420B13)
 val PaceNeutral = Color(0xFFFFD600)         // On pace / yellow accent
 val PaceNeutralContainer = Color(0xFF382E00)
 
-// Water lock accent
-val WaterLockBlue = Color(0xFF00B0FF)
-val WaterLockDark = Color(0xEB040B14)
 
 // Lane distinct color tags (for up to 15 swimmers/lanes)
 val LaneColors = listOf(

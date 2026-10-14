@@ -36,12 +36,17 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
@@ -62,6 +67,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.example.data.model.SessionWithLaps
 import com.example.data.model.SwimmerEntity
 import com.example.ui.StopwatchViewModel
@@ -337,7 +343,7 @@ fun SwimmerDetailScreen(
                             Spacer(modifier = Modifier.height(16.dp))
 
                             // Official Lagen (Individual Medley: Schmett -> Rücken -> Brust -> Kraul)
-                            var selectedLagenSplitMode by remember { mutableIntStateOf(200) } // 200m (4x50m), 100m (4x25m), or 400m (4x100m)
+                            var selectedLagenSplitMode by remember { mutableIntStateOf(200) }
 
                             Surface(
                                 shape = RoundedCornerShape(16.dp),
@@ -389,7 +395,6 @@ fun SwimmerDetailScreen(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        // 100m Lagen Total PB
                                         Surface(
                                             shape = RoundedCornerShape(10.dp),
                                             color = Color(0xFF102236),
@@ -411,7 +416,6 @@ fun SwimmerDetailScreen(
                                             }
                                         }
 
-                                        // 200m Lagen Total PB
                                         Surface(
                                             shape = RoundedCornerShape(10.dp),
                                             color = Color(0xFF102236),
@@ -433,7 +437,6 @@ fun SwimmerDetailScreen(
                                             }
                                         }
 
-                                        // 400m Lagen Total PB
                                         Surface(
                                             shape = RoundedCornerShape(10.dp),
                                             color = Color(0xFF102236),
@@ -523,9 +526,12 @@ fun SwimmerDetailScreen(
                                         }
                                     }
 
-                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Spacer(modifier = Modifier.height(10.dp))
 
                                     if (selectedLagenSplitMode == 200) {
+                                        val freeTime200 = swimmer.pb200mLagenFreeSplitMillis
+                                            ?: if (StopwatchViewModel.isSameStroke(swimmer.favoriteStroke, "Freistil")) swimmer.pb50mMillis else null
+
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -578,9 +584,7 @@ fun SwimmerDetailScreen(
                                                 Column(modifier = Modifier.padding(6.dp)) {
                                                     Text("4. Kraul", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold), color = Color(0xFF80D8FF), maxLines = 1)
                                                     Text("50m", style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp), color = Color.Gray, maxLines = 1)
-                                                    val t = swimmer.pb200mLagenFreeSplitMillis?.let { TimeFormatter.formatMillis(it, shortFormat = true) }
-                                                        ?: if (StopwatchViewModel.isSameStroke(swimmer.favoriteStroke, "Freistil")) swimmer.pb50mMillis?.let { TimeFormatter.formatMillis(it, shortFormat = true) } else null
-                                                        ?: "--:--"
+                                                    val t = freeTime200?.let { TimeFormatter.formatMillis(it, shortFormat = true) } ?: "--:--"
                                                     Text(t, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold), color = AquaPrimary, maxLines = 1)
                                                 }
                                             }
@@ -590,7 +594,7 @@ fun SwimmerDetailScreen(
                                             swimmer.pb200mLagenFlySplitMillis,
                                             swimmer.pb200mLagenBackSplitMillis,
                                             swimmer.pb200mLagenBreastSplitMillis,
-                                            swimmer.pb200mLagenFreeSplitMillis ?: if (StopwatchViewModel.isSameStroke(swimmer.favoriteStroke, "Freistil")) swimmer.pb50mMillis else null
+                                            freeTime200
                                         )
                                         if (splits200.size == 4) {
                                             val theoreticalSum = splits200.sum()
@@ -630,6 +634,9 @@ fun SwimmerDetailScreen(
                                             }
                                         }
                                     } else if (selectedLagenSplitMode == 400) {
+                                        val freeTime400 = swimmer.pb400mLagenFreeSplitMillis
+                                            ?: if (StopwatchViewModel.isSameStroke(swimmer.favoriteStroke, "Freistil")) swimmer.pb100mMillis else null
+
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -682,9 +689,7 @@ fun SwimmerDetailScreen(
                                                 Column(modifier = Modifier.padding(6.dp)) {
                                                     Text("4. Kraul", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold), color = Color(0xFF80D8FF), maxLines = 1)
                                                     Text("100m", style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp), color = Color.Gray, maxLines = 1)
-                                                    val t = swimmer.pb400mLagenFreeSplitMillis?.let { TimeFormatter.formatMillis(it) }
-                                                        ?: if (StopwatchViewModel.isSameStroke(swimmer.favoriteStroke, "Freistil")) swimmer.pb100mMillis?.let { TimeFormatter.formatMillis(it) } else null
-                                                        ?: "--:--"
+                                                    val t = freeTime400?.let { TimeFormatter.formatMillis(it) } ?: "--:--"
                                                     Text(t, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold), color = AquaPrimary, maxLines = 1)
                                                 }
                                             }
@@ -694,7 +699,7 @@ fun SwimmerDetailScreen(
                                             swimmer.pb400mLagenFlySplitMillis,
                                             swimmer.pb400mLagenBackSplitMillis,
                                             swimmer.pb400mLagenBreastSplitMillis,
-                                            swimmer.pb400mLagenFreeSplitMillis ?: if (StopwatchViewModel.isSameStroke(swimmer.favoriteStroke, "Freistil")) swimmer.pb100mMillis else null
+                                            freeTime400
                                         )
                                         if (splits400.size == 4) {
                                             val theoreticalSum = splits400.sum()
@@ -734,6 +739,9 @@ fun SwimmerDetailScreen(
                                             }
                                         }
                                     } else {
+                                        val freeTime100 = swimmer.lagenFreeSplitMillis
+                                            ?: if (StopwatchViewModel.isSameStroke(swimmer.favoriteStroke, "Freistil")) swimmer.pb25mMillis else null
+
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -786,9 +794,7 @@ fun SwimmerDetailScreen(
                                                 Column(modifier = Modifier.padding(6.dp)) {
                                                     Text("4. Kraul", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold), color = Color(0xFF80D8FF), maxLines = 1)
                                                     Text("25m", style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp), color = Color.Gray, maxLines = 1)
-                                                    val t = swimmer.lagenFreeSplitMillis?.let { TimeFormatter.formatMillis(it, shortFormat = true) }
-                                                        ?: if (StopwatchViewModel.isSameStroke(swimmer.favoriteStroke, "Freistil")) swimmer.pb25mMillis?.let { TimeFormatter.formatMillis(it, shortFormat = true) } else null
-                                                        ?: "--:--"
+                                                    val t = freeTime100?.let { TimeFormatter.formatMillis(it, shortFormat = true) } ?: "--:--"
                                                     Text(t, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold), color = AquaPrimary, maxLines = 1)
                                                 }
                                             }
@@ -798,7 +804,7 @@ fun SwimmerDetailScreen(
                                             swimmer.lagenFlySplitMillis,
                                             swimmer.lagenBackSplitMillis,
                                             swimmer.lagenBreastSplitMillis,
-                                            swimmer.lagenFreeSplitMillis ?: if (StopwatchViewModel.isSameStroke(swimmer.favoriteStroke, "Freistil")) swimmer.pb25mMillis else null
+                                            freeTime100
                                         )
                                         if (splits100.size == 4) {
                                             val theoreticalSum = splits100.sum()
@@ -974,4 +980,333 @@ private fun SwimmerSessionHistoryCard(
         .filter { it.swimmerId == swimmer.id }
         .sortedBy { it.lapIndex }
 
-    val finishTime = swimmerLaps.lastOrNull()?.splitTimeMillis ?:
+    val finishTime = swimmerLaps.lastOrNull()?.splitTimeMillis ?: 0L
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = OceanSurface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1B2E46)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { isExpanded = !isExpanded },
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = s.title,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = TextWhite,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "${TimeFormatter.formatDate(s.timestamp)} • ${s.poolLengthMeters}m Becken",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.Gray,
+                        maxLines = 1
+                    )
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = TimeFormatter.formatMillis(finishTime),
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        color = AquaPrimary
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Icon(
+                        imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = null,
+                        tint = Color.LightGray
+                    )
+                }
+            }
+
+            AnimatedVisibility(visible = isExpanded) {
+                Column(modifier = Modifier.padding(top = 12.dp)) {
+                    HorizontalDivider(color = Color(0xFF1E2D40), modifier = Modifier.padding(bottom = 8.dp))
+                    swimmerLaps.forEach { lap ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Split ${lap.lapIndex}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.LightGray
+                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Runde: ${TimeFormatter.formatMillis(lap.lapTimeMillis, shortFormat = true)}",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                                    color = TextWhite
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Gesamt: ${TimeFormatter.formatMillis(lap.splitTimeMillis)}",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontFamily = FontFamily.Monospace,
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    color = AquaPrimary
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditSwimmerDialog(
+    swimmer: SwimmerEntity,
+    onDismiss: () -> Unit,
+    onSave: (SwimmerEntity) -> Unit
+) {
+    var name by remember { mutableStateOf(swimmer.name) }
+    var stroke by remember { mutableStateOf(swimmer.favoriteStroke) }
+    var isStrokeDropdownExpanded by remember { mutableStateOf(false) }
+
+    var pb25Text by remember { mutableStateOf(swimmer.pb25mMillis?.let { TimeFormatter.formatForInput(it) } ?: "") }
+    var pb50Text by remember { mutableStateOf(swimmer.pb50mMillis?.let { TimeFormatter.formatForInput(it) } ?: "") }
+    var pb100Text by remember { mutableStateOf(swimmer.pb100mMillis?.let { TimeFormatter.formatForInput(it) } ?: "") }
+    var pb100LagenText by remember { mutableStateOf(swimmer.pb100mLagenMillis?.let { TimeFormatter.formatForInput(it) } ?: "") }
+    var pb200LagenText by remember { mutableStateOf(swimmer.pb200mLagenMillis?.let { TimeFormatter.formatForInput(it) } ?: "") }
+    var pb400LagenText by remember { mutableStateOf(swimmer.pb400mLagenMillis?.let { TimeFormatter.formatForInput(it) } ?: "") }
+
+    var pb200FlyText by remember { mutableStateOf(swimmer.pb200mLagenFlySplitMillis?.let { TimeFormatter.formatForInput(it) } ?: "") }
+    var pb200BackText by remember { mutableStateOf(swimmer.pb200mLagenBackSplitMillis?.let { TimeFormatter.formatForInput(it) } ?: "") }
+    var pb200BreastText by remember { mutableStateOf(swimmer.pb200mLagenBreastSplitMillis?.let { TimeFormatter.formatForInput(it) } ?: "") }
+    var pb200FreeText by remember { mutableStateOf(swimmer.pb200mLagenFreeSplitMillis?.let { TimeFormatter.formatForInput(it) } ?: "") }
+
+    var pb400FlyText by remember { mutableStateOf(swimmer.pb400mLagenFlySplitMillis?.let { TimeFormatter.formatForInput(it) } ?: "") }
+    var pb400BackText by remember { mutableStateOf(swimmer.pb400mLagenBackSplitMillis?.let { TimeFormatter.formatForInput(it) } ?: "") }
+    var pb400BreastText by remember { mutableStateOf(swimmer.pb400mLagenBreastSplitMillis?.let { TimeFormatter.formatForInput(it) } ?: "") }
+    var pb400FreeText by remember { mutableStateOf(swimmer.pb400mLagenFreeSplitMillis?.let { TimeFormatter.formatForInput(it) } ?: "") }
+
+    var flySplitText by remember { mutableStateOf(swimmer.lagenFlySplitMillis?.let { TimeFormatter.formatForInput(it) } ?: "") }
+    var backSplitText by remember { mutableStateOf(swimmer.lagenBackSplitMillis?.let { TimeFormatter.formatForInput(it) } ?: "") }
+    var breastSplitText by remember { mutableStateOf(swimmer.lagenBreastSplitMillis?.let { TimeFormatter.formatForInput(it) } ?: "") }
+    var freeSplitText by remember { mutableStateOf(swimmer.lagenFreeSplitMillis?.let { TimeFormatter.formatForInput(it) } ?: "") }
+
+    val strokeOptions = listOf("Freistil", "Brust", "Rücken", "Schmetterling", "Lagen")
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(22.dp),
+            color = Color(0xFF101B2B),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("edit_swimmer_dialog")
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(20.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Text(
+                    text = "Athlet bearbeiten",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    ),
+                    color = TextWhite
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Name") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = TextWhite,
+                        unfocusedTextColor = TextWhite,
+                        focusedBorderColor = AquaPrimary
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                ExposedDropdownMenuBox(
+                    expanded = isStrokeDropdownExpanded,
+                    onExpandedChange = { isStrokeDropdownExpanded = !isStrokeDropdownExpanded },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    OutlinedTextField(
+                        value = stroke,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Hauptschwimmart") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isStrokeDropdownExpanded) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = TextWhite,
+                            unfocusedTextColor = TextWhite,
+                            focusedBorderColor = AquaPrimary
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                    )
+
+                    ExposedDropdownMenu(
+                        expanded = isStrokeDropdownExpanded,
+                        onDismissRequest = { isStrokeDropdownExpanded = false },
+                        modifier = Modifier.background(Color(0xFF142436))
+                    ) {
+                        strokeOptions.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(option, color = TextWhite) },
+                                onClick = {
+                                    stroke = option
+                                    isStrokeDropdownExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Text("PERSÖNLICHE BESTZEITEN (PB)", style = MaterialTheme.typography.labelSmall, color = AquaPrimary)
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    OutlinedTextField(
+                        value = pb25Text,
+                        onValueChange = { pb25Text = it },
+                        label = { Text("PB 25m", fontSize = 11.sp) },
+                        placeholder = { Text("12.50") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite),
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = pb50Text,
+                        onValueChange = { pb50Text = it },
+                        label = { Text("PB 50m", fontSize = 11.sp) },
+                        placeholder = { Text("26.80") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite),
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = pb100Text,
+                        onValueChange = { pb100Text = it },
+                        label = { Text("PB 100m", fontSize = 11.sp) },
+                        placeholder = { Text("58.20") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Text("LAGEN WETTKAMPFZEITEN", style = MaterialTheme.typography.labelSmall, color = Color(0xFFFFD600))
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    OutlinedTextField(
+                        value = pb100LagenText,
+                        onValueChange = { pb100LagenText = it },
+                        label = { Text("100mLagen", fontSize = 11.sp) },
+                        placeholder = { Text("1:04.50") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite),
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = pb200LagenText,
+                        onValueChange = { pb200LagenText = it },
+                        label = { Text("200mLagen", fontSize = 11.sp) },
+                        placeholder = { Text("2:18.50") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite),
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = pb400LagenText,
+                        onValueChange = { pb400LagenText = it },
+                        label = { Text("400mLagen", fontSize = 11.sp) },
+                        placeholder = { Text("4:55.00") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(
+                        onClick = onDismiss,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
+                    ) {
+                        Text("Abbrechen", color = Color.LightGray)
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            if (name.isNotBlank()) {
+                                onSave(
+                                    swimmer.copy(
+                                        name = name.trim(),
+                                        favoriteStroke = stroke,
+                                        pb25mMillis = TimeFormatter.parseTimeInputToMillis(pb25Text),
+                                        pb50mMillis = TimeFormatter.parseTimeInputToMillis(pb50Text),
+                                        pb100mMillis = TimeFormatter.parseTimeInputToMillis(pb100Text),
+                                        pb100mLagenMillis = TimeFormatter.parseTimeInputToMillis(pb100LagenText),
+                                        pb200mLagenMillis = TimeFormatter.parseTimeInputToMillis(pb200LagenText),
+                                        pb400mLagenMillis = TimeFormatter.parseTimeInputToMillis(pb400LagenText),
+                                        lagenFlySplitMillis = TimeFormatter.parseTimeInputToMillis(flySplitText),
+                                        lagenBackSplitMillis = TimeFormatter.parseTimeInputToMillis(backSplitText),
+                                        lagenBreastSplitMillis = TimeFormatter.parseTimeInputToMillis(breastSplitText),
+                                        lagenFreeSplitMillis = TimeFormatter.parseTimeInputToMillis(freeSplitText),
+                                        pb200mLagenFlySplitMillis = TimeFormatter.parseTimeInputToMillis(pb200FlyText),
+                                        pb200mLagenBackSplitMillis = TimeFormatter.parseTimeInputToMillis(pb200BackText),
+                                        pb200mLagenBreastSplitMillis = TimeFormatter.parseTimeInputToMillis(pb200BreastText),
+                                        pb200mLagenFreeSplitMillis = TimeFormatter.parseTimeInputToMillis(pb200FreeText),
+                                        pb400mLagenFlySplitMillis = TimeFormatter.parseTimeInputToMillis(pb400FlyText),
+                                        pb400mLagenBackSplitMillis = TimeFormatter.parseTimeInputToMillis(pb400BackText),
+                                        pb400mLagenBreastSplitMillis = TimeFormatter.parseTimeInputToMillis(pb400BreastText),
+                                        pb400mLagenFreeSplitMillis = TimeFormatter.parseTimeInputToMillis(pb400FreeText)
+                                    )
+                                )
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = AquaPrimary)
+                    ) {
+                        Text("Speichern", color = Color.Black, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}

@@ -86,7 +86,6 @@ data class StopwatchUiState(
     val masterStartTimeRealtime: Long? = null,
     val startMode: StartMode = StartMode.MASS,
     val intervalOffsetSeconds: Int = 5,
-    val isWaterLockActive: Boolean = false,
     val selectedFocusedLane: Int = 1,
     val sessionTitle: String = "Trainingseinheit",
     val poolLengthMeters: Int = 50,
@@ -566,34 +565,6 @@ class StopwatchViewModel(
             }
         }
         _uiState.value = _uiState.value.copy(canUndo = undoStack.isNotEmpty())
-    }
-
-    // --- Hardware Volume Keys Integration ---
-
-    fun onVolumeKeyPressed(isVolumeUp: Boolean, context: Context? = null): Boolean {
-        return if (isVolumeUp) {
-            val runningLanes = _uiState.value.lanes.filter { it.status == LaneStatus.RUNNING }
-            if (runningLanes.isNotEmpty()) {
-                val targetLane = runningLanes.firstOrNull { it.laneNumber == _uiState.value.selectedFocusedLane }
-                    ?: runningLanes.first()
-                onLapLane(targetLane.laneNumber, context)
-                true
-            } else false
-        } else {
-            if (_uiState.value.isAnyRunning) {
-                onStopAll(context)
-            } else {
-                onStartAll(context)
-            }
-            true
-        }
-    }
-
-    // --- Water Lock ---
-
-    fun setWaterLock(active: Boolean, context: Context? = null) {
-        context?.let { HapticUtil.vibrateHeavy(it) }
-        _uiState.value = _uiState.value.copy(isWaterLockActive = active)
     }
 
     // --- Configuration & Settings ---

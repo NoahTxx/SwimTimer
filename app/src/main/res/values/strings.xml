@@ -11,9 +11,6 @@
     <string name="undo">UNDO</string>
     <string name="lap">SPLIT / LAP</string>
     <string name="finish">ZIEL</string>
-    <string name="water_lock">Wasserschutz</string>
-    <string name="water_lock_active">Wasserschutz aktiv</string>
-    <string name="water_lock_hint">Gedrückt halten zum Entsperren</string>
     <string name="mode_mass_start">Gemeinsamer Start</string>
     <string name="mode_interval_start">Intervall-Start</string>
     <string name="target_pace">Soll-Pace</string>
