@@ -1,5 +1,6 @@
 package com.example.data.repository
 
+import androidx.room.withTransaction
 import com.example.data.db.AppDatabase
 import com.example.data.model.LapRecordEntity
 import com.example.data.model.SessionEntity
@@ -36,16 +37,16 @@ class SwimRepository(private val database: AppDatabase) {
     suspend fun saveSessionWithLaps(
         session: SessionEntity,
         laps: List<LapRecordEntity>
-    ): Long {
+    ): Long = database.withTransaction {
         val sessionId = sessionDao.insertSession(session)
         val lapsWithSessionId = laps.map { it.copy(sessionId = sessionId) }
         if (lapsWithSessionId.isNotEmpty()) {
             lapRecordDao.insertLaps(lapsWithSessionId)
         }
-        return sessionId
+        sessionId
     }
 
-    suspend fun deleteSessionById(sessionId: Long) {
+    suspend fun deleteSessionById(sessionId: Long) = database.withTransaction {
         lapRecordDao.deleteLapsForSession(sessionId)
         sessionDao.deleteSessionById(sessionId)
     }

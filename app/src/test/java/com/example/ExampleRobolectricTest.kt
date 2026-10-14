@@ -169,6 +169,18 @@ class ExampleRobolectricTest {
   }
 
   @Test
+  fun `test database initially has zero example swimmers`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = com.example.data.db.AppDatabase.getInstance(context)
+    val swimmerDao = db.swimmerDao()
+    
+    kotlinx.coroutines.runBlocking {
+      val count = swimmerDao.getSwimmerCount()
+      assertEquals(0, count)
+    }
+  }
+
+  @Test
   fun `test 15 swimmers max limit and dynamic lane management`() {
     val maxLimit = 15
     var currentLanes = 4

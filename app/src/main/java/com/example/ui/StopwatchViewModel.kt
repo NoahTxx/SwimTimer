@@ -158,13 +158,21 @@ class StopwatchViewModel(
         tickerJob = viewModelScope.launch {
             while (isActive) {
                 updateTick()
-                delay(25) // ~40 FPS for crisp UI updates; actual splits use exact SystemClock!
+                val hasRunningOrCountdown = _uiState.value.lanes.any {
+                    it.status == LaneStatus.RUNNING || it.status == LaneStatus.COUNTDOWN
+                }
+                val hasFinished = _uiState.value.lanes.any { it.status == LaneStatus.FINISHED }
+                if (!hasRunningOrCountdown && !hasFinished) {
+                    break
+                }
+                val delayMillis = if (hasRunningOrCountdown) 33L else 200L
+                delay(delayMillis)
             }
+            tickerJob = null
         }
     }
 
     private fun stopTickerIfAllIdle() {
-        // Keep ticker alive while FINISHED so the rest-time counter (+00:15.00) keeps ticking!
         val anyActiveOrFinished = _uiState.value.lanes.any {
             it.status == LaneStatus.RUNNING ||
                 it.status == LaneStatus.COUNTDOWN ||
@@ -1296,8 +1304,7 @@ class StopwatchViewModel(
             if (isBreastA && isBreastB) return true
             val isLagenA = a == "lagen" || a == "medley" || a == "im"
             val isLagenB = b == "lagen" || b == "medley" || b == "im"
-            if (isLagenA && isLagenB) return true
-            return false
+            return isLagenA && isLagenB
         }
     }
 }
