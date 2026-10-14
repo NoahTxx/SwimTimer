@@ -57,7 +57,6 @@ import com.example.ui.theme.AquaPrimary
 import com.example.ui.theme.DeepOceanBackground
 import com.example.ui.theme.OceanSurface
 import com.example.ui.theme.SwimTimerTheme
-import com.example.ui.theme.TextWhite
 
 enum class AppScreen {
     STOPWATCH,
@@ -88,6 +87,24 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (event?.repeatCount == 0) {
+            when (keyCode) {
+                KeyEvent.KEYCODE_VOLUME_UP -> {
+                    if (viewModel.onVolumeKeyPressed(isVolumeUp = true, context = this)) {
+                        return true
+                    }
+                }
+                KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                    if (viewModel.onVolumeKeyPressed(isVolumeUp = false, context = this)) {
+                        return true
+                    }
+                }
+            }
+        }
+        return super.onKeyDown(keyCode, event)
+    }
 }
 
 @Composable
@@ -104,7 +121,6 @@ fun MainAppContent(viewModel: StopwatchViewModel) {
             .background(DeepOceanBackground)
             .statusBarsPadding()
     ) {
-        // Main Screen View (Full-bleed, seamless)
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -118,7 +134,6 @@ fun MainAppContent(viewModel: StopwatchViewModel) {
             }
         }
 
-        // 4 Navigations-Abschnitte unten mittig (zentriert, symmetrisch, adaptiv für jede Bildschirmbreite)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -146,6 +161,7 @@ fun MainAppContent(viewModel: StopwatchViewModel) {
                         Triple(AppScreen.SWIMMERS, "Athleten", Icons.Default.People),
                         Triple(AppScreen.TOOLS, "Tools", Icons.Default.Calculate)
                     )
+
                     screens.forEach { (screen, label, icon) ->
                         val isSelected = currentScreen == screen
                         Surface(

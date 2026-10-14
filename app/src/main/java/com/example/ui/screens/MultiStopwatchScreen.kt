@@ -1,9 +1,7 @@
 package com.example.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,42 +11,30 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Undo
-import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -85,7 +71,6 @@ import com.example.ui.theme.OceanSurface
 import com.example.ui.theme.PaceGreen
 import com.example.ui.theme.PaceRed
 import com.example.ui.theme.TextWhite
-import com.example.util.HapticUtil
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -122,7 +107,7 @@ fun MultiStopwatchScreen(
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // TOP: ONLY the Stopwatch Settings Card (Centered, clean and responsive)
+            // TOP: Stopwatch Settings Card
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -174,7 +159,7 @@ fun MultiStopwatchScreen(
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = if (uiState.strokeType == "Lagen") {
-                                    "Splits alle ${uiState.splitDistanceMeters}m • 1. Schmett ➔ 2. Rücken ➔ 3. Brust ➔ 4. Kraul"
+                                    "Splits alle ${uiState.splitDistanceMeters}m • 1. Schmett • 2. Rücken • 3. Brust • 4. Kraul"
                                 } else {
                                     "Splits alle ${uiState.splitDistanceMeters}m • ${if (uiState.startMode == StartMode.INTERVAL) "Intervall (+${uiState.intervalOffsetSeconds}s)" else "Massenstart"}"
                                 },
@@ -229,7 +214,7 @@ fun MultiStopwatchScreen(
                     )
                 }
 
-                // BOTTOM OF LIST: Centered '+' Button ONLY (no text, no bottom remove button as requested)
+                // BOTTOM OF LIST: Centered '+' Button
                 item(key = "add_lane_bottom_control") {
                     if (uiState.lanes.size < 15) {
                         Box(
@@ -261,9 +246,12 @@ fun MultiStopwatchScreen(
                 }
             }
 
-            // BOTTOM MASTER CONTROLS BAR: Centered, larger Start button ("Startbuttin etwas größer in die mitte")
+            // BOTTOM MASTER CONTROLS BAR
             val anyRunning = uiState.isAnyRunning
-            val anyHasTimes = uiState.lanes.any { it.currentElapsedMillis > 0L || it.laps.isNotEmpty() || it.status == LaneStatus.FINISHED }
+            val anyHasTimes = uiState.lanes.any {
+                it.currentElapsedMillis > 0L || it.laps.isNotEmpty() || it.status == LaneStatus.FINISHED
+            }
+            val anyLapsRecorded = uiState.lanes.any { it.laps.isNotEmpty() }
 
             Row(
                 modifier = Modifier
@@ -367,7 +355,7 @@ fun MultiStopwatchScreen(
                     }
                 }
 
-                // Right: Speichern / Save (Icon only - clean and crisp without blurred text)
+                // Right: Speichern / Save (Protected against accidental double-saving)
                 Row(
                     modifier = Modifier.weight(1f),
                     horizontalArrangement = Arrangement.End,
@@ -375,12 +363,12 @@ fun MultiStopwatchScreen(
                 ) {
                     Button(
                         onClick = { viewModel.saveCurrentSession(context) },
-                        enabled = anyHasTimes,
+                        enabled = anyLapsRecorded && !uiState.isCurrentRunSaved,
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = AquaPrimary,
+                            containerColor = if (uiState.isCurrentRunSaved) PaceGreen else AquaPrimary,
                             contentColor = Color.Black,
-                            disabledContainerColor = AquaPrimary.copy(alpha = 0.25f),
+                            disabledContainerColor = if (uiState.isCurrentRunSaved) PaceGreen.copy(alpha = 0.4f) else AquaPrimary.copy(alpha = 0.25f),
                             disabledContentColor = Color.DarkGray
                         ),
                         contentPadding = PaddingValues(0.dp),
@@ -389,7 +377,7 @@ fun MultiStopwatchScreen(
                             .testTag("master_save_button")
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Save,
+                            imageVector = if (uiState.isCurrentRunSaved) Icons.Default.Check else Icons.Default.Save,
                             contentDescription = "Speichern",
                             modifier = Modifier.size(22.dp)
                         )
@@ -398,7 +386,7 @@ fun MultiStopwatchScreen(
             }
         }
 
-        // Clean, elegant floating notification pill at the bottom
+        // Floating notification pill at the bottom
         SnackbarHost(
             hostState = snackbarHostState,
             modifier = Modifier
@@ -450,7 +438,7 @@ fun MultiStopwatchScreen(
                 onSave = { mode, interval, pool, dist, splitDist, stroke ->
                     viewModel.setStartMode(mode)
                     viewModel.setIntervalOffsetSeconds(interval)
-                    viewModel.setSessionMeta("Training", stroke, pool, dist, splitDist)
+                    viewModel.setSessionMeta("${dist}m $stroke", stroke, pool, dist, splitDist)
                 }
             )
         }

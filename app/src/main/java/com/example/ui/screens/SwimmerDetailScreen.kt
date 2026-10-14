@@ -4,8 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,8 +18,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
@@ -35,6 +36,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -45,6 +48,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -60,6 +64,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.SessionWithLaps
 import com.example.data.model.SwimmerEntity
+import com.example.ui.StopwatchViewModel
 import com.example.ui.theme.AquaPrimary
 import com.example.ui.theme.DeepOceanBackground
 import com.example.ui.theme.OceanSurface
@@ -185,9 +190,7 @@ fun SwimmerDetailScreen(
                                         )
                                     }
                                 }
-
                                 Spacer(modifier = Modifier.width(16.dp))
-
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = swimmer.name,
@@ -229,9 +232,7 @@ fun SwimmerDetailScreen(
                                 color = Color.LightGray,
                                 maxLines = 1
                             )
-
                             Spacer(modifier = Modifier.height(8.dp))
-
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -336,7 +337,7 @@ fun SwimmerDetailScreen(
                             Spacer(modifier = Modifier.height(16.dp))
 
                             // Official Lagen (Individual Medley: Schmett -> Rücken -> Brust -> Kraul)
-                            var selectedLagenSplitMode by remember { mutableStateOf(200) } // 200m (4x50m) or 100m (4x25m)
+                            var selectedLagenSplitMode by remember { mutableIntStateOf(200) } // 200m (4x50m), 100m (4x25m), or 400m (4x100m)
 
                             Surface(
                                 shape = RoundedCornerShape(16.dp),
@@ -367,7 +368,6 @@ fun SwimmerDetailScreen(
                                                 maxLines = 1
                                             )
                                         }
-
                                         Surface(
                                             shape = RoundedCornerShape(6.dp),
                                             color = Color(0xFF162B3D)
@@ -458,7 +458,7 @@ fun SwimmerDetailScreen(
 
                                     Spacer(modifier = Modifier.height(14.dp))
 
-                                    // Lagen Teilstrecken Selector: 200m (4x50m) vs 100m (4x25m)
+                                    // Lagen Teilstrecken Selector
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -471,7 +471,6 @@ fun SwimmerDetailScreen(
                                             maxLines = 1
                                         )
 
-                                        // Distance toggle chips
                                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                             Surface(
                                                 shape = RoundedCornerShape(8.dp),
@@ -479,7 +478,7 @@ fun SwimmerDetailScreen(
                                                 modifier = Modifier.clickable { selectedLagenSplitMode = 200 }
                                             ) {
                                                 Text(
-                                                    text = "200m (4× 50m)",
+                                                    text = "200m (4×50m)",
                                                     style = MaterialTheme.typography.labelSmall.copy(
                                                         fontWeight = if (selectedLagenSplitMode == 200) FontWeight.Bold else FontWeight.Normal,
                                                         fontSize = 11.sp
@@ -489,14 +488,13 @@ fun SwimmerDetailScreen(
                                                     maxLines = 1
                                                 )
                                             }
-
                                             Surface(
                                                 shape = RoundedCornerShape(8.dp),
                                                 color = if (selectedLagenSplitMode == 100) AquaPrimary else Color(0xFF132333),
                                                 modifier = Modifier.clickable { selectedLagenSplitMode = 100 }
                                             ) {
                                                 Text(
-                                                    text = "100m (4× 25m)",
+                                                    text = "100m (4×25m)",
                                                     style = MaterialTheme.typography.labelSmall.copy(
                                                         fontWeight = if (selectedLagenSplitMode == 100) FontWeight.Bold else FontWeight.Normal,
                                                         fontSize = 11.sp
@@ -506,14 +504,13 @@ fun SwimmerDetailScreen(
                                                     maxLines = 1
                                                 )
                                             }
-
                                             Surface(
                                                 shape = RoundedCornerShape(8.dp),
                                                 color = if (selectedLagenSplitMode == 400) AquaPrimary else Color(0xFF132333),
                                                 modifier = Modifier.clickable { selectedLagenSplitMode = 400 }
                                             ) {
                                                 Text(
-                                                    text = "400m (4× 100m)",
+                                                    text = "400m (4×100m)",
                                                     style = MaterialTheme.typography.labelSmall.copy(
                                                         fontWeight = if (selectedLagenSplitMode == 400) FontWeight.Bold else FontWeight.Normal,
                                                         fontSize = 11.sp
@@ -529,12 +526,10 @@ fun SwimmerDetailScreen(
                                     Spacer(modifier = Modifier.height(8.dp))
 
                                     if (selectedLagenSplitMode == 200) {
-                                        // 200m Lagen Teilstrecken (je 50m)
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                                         ) {
-                                            // 1. 50m Schmett
                                             Surface(
                                                 shape = RoundedCornerShape(8.dp),
                                                 color = Color(0xFF201318),
@@ -548,8 +543,6 @@ fun SwimmerDetailScreen(
                                                     Text(t, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold), color = TextWhite, maxLines = 1)
                                                 }
                                             }
-
-                                            // 2. 50m Rücken
                                             Surface(
                                                 shape = RoundedCornerShape(8.dp),
                                                 color = Color(0xFF201E10),
@@ -563,8 +556,6 @@ fun SwimmerDetailScreen(
                                                     Text(t, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold), color = TextWhite, maxLines = 1)
                                                 }
                                             }
-
-                                            // 3. 50m Brust
                                             Surface(
                                                 shape = RoundedCornerShape(8.dp),
                                                 color = Color(0xFF0E2018),
@@ -578,8 +569,6 @@ fun SwimmerDetailScreen(
                                                     Text(t, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold), color = TextWhite, maxLines = 1)
                                                 }
                                             }
-
-                                            // 4. 50m Freistil / Kraul
                                             Surface(
                                                 shape = RoundedCornerShape(8.dp),
                                                 color = Color(0xFF0C2025),
@@ -587,24 +576,21 @@ fun SwimmerDetailScreen(
                                                 modifier = Modifier.weight(1f)
                                             ) {
                                                 Column(modifier = Modifier.padding(6.dp)) {
-                                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                                        Text("4. Kraul", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold), color = Color(0xFF80D8FF), maxLines = 1)
-                                                    }
+                                                    Text("4. Kraul", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold), color = Color(0xFF80D8FF), maxLines = 1)
                                                     Text("50m", style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp), color = Color.Gray, maxLines = 1)
                                                     val t = swimmer.pb200mLagenFreeSplitMillis?.let { TimeFormatter.formatMillis(it, shortFormat = true) }
-                                                        ?: if (swimmer.favoriteStroke.equals("Freistil", ignoreCase = true) || swimmer.favoriteStroke.equals("Kraul", ignoreCase = true)) swimmer.pb50mMillis?.let { TimeFormatter.formatMillis(it, shortFormat = true) } else null
+                                                        ?: if (StopwatchViewModel.isSameStroke(swimmer.favoriteStroke, "Freistil")) swimmer.pb50mMillis?.let { TimeFormatter.formatMillis(it, shortFormat = true) } else null
                                                         ?: "--:--"
                                                     Text(t, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold), color = AquaPrimary, maxLines = 1)
                                                 }
                                             }
                                         }
 
-                                        // Theoretical Best 200m Medley Sum
                                         val splits200 = listOfNotNull(
                                             swimmer.pb200mLagenFlySplitMillis,
                                             swimmer.pb200mLagenBackSplitMillis,
                                             swimmer.pb200mLagenBreastSplitMillis,
-                                            swimmer.pb200mLagenFreeSplitMillis ?: if (swimmer.favoriteStroke.equals("Freistil", ignoreCase = true) || swimmer.favoriteStroke.equals("Kraul", ignoreCase = true)) swimmer.pb50mMillis else null
+                                            swimmer.pb200mLagenFreeSplitMillis ?: if (StopwatchViewModel.isSameStroke(swimmer.favoriteStroke, "Freistil")) swimmer.pb50mMillis else null
                                         )
                                         if (splits200.size == 4) {
                                             val theoreticalSum = splits200.sum()
@@ -620,10 +606,9 @@ fun SwimmerDetailScreen(
                                                         horizontalArrangement = Arrangement.SpaceBetween,
                                                         verticalAlignment = Alignment.CenterVertically
                                                     ) {
-                                                        Text("Theoretische 200m Ideal-Lagen (4x50m):", style = MaterialTheme.typography.labelSmall, color = Color.LightGray)
+                                                        Text("Theoretische 200m Ideal-Lagen (4×50m):", style = MaterialTheme.typography.labelSmall, color = Color.LightGray)
                                                         Text(TimeFormatter.formatMillis(theoreticalSum), style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold), color = AquaPrimary)
                                                     }
-
                                                     val actual200m = swimmer.pb200mLagenMillis
                                                     if (actual200m != null) {
                                                         val diff = actual200m - theoreticalSum
@@ -645,12 +630,10 @@ fun SwimmerDetailScreen(
                                             }
                                         }
                                     } else if (selectedLagenSplitMode == 400) {
-                                        // 400m Lagen Teilstrecken (je 100m)
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                                         ) {
-                                            // 1. 100m Schmett
                                             Surface(
                                                 shape = RoundedCornerShape(8.dp),
                                                 color = Color(0xFF201318),
@@ -664,8 +647,6 @@ fun SwimmerDetailScreen(
                                                     Text(t, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold), color = TextWhite, maxLines = 1)
                                                 }
                                             }
-
-                                            // 2. 100m Rücken
                                             Surface(
                                                 shape = RoundedCornerShape(8.dp),
                                                 color = Color(0xFF201E10),
@@ -679,8 +660,6 @@ fun SwimmerDetailScreen(
                                                     Text(t, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold), color = TextWhite, maxLines = 1)
                                                 }
                                             }
-
-                                            // 3. 100m Brust
                                             Surface(
                                                 shape = RoundedCornerShape(8.dp),
                                                 color = Color(0xFF0E2018),
@@ -694,8 +673,6 @@ fun SwimmerDetailScreen(
                                                     Text(t, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold), color = TextWhite, maxLines = 1)
                                                 }
                                             }
-
-                                            // 4. 100m Freistil / Kraul (mit 100m PB Auto-Sync)
                                             Surface(
                                                 shape = RoundedCornerShape(8.dp),
                                                 color = Color(0xFF0C2025),
@@ -706,19 +683,18 @@ fun SwimmerDetailScreen(
                                                     Text("4. Kraul", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold), color = Color(0xFF80D8FF), maxLines = 1)
                                                     Text("100m", style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp), color = Color.Gray, maxLines = 1)
                                                     val t = swimmer.pb400mLagenFreeSplitMillis?.let { TimeFormatter.formatMillis(it) }
-                                                        ?: if (swimmer.favoriteStroke.equals("Freistil", ignoreCase = true) || swimmer.favoriteStroke.equals("Kraul", ignoreCase = true)) swimmer.pb100mMillis?.let { TimeFormatter.formatMillis(it) } else null
+                                                        ?: if (StopwatchViewModel.isSameStroke(swimmer.favoriteStroke, "Freistil")) swimmer.pb100mMillis?.let { TimeFormatter.formatMillis(it) } else null
                                                         ?: "--:--"
                                                     Text(t, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold), color = AquaPrimary, maxLines = 1)
                                                 }
                                             }
                                         }
 
-                                        // Theoretical Best 400m Medley Sum
                                         val splits400 = listOfNotNull(
                                             swimmer.pb400mLagenFlySplitMillis,
                                             swimmer.pb400mLagenBackSplitMillis,
-                                             swimmer.pb400mLagenBreastSplitMillis,
-                                            swimmer.pb400mLagenFreeSplitMillis ?: if (swimmer.favoriteStroke.equals("Freistil", ignoreCase = true) || swimmer.favoriteStroke.equals("Kraul", ignoreCase = true)) swimmer.pb100mMillis else null
+                                            swimmer.pb400mLagenBreastSplitMillis,
+                                            swimmer.pb400mLagenFreeSplitMillis ?: if (StopwatchViewModel.isSameStroke(swimmer.favoriteStroke, "Freistil")) swimmer.pb100mMillis else null
                                         )
                                         if (splits400.size == 4) {
                                             val theoreticalSum = splits400.sum()
@@ -734,10 +710,9 @@ fun SwimmerDetailScreen(
                                                         horizontalArrangement = Arrangement.SpaceBetween,
                                                         verticalAlignment = Alignment.CenterVertically
                                                     ) {
-                                                        Text("Theoretische 400m Ideal-Lagen (4x100m):", style = MaterialTheme.typography.labelSmall, color = Color.LightGray)
+                                                        Text("Theoretische 400m Ideal-Lagen (4×100m):", style = MaterialTheme.typography.labelSmall, color = Color.LightGray)
                                                         Text(TimeFormatter.formatMillis(theoreticalSum), style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold), color = AquaPrimary)
                                                     }
-
                                                     val actual400m = swimmer.pb400mLagenMillis
                                                     if (actual400m != null) {
                                                         val diff = actual400m - theoreticalSum
@@ -759,12 +734,10 @@ fun SwimmerDetailScreen(
                                             }
                                         }
                                     } else {
-                                        // 100m Lagen Teilstrecken (je 25m)
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                                         ) {
-                                            // 1. 25m Schmett
                                             Surface(
                                                 shape = RoundedCornerShape(8.dp),
                                                 color = Color(0xFF201318),
@@ -778,8 +751,6 @@ fun SwimmerDetailScreen(
                                                     Text(t, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold), color = TextWhite, maxLines = 1)
                                                 }
                                             }
-
-                                            // 2. 25m Rücken
                                             Surface(
                                                 shape = RoundedCornerShape(8.dp),
                                                 color = Color(0xFF201E10),
@@ -793,8 +764,6 @@ fun SwimmerDetailScreen(
                                                     Text(t, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold), color = TextWhite, maxLines = 1)
                                                 }
                                             }
-
-                                            // 3. 25m Brust
                                             Surface(
                                                 shape = RoundedCornerShape(8.dp),
                                                 color = Color(0xFF0E2018),
@@ -808,8 +777,6 @@ fun SwimmerDetailScreen(
                                                     Text(t, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold), color = TextWhite, maxLines = 1)
                                                 }
                                             }
-
-                                            // 4. 25m Freistil / Kraul (mit 25m Sprint Auto-Sync)
                                             Surface(
                                                 shape = RoundedCornerShape(8.dp),
                                                 color = Color(0xFF0C2025),
@@ -820,19 +787,18 @@ fun SwimmerDetailScreen(
                                                     Text("4. Kraul", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold), color = Color(0xFF80D8FF), maxLines = 1)
                                                     Text("25m", style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp), color = Color.Gray, maxLines = 1)
                                                     val t = swimmer.lagenFreeSplitMillis?.let { TimeFormatter.formatMillis(it, shortFormat = true) }
-                                                        ?: if (swimmer.favoriteStroke.equals("Freistil", ignoreCase = true) || swimmer.favoriteStroke.equals("Kraul", ignoreCase = true)) swimmer.pb25mMillis?.let { TimeFormatter.formatMillis(it, shortFormat = true) } else null
+                                                        ?: if (StopwatchViewModel.isSameStroke(swimmer.favoriteStroke, "Freistil")) swimmer.pb25mMillis?.let { TimeFormatter.formatMillis(it, shortFormat = true) } else null
                                                         ?: "--:--"
                                                     Text(t, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold), color = AquaPrimary, maxLines = 1)
                                                 }
                                             }
                                         }
 
-                                        // Theoretical Best 100m Medley Sum
                                         val splits100 = listOfNotNull(
                                             swimmer.lagenFlySplitMillis,
                                             swimmer.lagenBackSplitMillis,
                                             swimmer.lagenBreastSplitMillis,
-                                            swimmer.lagenFreeSplitMillis ?: if (swimmer.favoriteStroke.equals("Freistil", ignoreCase = true) || swimmer.favoriteStroke.equals("Kraul", ignoreCase = true)) swimmer.pb25mMillis else null
+                                            swimmer.lagenFreeSplitMillis ?: if (StopwatchViewModel.isSameStroke(swimmer.favoriteStroke, "Freistil")) swimmer.pb25mMillis else null
                                         )
                                         if (splits100.size == 4) {
                                             val theoreticalSum = splits100.sum()
@@ -848,10 +814,9 @@ fun SwimmerDetailScreen(
                                                         horizontalArrangement = Arrangement.SpaceBetween,
                                                         verticalAlignment = Alignment.CenterVertically
                                                     ) {
-                                                        Text("Theoretische 100m Ideal-Lagen (4x25m):", style = MaterialTheme.typography.labelSmall, color = Color.LightGray)
+                                                        Text("Theoretische 100m Ideal-Lagen (4×25m):", style = MaterialTheme.typography.labelSmall, color = Color.LightGray)
                                                         Text(TimeFormatter.formatMillis(theoreticalSum), style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold), color = AquaPrimary)
                                                     }
-
                                                     val actual100m = swimmer.pb100mLagenMillis
                                                     if (actual100m != null) {
                                                         val diff = actual100m - theoreticalSum
@@ -903,7 +868,6 @@ fun SwimmerDetailScreen(
                                 maxLines = 1
                             )
                         }
-
                         Text(
                             text = "${swimmerSessions.size} Einheiten",
                             style = MaterialTheme.typography.labelSmall,
@@ -1010,570 +974,4 @@ private fun SwimmerSessionHistoryCard(
         .filter { it.swimmerId == swimmer.id }
         .sortedBy { it.lapIndex }
 
-    val finishTime = swimmerLaps.lastOrNull()?.splitTimeMillis ?: 0L
-    val isPB = when {
-        s.strokeType == "Lagen" && s.targetDistanceMeters == 100 -> swimmer.pb100mLagenMillis != null && swimmer.pb100mLagenMillis == finishTime
-        s.strokeType == "Lagen" && s.targetDistanceMeters == 200 -> swimmer.pb200mLagenMillis != null && swimmer.pb200mLagenMillis == finishTime
-        s.strokeType == "Lagen" && s.targetDistanceMeters == 400 -> swimmer.pb400mLagenMillis != null && swimmer.pb400mLagenMillis == finishTime
-        s.targetDistanceMeters == 25 -> swimmer.pb25mMillis != null && swimmer.pb25mMillis == finishTime
-        s.targetDistanceMeters == 50 -> swimmer.pb50mMillis != null && swimmer.pb50mMillis == finishTime
-        s.targetDistanceMeters == 100 -> swimmer.pb100mMillis != null && swimmer.pb100mMillis == finishTime
-        else -> false
-    }
-
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = OceanSurface),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            // Header Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Pool,
-                        contentDescription = null,
-                        tint = AquaPrimary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column {
-                        Text(
-                            text = "${s.targetDistanceMeters}m ${s.strokeType}",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = TextWhite,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = "${TimeFormatter.formatDate(s.timestamp)} • ${s.poolLengthMeters}m Becken",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.LightGray,
-                            maxLines = 1
-                        )
-                    }
-                }
-
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = TimeFormatter.formatMillis(finishTime),
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 18.sp
-                        ),
-                        color = AquaPrimary,
-                        maxLines = 1
-                    )
-                    if (isPB) {
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = Color(0xFF2C2405)
-                        ) {
-                            Text(
-                                text = "PB",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                color = Color(0xFFFFD600),
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Expand toggle
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { isExpanded = !isExpanded }
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = if (isExpanded) "Splits einklappen" else "${swimmerLaps.size} Zwischenzeiten (Splits) ansehen",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = AquaPrimary,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1
-                )
-                Icon(
-                    imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = null,
-                    tint = AquaPrimary,
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-
-            // Expanded Splits Details
-            AnimatedVisibility(visible = isExpanded) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0xFF0C1623))
-                        .padding(10.dp)
-                ) {
-                    // Table Header
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 6.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Lap", style = MaterialTheme.typography.labelSmall, color = Color.Gray, modifier = Modifier.width(36.dp), maxLines = 1)
-                        Text("Split", style = MaterialTheme.typography.labelSmall, color = Color.Gray, modifier = Modifier.width(70.dp), maxLines = 1)
-                        Text("Runde", style = MaterialTheme.typography.labelSmall, color = Color.Gray, modifier = Modifier.width(60.dp), maxLines = 1)
-                        Text("Pace/SPM", style = MaterialTheme.typography.labelSmall, color = Color.Gray, maxLines = 1)
-                    }
-
-                    HorizontalDivider(color = Color(0xFF1E2D40), modifier = Modifier.padding(bottom = 6.dp))
-
-                    val isLagen = s.strokeType.equals("Lagen", ignoreCase = true)
-                    val lagenLegLength = (s.targetDistanceMeters / 4).coerceAtLeast(1)
-
-                    swimmerLaps.forEach { lap ->
-                        val lapLagenStroke = if (isLagen) {
-                            val legIdx = (((lap.lapIndex - 1) * s.splitDistanceMeters) / lagenLegLength).coerceIn(0, 3)
-                            val shortNames = listOf("Schmett", "Rücken", "Brust", "Freistil")
-                            shortNames[legIdx]
-                        } else null
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 3.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.width(76.dp)
-                            ) {
-                                Text(
-                                    text = "L${lap.lapIndex}",
-                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                                    color = AquaPrimary,
-                                    maxLines = 1
-                                )
-                                if (lapLagenStroke != null) {
-                                    Spacer(modifier = Modifier.width(3.dp))
-                                    Text(
-                                        text = lapLagenStroke,
-                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold),
-                                        color = Color(0xFFFFD600),
-                                        maxLines = 1
-                                    )
-                                }
-                            }
-                            Text(
-                                text = TimeFormatter.formatMillis(lap.splitTimeMillis),
-                                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                                color = TextWhite,
-                                modifier = Modifier.width(68.dp),
-                                maxLines = 1
-                            )
-                            Text(
-                                text = TimeFormatter.formatMillis(lap.lapTimeMillis, shortFormat = true),
-                                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                                color = Color.LightGray,
-                                modifier = Modifier.width(60.dp),
-                                maxLines = 1
-                            )
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                if (lap.deltaTargetMillis != null) {
-                                    val isFaster = lap.deltaTargetMillis <= 0
-                                    Text(
-                                        text = TimeFormatter.formatDelta(lap.deltaTargetMillis),
-                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                                        color = if (isFaster) PaceGreen else PaceRed,
-                                        maxLines = 1
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                }
-                                if (lap.strokeRateSpm != null) {
-                                    Text(
-                                        text = "%.0f SPM".format(lap.strokeRateSpm),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = Color(0xFFFFD600),
-                                        maxLines = 1
-                                    )
-                                } else if (lap.deltaTargetMillis == null) {
-                                    // Calculated 100m pace guarantees the rightmost column is never empty
-                                    Text(
-                                        text = TimeFormatter.formatPacePer100m(lap.lapTimeMillis, s.splitDistanceMeters),
-                                        style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
-                                        color = AquaPrimary,
-                                        maxLines = 1
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun EditSwimmerDialog(
-    swimmer: SwimmerEntity,
-    onDismiss: () -> Unit,
-    onSave: (SwimmerEntity) -> Unit
-) {
-    var name by remember { mutableStateOf(swimmer.name) }
-    var stroke by remember { mutableStateOf(swimmer.favoriteStroke) }
-    var pb25Text by remember {
-        mutableStateOf(swimmer.pb25mMillis?.let { String.format(java.util.Locale.US, "%.2f", it / 1000.0) } ?: "")
-    }
-    var pb50Text by remember {
-        mutableStateOf(swimmer.pb50mMillis?.let { String.format(java.util.Locale.US, "%.2f", it / 1000.0) } ?: "")
-    }
-    var pb100Text by remember {
-        mutableStateOf(swimmer.pb100mMillis?.let { String.format(java.util.Locale.US, "%.2f", it / 1000.0) } ?: "")
-    }
-    var pb100LagenText by remember {
-        mutableStateOf(swimmer.pb100mLagenMillis?.let { String.format(java.util.Locale.US, "%.2f", it / 1000.0) } ?: "")
-    }
-    var pb200LagenText by remember {
-        mutableStateOf(swimmer.pb200mLagenMillis?.let { String.format(java.util.Locale.US, "%.2f", it / 1000.0) } ?: "")
-    }
-    var pb400LagenText by remember {
-        mutableStateOf(swimmer.pb400mLagenMillis?.let { String.format(java.util.Locale.US, "%.2f", it / 1000.0) } ?: "")
-    }
-    // 200m Lagen Splits (4x 50m)
-    var pb200FlyText by remember {
-        mutableStateOf(swimmer.pb200mLagenFlySplitMillis?.let { String.format(java.util.Locale.US, "%.2f", it / 1000.0) } ?: "")
-    }
-    var pb200BackText by remember {
-        mutableStateOf(swimmer.pb200mLagenBackSplitMillis?.let { String.format(java.util.Locale.US, "%.2f", it / 1000.0) } ?: "")
-    }
-    var pb200BreastText by remember {
-        mutableStateOf(swimmer.pb200mLagenBreastSplitMillis?.let { String.format(java.util.Locale.US, "%.2f", it / 1000.0) } ?: "")
-    }
-    var pb200FreeText by remember {
-        mutableStateOf(swimmer.pb200mLagenFreeSplitMillis?.let { String.format(java.util.Locale.US, "%.2f", it / 1000.0) } ?: "")
-    }
-    // 400m Lagen Splits (4x 100m)
-    var pb400FlyText by remember {
-        mutableStateOf(swimmer.pb400mLagenFlySplitMillis?.let { String.format(java.util.Locale.US, "%.2f", it / 1000.0) } ?: "")
-    }
-    var pb400BackText by remember {
-        mutableStateOf(swimmer.pb400mLagenBackSplitMillis?.let { String.format(java.util.Locale.US, "%.2f", it / 1000.0) } ?: "")
-    }
-    var pb400BreastText by remember {
-        mutableStateOf(swimmer.pb400mLagenBreastSplitMillis?.let { String.format(java.util.Locale.US, "%.2f", it / 1000.0) } ?: "")
-    }
-    var pb400FreeText by remember {
-        mutableStateOf(swimmer.pb400mLagenFreeSplitMillis?.let { String.format(java.util.Locale.US, "%.2f", it / 1000.0) } ?: "")
-    }
-    // 100m Lagen Splits (4x 25m)
-    var flySplitText by remember {
-        mutableStateOf(swimmer.lagenFlySplitMillis?.let { String.format(java.util.Locale.US, "%.2f", it / 1000.0) } ?: "")
-    }
-    var backSplitText by remember {
-        mutableStateOf(swimmer.lagenBackSplitMillis?.let { String.format(java.util.Locale.US, "%.2f", it / 1000.0) } ?: "")
-    }
-    var breastSplitText by remember {
-        mutableStateOf(swimmer.lagenBreastSplitMillis?.let { String.format(java.util.Locale.US, "%.2f", it / 1000.0) } ?: "")
-    }
-    var freeSplitText by remember {
-        mutableStateOf(swimmer.lagenFreeSplitMillis?.let { String.format(java.util.Locale.US, "%.2f", it / 1000.0) } ?: "")
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Schwimmer bearbeiten", color = TextWhite, fontWeight = FontWeight.Bold) },
-        containerColor = Color(0xFF101B2B),
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Name") },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = TextWhite,
-                        unfocusedTextColor = TextWhite,
-                        focusedBorderColor = AquaPrimary
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = pb25Text,
-                        onValueChange = { pb25Text = it },
-                        label = { Text("25m Sprint PB (s)") },
-                        placeholder = { Text("12.50") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = AquaPrimary),
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = pb50Text,
-                        onValueChange = { pb50Text = it },
-                        label = { Text("50m PB (s)") },
-                        placeholder = { Text("24.80") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = AquaPrimary),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = pb100Text,
-                        onValueChange = { pb100Text = it },
-                        label = { Text("100m PB (s)") },
-                        placeholder = { Text("54.20") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = AquaPrimary),
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = pb100LagenText,
-                        onValueChange = { pb100LagenText = it },
-                        label = { Text("100m Lagen PB (s)") },
-                        placeholder = { Text("63.50") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = AquaPrimary),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = pb200LagenText,
-                        onValueChange = { pb200LagenText = it },
-                        label = { Text("200m Lagen PB (s)") },
-                        placeholder = { Text("138.00") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = AquaPrimary),
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = pb400LagenText,
-                        onValueChange = { pb400LagenText = it },
-                        label = { Text("400m Lagen PB (s)") },
-                        placeholder = { Text("295.00") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = AquaPrimary),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                // 200m Lagen Splits (4x 50m)
-                Text(
-                    text = "200m Lagen Splits (4× 50m):",
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                    color = AquaPrimary
-                )
-
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = pb200FlyText,
-                        onValueChange = { pb200FlyText = it },
-                        label = { Text("1. Schmett (50m)") },
-                        placeholder = { Text("29.50") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFFF5252)),
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = pb200BackText,
-                        onValueChange = { pb200BackText = it },
-                        label = { Text("2. Rücken (50m)") },
-                        placeholder = { Text("35.00") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFFFD600)),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = pb200BreastText,
-                        onValueChange = { pb200BreastText = it },
-                        label = { Text("3. Brust (50m)") },
-                        placeholder = { Text("39.80") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E676)),
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = pb200FreeText,
-                        onValueChange = { pb200FreeText = it },
-                        label = { Text("4. Kraul (50m)") },
-                        placeholder = { Text("28.00") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E5FF)),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                // 400m Lagen Splits (4x 100m)
-                Text(
-                    text = "400m Lagen Splits (4× 100m):",
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                    color = Color(0xFF80D8FF)
-                )
-
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = pb400FlyText,
-                        onValueChange = { pb400FlyText = it },
-                        label = { Text("1. Schmett (100m)") },
-                        placeholder = { Text("64.50") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFFF5252)),
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = pb400BackText,
-                        onValueChange = { pb400BackText = it },
-                        label = { Text("2. Rücken (100m)") },
-                        placeholder = { Text("74.00") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFFFD600)),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = pb400BreastText,
-                        onValueChange = { pb400BreastText = it },
-                        label = { Text("3. Brust (100m)") },
-                        placeholder = { Text("84.00") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E676)),
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = pb400FreeText,
-                        onValueChange = { pb400FreeText = it },
-                        label = { Text("4. Kraul (100m)") },
-                        placeholder = { Text("61.00") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E5FF)),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                // 100m Lagen Splits (4x 25m)
-                Text(
-                    text = "100m Lagen Splits (4× 25m):",
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                    color = Color(0xFFFFD600)
-                )
-
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = flySplitText,
-                        onValueChange = { flySplitText = it },
-                        label = { Text("1. Schmett (25m)") },
-                        placeholder = { Text("13.80") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = AquaPrimary),
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = backSplitText,
-                        onValueChange = { backSplitText = it },
-                        label = { Text("2. Rücken (25m)") },
-                        placeholder = { Text("15.50") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = AquaPrimary),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = breastSplitText,
-                        onValueChange = { breastSplitText = it },
-                        label = { Text("3. Brust (25m)") },
-                        placeholder = { Text("18.00") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = AquaPrimary),
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = freeSplitText,
-                        onValueChange = { freeSplitText = it },
-                        label = { Text("4. Kraul (25m)") },
-                        placeholder = { Text("12.90") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = AquaPrimary),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    if (name.isNotBlank()) {
-                        fun parseSec(t: String) = t.replace(',', '.').toDoubleOrNull()?.let { (it * 1000).toLong() }
-                        val inputPb50 = parseSec(pb50Text)
-                        val inputPb100 = parseSec(pb100Text)
-                        val inputPb25 = parseSec(pb25Text)
-
-                        onSave(
-                            swimmer.copy(
-                                name = name,
-                                favoriteStroke = stroke,
-                                pb25mMillis = inputPb25,
-                                pb50mMillis = inputPb50,
-                                pb100mMillis = inputPb100,
-                                pb100mLagenMillis = parseSec(pb100LagenText),
-                                pb200mLagenMillis = parseSec(pb200LagenText),
-                                pb400mLagenMillis = parseSec(pb400LagenText),
-                                pb200mLagenFlySplitMillis = parseSec(pb200FlyText),
-                                pb200mLagenBackSplitMillis = parseSec(pb200BackText),
-                                pb200mLagenBreastSplitMillis = parseSec(pb200BreastText),
-                                pb200mLagenFreeSplitMillis = parseSec(pb200FreeText),
-                                pb400mLagenFlySplitMillis = parseSec(pb400FlyText),
-                                pb400mLagenBackSplitMillis = parseSec(pb400BackText),
-                                pb400mLagenBreastSplitMillis = parseSec(pb400BreastText),
-                                pb400mLagenFreeSplitMillis = parseSec(pb400FreeText),
-                                lagenFlySplitMillis = parseSec(flySplitText),
-                                lagenBackSplitMillis = parseSec(backSplitText),
-                                lagenBreastSplitMillis = parseSec(breastSplitText),
-                                lagenFreeSplitMillis = parseSec(freeSplitText)
-                            )
-                        )
-                    }
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = AquaPrimary)
-            ) {
-                Text("Speichern", color = Color.Black, fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = {
-            Button(
-                onClick = onDismiss,
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
-            ) {
-                Text("Abbrechen", color = Color.LightGray)
-            }
-        }
-    )
-}
+    val finishTime = swimmerLaps.lastOrNull()?.splitTimeMillis ?:

@@ -1,7 +1,6 @@
 package com.example.ui.screens
 
 import android.os.SystemClock
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -10,7 +9,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,7 +17,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,7 +25,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CompareArrows
-import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Button
@@ -47,7 +43,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -55,7 +50,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -69,17 +63,15 @@ import com.example.ui.theme.AquaPrimary
 import com.example.ui.theme.DeepOceanBackground
 import com.example.ui.theme.OceanSurface
 import com.example.ui.theme.PaceGreen
-import com.example.ui.theme.PaceRed
 import com.example.ui.theme.TextWhite
 import com.example.util.HapticUtil
 import com.example.util.TimeFormatter
 import java.util.Locale
-import kotlin.math.roundToInt
 
 enum class CoachingToolSection(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     PACE("Pace-Rechner", Icons.Default.Calculate),
     STROKE_RATE("Takt / SPM", Icons.Default.Speed),
-    CONVERTER("25m ⮂ 50m", Icons.Default.CompareArrows)
+    CONVERTER("25m ↔ 50m", Icons.Default.CompareArrows)
 }
 
 @Composable
@@ -95,7 +87,7 @@ fun CoachingToolsScreen(
             .background(DeepOceanBackground)
             .padding(horizontal = 14.dp, vertical = 6.dp)
     ) {
-        // Top Tool Selector Tabs (Centered & clean)
+        // Top Tool Selector Tabs
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -113,7 +105,7 @@ fun CoachingToolsScreen(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    CoachingToolSection.values().forEach { section ->
+                    CoachingToolSection.entries.forEach { section ->
                         val isSelected = selectedSection == section
                         Surface(
                             shape = RoundedCornerShape(12.dp),
@@ -150,8 +142,13 @@ fun CoachingToolsScreen(
         // Section Content
         when (selectedSection) {
             CoachingToolSection.PACE -> PaceCalculatorView(
-                onApplyToStopwatch = { avgMillis ->
-                    viewModel.setTargetPaceForAllLanes(avgMillis)
+                onApplyToStopwatch = { avgMillis, stroke, distance, splitDistance ->
+                    viewModel.setTargetPaceForAllLanes(
+                        paceMillis = avgMillis,
+                        stroke = stroke,
+                        distance = distance,
+                        splitDistance = splitDistance
+                    )
                 }
             )
             CoachingToolSection.STROKE_RATE -> StrokeRateTapView()
@@ -166,7 +163,7 @@ fun CoachingToolsScreen(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PaceCalculatorView(
-    onApplyToStopwatch: ((Long) -> Unit)? = null
+    onApplyToStopwatch: ((Long, String, Int, Int) -> Unit)? = null
 ) {
     var stroke by remember { mutableStateOf("Freistil") }
     var distance by remember { mutableIntStateOf(100) }
@@ -179,22 +176,7 @@ private fun PaceCalculatorView(
 
     val targetMillis by remember(targetTimeSecondsInput) {
         derivedStateOf {
-            try {
-                val cleaned = targetTimeSecondsInput.trim().replace(',', '.')
-                if (cleaned.contains(":")) {
-                    val parts = cleaned.split(":")
-                    val min = parts[0].toLongOrNull() ?: 0L
-                    val secParts = parts[1].split(".")
-                    val sec = secParts[0].toLongOrNull() ?: 0L
-                    val cs = if (secParts.size > 1) secParts[1].padEnd(2, '0').take(2).toLongOrNull() ?: 0L else 0L
-                    ((min * 60 + sec) * 1000) + (cs * 10)
-                } else {
-                    val floatSec = cleaned.toFloatOrNull() ?: 60f
-                    (floatSec * 1000).toLong()
-                }
-            } catch (e: Exception) {
-                60000L
-            }
+            TimeFormatter.parseTimeInputToMillis(targetTimeSecondsInput) ?: 60_000L
         }
     }
 
@@ -206,7 +188,6 @@ private fun PaceCalculatorView(
         derivedStateOf {
             val count = (distance / splitDistance).coerceAtLeast(1)
             val baseSplit = targetMillis / count
-
             val lapDurations = LongArray(count) { baseSplit }
 
             when (selectedStrategy) {
@@ -239,7 +220,6 @@ private fun PaceCalculatorView(
                         val backPct = 0.26
                         val breastPct = 0.27
                         val freePct = 0.23
-
                         for (i in 0 until count) {
                             val leg = (i / legCount).coerceIn(0, 3)
                             val legTotal = when (leg) {
@@ -259,7 +239,7 @@ private fun PaceCalculatorView(
                 cum += lapDurations[idx]
                 val currentMeters = (idx + 1) * splitDistance
                 val legStroke = if (stroke == "Lagen") {
-                    val legIdx = (((idx) * splitDistance) / (distance / 4)).coerceIn(0, 3)
+                    val legIdx = (((idx) * splitDistance) / (distance / 4).coerceAtLeast(1)).coerceIn(0, 3)
                     when (legIdx) {
                         0 -> "Schmett"
                         1 -> "Rücken"
@@ -290,7 +270,7 @@ private fun PaceCalculatorView(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "🎯 Zielzeiten- & Rennplan-Rechner",
+                    text = "Zielzeiten- & Rennplan-Rechner",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = AquaPrimary,
                     textAlign = TextAlign.Center
@@ -357,7 +337,12 @@ private fun PaceCalculatorView(
                         val isLagenDisabled = stroke == "Lagen" && d < 100
                         FilterChip(
                             selected = distance == d,
-                            onClick = { if (!isLagenDisabled) distance = d },
+                            onClick = {
+                                if (!isLagenDisabled) {
+                                    distance = d
+                                    if (splitDistance > d) splitDistance = 25
+                                }
+                            },
                             enabled = !isLagenDisabled,
                             label = { Text("${d}m", fontWeight = FontWeight.Bold, fontSize = 12.sp) },
                             colors = FilterChipDefaults.filterChipColors(
@@ -381,9 +366,11 @@ private fun PaceCalculatorView(
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         listOf(25, 50).forEach { split ->
+                            val enabled = split <= distance
                             FilterChip(
                                 selected = splitDistance == split,
-                                onClick = { splitDistance = split },
+                                onClick = { if (enabled) splitDistance = split },
+                                enabled = enabled,
                                 label = { Text("alle ${split}m", fontWeight = FontWeight.Bold, fontSize = 11.sp) },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = AquaPrimary,
@@ -461,19 +448,20 @@ private fun PaceCalculatorView(
                     }
                 }
 
-                // Friendly strategy explanation
                 val strategyExplanation = when (selectedStrategy) {
-                    "Negativer Split" -> "💡 2. Rennhälfte ca. 1.5s schneller – spart Laktat und trainiert Stehvermögen."
-                    "Startsprung-Bonus" -> "💡 1. Bahn ca. 1.2s schneller durch den Startsprung vom Block."
-                    "Lagen-Physiologie" -> "💡 Splits angepasst an Schmett (24%), Rücken (26%), Brust (27%) und Kraul (23%)."
-                    else -> "💡 Gleichmäßiges Tempo auf allen Bahnen (ideal für Grundlagenausdauer)."
+                    "Negativer Split" -> "2. Rennhälfte ca. 1.5s schneller – spart Laktat und trainiert Stehvermögen."
+                    "Startsprung-Bonus" -> "1. Bahn ca. 1.2s schneller durch den Startsprung vom Block."
+                    "Lagen-Physiologie" -> "Splits angepasst an Schmett (24%), Rücken (26%), Brust (27%) und Kraul (23%)."
+                    else -> "Gleichmäßiges Tempo auf allen Bahnen (ideal für Grundlagenausdauer)."
                 }
                 Text(
                     text = strategyExplanation,
                     style = MaterialTheme.typography.labelSmall,
                     color = Color.LightGray,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp)
                 )
             }
         }
@@ -518,13 +506,11 @@ private fun PaceCalculatorView(
                     Text("Teilzeit", style = MaterialTheme.typography.labelSmall, color = Color.Gray, modifier = Modifier.weight(1f), textAlign = TextAlign.End)
                     Text("Kumuliert", style = MaterialTheme.typography.labelSmall, color = Color.Gray, modifier = Modifier.weight(1.2f), textAlign = TextAlign.End)
                 }
-
                 HorizontalDivider(color = Color(0xFF142436), modifier = Modifier.padding(vertical = 4.dp))
 
                 computedSplits.forEach { (info, meta) ->
                     val (lapNum, lapDur, cum) = info
                     val (meters, legStroke) = meta
-
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -569,11 +555,12 @@ private fun PaceCalculatorView(
 
                 if (onApplyToStopwatch != null) {
                     Spacer(modifier = Modifier.height(10.dp))
-                    var appliedFeedback by remember { mutableStateOf(false) }
+                    var appliedFeedback by remember(distance, splitDistance, targetMillis, stroke) { mutableStateOf(false) }
+
                     Button(
                         onClick = {
                             val avgSplit = targetMillis / splitsCount
-                            onApplyToStopwatch(avgSplit)
+                            onApplyToStopwatch(avgSplit, stroke, distance, splitDistance)
                             appliedFeedback = true
                         },
                         shape = RoundedCornerShape(12.dp),
@@ -593,7 +580,7 @@ private fun PaceCalculatorView(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = if (appliedFeedback) "Soll-Pace auf alle Bahnen übertragen!" else "Als Soll-Pace auf Stoppuhr übertragen",
+                            text = if (appliedFeedback) "Soll-Pace & Strecke auf alle Bahnen übertragen!" else "Als Soll-Pace auf Stoppuhr übertragen",
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,
                             textAlign = TextAlign.Center
@@ -627,7 +614,6 @@ private fun StrokeRateTapView() {
     fun handleStrokeTap() {
         HapticUtil.vibrateClick(context)
         val now = SystemClock.elapsedRealtime()
-
         if (currentTapCount == 0) {
             startTimestamp = now
             currentTapCount = 1
@@ -655,7 +641,6 @@ private fun StrokeRateTapView() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // Universal explanation banner
         Surface(
             shape = RoundedCornerShape(14.dp),
             color = Color(0xFF0C1A2A),
@@ -667,7 +652,7 @@ private fun StrokeRateTapView() {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "⏱️ Schlagfrequenz-Messung (SPM)",
+                    text = "Schlagfrequenz-Messung (SPM)",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = AquaPrimary,
                     textAlign = TextAlign.Center
@@ -682,7 +667,6 @@ private fun StrokeRateTapView() {
             }
         }
 
-        // Info Header Card
         Card(
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = OceanSurface),
@@ -704,7 +688,6 @@ private fun StrokeRateTapView() {
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                         color = AquaPrimary
                     )
-
                     Button(
                         onClick = { reset() },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B2E46)),
@@ -894,26 +877,8 @@ private fun PoolLengthConverterView() {
     val strokes = listOf("Freistil", "Brust", "Rücken", "Schmetterling", "Lagen")
     val distances = listOf(50, 100, 200, 400)
 
-    val inputMillis = try {
-        val cleaned = timeInput.trim().replace(',', '.')
-        if (cleaned.contains(":")) {
-            val parts = cleaned.split(":")
-            val min = parts[0].toLongOrNull() ?: 0L
-            val secParts = parts[1].split(".")
-            val sec = secParts[0].toLongOrNull() ?: 0L
-            val cs = if (secParts.size > 1) secParts[1].padEnd(2, '0').take(2).toLongOrNull() ?: 0L else 0L
-            ((min * 60 + sec) * 1000) + (cs * 10)
-        } else {
-            val sec = cleaned.toFloatOrNull() ?: 60f
-            (sec * 1000).toLong()
-        }
-    } catch (e: Exception) {
-        60000L
-    }
+    val inputMillis = TimeFormatter.parseTimeInputToMillis(timeInput) ?: 60_000L
 
-    // Standard Turn Factor per 100m
-    // Kurzbahn is faster because more turns and underwater push-offs!
-    // Turn delta per 100m: Breast ~2.0s, Back ~1.8s, Fly ~1.6s, Free ~1.4s, Medley ~1.8s
     val deltaPer100m = when (stroke) {
         "Brust" -> 2000L
         "Rücken" -> 1800L
@@ -924,10 +889,8 @@ private fun PoolLengthConverterView() {
 
     val totalDelta = (deltaPer100m * (distance.toDouble() / 100.0)).toLong()
     val convertedMillis = if (sourcePool == "25m Kurzbahn") {
-        // Going from 25m to 50m: Langbahn is slower (add delta)
         inputMillis + totalDelta
     } else {
-        // Going from 50m to 25m: Kurzbahn is faster (subtract delta)
         (inputMillis - totalDelta).coerceAtLeast(1000L)
     }
 
@@ -937,7 +900,6 @@ private fun PoolLengthConverterView() {
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Universal explanation banner
         Surface(
             shape = RoundedCornerShape(14.dp),
             color = Color(0xFF0C1A2A),
@@ -949,7 +911,7 @@ private fun PoolLengthConverterView() {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "🏊‍♂️ 25m Kurzbahn (SCM) ⮂ 50m Langbahn (LCM)",
+                    text = "25m Kurzbahn (SCM) ↔ 50m Langbahn (LCM)",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = AquaPrimary,
                     textAlign = TextAlign.Center
@@ -1010,7 +972,10 @@ private fun PoolLengthConverterView() {
                     strokes.forEach { s ->
                         FilterChip(
                             selected = stroke == s,
-                            onClick = { stroke = s },
+                            onClick = {
+                                stroke = s
+                                if (s == "Lagen" && distance < 100) distance = 100
+                            },
                             label = { Text(s, fontWeight = FontWeight.Bold, fontSize = 12.sp) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = AquaPrimary,
@@ -1028,9 +993,11 @@ private fun PoolLengthConverterView() {
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     distances.forEach { d ->
+                        val isLagenDisabled = stroke == "Lagen" && d < 100
                         FilterChip(
                             selected = distance == d,
-                            onClick = { distance = d },
+                            onClick = { if (!isLagenDisabled) distance = d },
+                            enabled = !isLagenDisabled,
                             label = { Text("${d}m", fontWeight = FontWeight.Bold, fontSize = 12.sp) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = AquaPrimary,

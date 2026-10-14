@@ -3,6 +3,8 @@ package com.example.util
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.abs
+import kotlin.math.roundToLong
 
 object TimeFormatter {
 
@@ -27,12 +29,44 @@ object TimeFormatter {
     fun formatDetailed(millis: Long): String = formatMillis(millis, shortFormat = false)
 
     /**
+     * Formats milliseconds for text input fields (e.g. "24.80" or "01:04.50")
+     */
+    fun formatForInput(millis: Long?): String {
+        if (millis == null || millis <= 0L) return ""
+        return formatMillis(millis, shortFormat = millis < 60_000L)
+    }
+
+    /**
+     * Parses both "MM:SS.cc" (e.g. "1:04.50") and seconds ("64.50" or "64,5") into milliseconds.
+     */
+    fun parseTimeInputToMillis(input: String): Long? {
+        val cleaned = input.trim().replace(',', '.')
+        if (cleaned.isEmpty()) return null
+        return try {
+            if (cleaned.contains(":")) {
+                val parts = cleaned.split(":")
+                if (parts.size != 2) return null
+                val min = parts[0].trim().toLongOrNull() ?: return null
+                val secDouble = parts[1].trim().toDoubleOrNull() ?: return null
+                val totalMillis = (min * 60_000L) + (secDouble * 1000.0).roundToLong()
+                if (totalMillis > 0L) totalMillis else null
+            } else {
+                val secDouble = cleaned.toDoubleOrNull() ?: return null
+                val totalMillis = (secDouble * 1000.0).roundToLong()
+                if (totalMillis > 0L) totalMillis else null
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /**
      * Formats difference from target pace: e.g. -0.45s or +1.20s
      */
     fun formatDelta(deltaMillis: Long?): String {
         if (deltaMillis == null) return ""
         val sign = if (deltaMillis <= 0) "-" else "+"
-        val absMillis = Math.abs(deltaMillis)
+        val absMillis = abs(deltaMillis)
         val seconds = absMillis / 1000
         val hundredths = (absMillis % 1000) / 10
         return String.format(Locale.US, "%s%d.%02ds", sign, seconds, hundredths)
@@ -53,7 +87,7 @@ object TimeFormatter {
      */
     fun formatPacePer100m(lapTimeMillis: Long, splitDistanceMeters: Int): String {
         if (lapTimeMillis <= 0 || splitDistanceMeters <= 0) return "--:--"
-        val pace100mMillis = (lapTimeMillis.toDouble() / splitDistanceMeters * 100).toLong()
+        val pace100mMillis = (lapTimeMillis.toDouble() / splitDistanceMeters * 100.0).roundToLong()
         return "${formatMillis(pace100mMillis, shortFormat = false)}/100m"
     }
 }
