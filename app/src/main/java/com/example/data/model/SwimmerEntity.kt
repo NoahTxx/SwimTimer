@@ -1,8 +1,10 @@
 package com.example.data.model
 
+import androidx.compose.runtime.Immutable
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
+@Immutable
 @Entity(tableName = "swimmers")
 data class SwimmerEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,

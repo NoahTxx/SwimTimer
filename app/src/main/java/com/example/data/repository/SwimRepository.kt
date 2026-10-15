@@ -16,8 +16,14 @@ class SwimRepository(private val database: AppDatabase) {
     val allSwimmers: Flow<List<SwimmerEntity>> = swimmerDao.getAllSwimmers()
     val allSessionsWithLaps: Flow<List<SessionWithLaps>> = sessionDao.getAllSessionsWithLaps()
 
+    suspend fun allSessionsWithLapsSync(): List<SessionWithLaps> =
+        sessionDao.getAllSessionsWithLapsSync()
+
     fun getSessionWithLaps(sessionId: Long): Flow<SessionWithLaps?> =
         sessionDao.getSessionWithLaps(sessionId)
+
+    suspend fun getSessionWithLapsSync(sessionId: Long): SessionWithLaps? =
+        sessionDao.getSessionWithLapsSync(sessionId)
 
     suspend fun getSwimmerById(id: Long): SwimmerEntity? =
         swimmerDao.getSwimmerByIdSync(id)

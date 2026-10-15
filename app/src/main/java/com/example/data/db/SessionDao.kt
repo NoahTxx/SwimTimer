@@ -20,8 +20,16 @@ interface SessionDao {
     fun getAllSessionsWithLaps(): Flow<List<SessionWithLaps>>
 
     @Transaction
+    @Query("SELECT * FROM sessions ORDER BY timestamp DESC")
+    suspend fun getAllSessionsWithLapsSync(): List<SessionWithLaps>
+
+    @Transaction
     @Query("SELECT * FROM sessions WHERE id = :sessionId")
     fun getSessionWithLaps(sessionId: Long): Flow<SessionWithLaps?>
+
+    @Transaction
+    @Query("SELECT * FROM sessions WHERE id = :sessionId")
+    suspend fun getSessionWithLapsSync(sessionId: Long): SessionWithLaps?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSession(session: SessionEntity): Long

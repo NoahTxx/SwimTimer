@@ -15,18 +15,33 @@ object TimeFormatter {
     fun formatMillis(millis: Long, shortFormat: Boolean = false): String {
         if (millis < 0) return "00.00"
         val totalSeconds = millis / 1000
-        val minutes = totalSeconds / 60
-        val seconds = totalSeconds % 60
-        val hundredths = (millis % 1000) / 10
+        val m = totalSeconds / 60
+        val s = totalSeconds % 60
+        val h = (millis % 1000) / 10
 
-        return if (minutes > 0 || !shortFormat) {
-            String.format(Locale.US, "%02d:%02d.%02d", minutes, seconds, hundredths)
-        } else {
-            String.format(Locale.US, "%02d.%02d", seconds, hundredths)
+        val sb = java.lang.StringBuilder(9)
+        if (m > 0 || !shortFormat) {
+            if (m < 10) sb.append('0')
+            sb.append(m).append(':')
         }
+        if (s < 10) sb.append('0')
+        sb.append(s).append('.')
+        if (h < 10) sb.append('0')
+        sb.append(h)
+        return sb.toString()
     }
 
     fun formatDetailed(millis: Long): String = formatMillis(millis, shortFormat = false)
+
+    /**
+     * Formats whole seconds into standard MM:SS format (e.g. 00:05, 01:15)
+     */
+    fun formatSeconds(totalSeconds: Long): String {
+        if (totalSeconds <= 0) return "00:00"
+        val m = totalSeconds / 60
+        val s = totalSeconds % 60
+        return "%02d:%02d".format(Locale.GERMANY, m, s)
+    }
 
     /**
      * Formats milliseconds for text input fields (e.g. "24.80" or "01:04.50")
@@ -65,11 +80,16 @@ object TimeFormatter {
      */
     fun formatDelta(deltaMillis: Long?): String {
         if (deltaMillis == null) return ""
-        val sign = if (deltaMillis <= 0) "-" else "+"
+        val sign = if (deltaMillis <= 0) '-' else '+'
         val absMillis = abs(deltaMillis)
-        val seconds = absMillis / 1000
-        val hundredths = (absMillis % 1000) / 10
-        return String.format(Locale.US, "%s%d.%02ds", sign, seconds, hundredths)
+        val s = absMillis / 1000
+        val h = (absMillis % 1000) / 10
+        
+        val sb = java.lang.StringBuilder(8)
+        sb.append(sign).append(s).append('.')
+        if (h < 10) sb.append('0')
+        sb.append(h).append('s')
+        return sb.toString()
     }
 
     fun formatDate(timestamp: Long): String {

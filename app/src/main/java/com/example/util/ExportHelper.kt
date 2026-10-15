@@ -4,6 +4,9 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
 import com.example.data.model.SessionWithLaps
+import com.example.data.model.SwimmerEntity
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 
@@ -106,6 +109,101 @@ object ExportHelper {
                 putExtra(Intent.EXTRA_TEXT, summaryText)
             }
             context.startActivity(Intent.createChooser(textIntent, "Training teilen (Text)"))
+        }
+    }
+
+    fun exportSwimmersToJson(swimmers: List<SwimmerEntity>): String {
+        val jsonArray = JSONArray()
+        swimmers.forEach { swimmer ->
+            val obj = JSONObject().apply {
+                put("name", swimmer.name)
+                put("ageGroup", swimmer.ageGroup)
+                put("favoriteStroke", swimmer.favoriteStroke)
+                swimmer.pb25mMillis?.let { put("pb25mMillis", it) }
+                swimmer.pb50mMillis?.let { put("pb50mMillis", it) }
+                swimmer.pb100mMillis?.let { put("pb100mMillis", it) }
+                swimmer.pb100mLagenMillis?.let { put("pb100mLagenMillis", it) }
+                swimmer.pb200mLagenMillis?.let { put("pb200mLagenMillis", it) }
+                swimmer.pb400mLagenMillis?.let { put("pb400mLagenMillis", it) }
+                swimmer.pb200mLagenFlySplitMillis?.let { put("pb200mLagenFlySplitMillis", it) }
+                swimmer.pb200mLagenBackSplitMillis?.let { put("pb200mLagenBackSplitMillis", it) }
+                swimmer.pb200mLagenBreastSplitMillis?.let { put("pb200mLagenBreastSplitMillis", it) }
+                swimmer.pb200mLagenFreeSplitMillis?.let { put("pb200mLagenFreeSplitMillis", it) }
+                swimmer.pb400mLagenFlySplitMillis?.let { put("pb400mLagenFlySplitMillis", it) }
+                swimmer.pb400mLagenBackSplitMillis?.let { put("pb400mLagenBackSplitMillis", it) }
+                swimmer.pb400mLagenBreastSplitMillis?.let { put("pb400mLagenBreastSplitMillis", it) }
+                swimmer.pb400mLagenFreeSplitMillis?.let { put("pb400mLagenFreeSplitMillis", it) }
+                put("colorHex", swimmer.colorHex)
+                put("notes", swimmer.notes)
+            }
+            jsonArray.put(obj)
+        }
+        return jsonArray.toString(2)
+    }
+
+    fun importSwimmersFromJson(jsonContent: String): List<SwimmerEntity> {
+        val list = mutableListOf<SwimmerEntity>()
+        val array = JSONArray(jsonContent)
+        for (i in 0 until array.length()) {
+            val obj = array.getJSONObject(i)
+            fun optLongNullable(key: String): Long? = if (obj.has(key) && !obj.isNull(key)) obj.getLong(key) else null
+
+            list.add(
+                SwimmerEntity(
+                    id = 0,
+                    name = obj.optString("name", "Unbekannt"),
+                    ageGroup = obj.optString("ageGroup", "Offen"),
+                    favoriteStroke = obj.optString("favoriteStroke", "Freistil"),
+                    pb25mMillis = optLongNullable("pb25mMillis"),
+                    pb50mMillis = optLongNullable("pb50mMillis"),
+                    pb100mMillis = optLongNullable("pb100mMillis"),
+                    pb100mLagenMillis = optLongNullable("pb100mLagenMillis"),
+                    pb200mLagenMillis = optLongNullable("pb200mLagenMillis"),
+                    pb400mLagenMillis = optLongNullable("pb400mLagenMillis"),
+                    pb200mLagenFlySplitMillis = optLongNullable("pb200mLagenFlySplitMillis"),
+                    pb200mLagenBackSplitMillis = optLongNullable("pb200mLagenBackSplitMillis"),
+                    pb200mLagenBreastSplitMillis = optLongNullable("pb200mLagenBreastSplitMillis"),
+                    pb200mLagenFreeSplitMillis = optLongNullable("pb200mLagenFreeSplitMillis"),
+                    pb400mLagenFlySplitMillis = optLongNullable("pb400mLagenFlySplitMillis"),
+                    pb400mLagenBackSplitMillis = optLongNullable("pb400mLagenBackSplitMillis"),
+                    pb400mLagenBreastSplitMillis = optLongNullable("pb400mLagenBreastSplitMillis"),
+                    pb400mLagenFreeSplitMillis = optLongNullable("pb400mLagenFreeSplitMillis"),
+                    colorHex = obj.optLong("colorHex", 0xFF00E5FF),
+                    notes = obj.optString("notes", "")
+                )
+            )
+        }
+        return list
+    }
+
+    fun shareSwimmersExport(context: Context, swimmers: List<SwimmerEntity>) {
+        val json = exportSwimmersToJson(swimmers)
+        try {
+            val fileName = "SwimTimer_Athleten_Export_${System.currentTimeMillis()}.json"
+            val file = File(context.cacheDir, fileName)
+            FileOutputStream(file).use { out ->
+                out.write(json.toByteArray(Charsets.UTF_8))
+            }
+            val uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file
+            )
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "application/json"
+                putExtra(Intent.EXTRA_SUBJECT, "SwimTimer Athleten Export (${swimmers.size} Schwimmer)")
+                putExtra(Intent.EXTRA_TEXT, "Anbei der Export deiner ${swimmers.size} Athleten für SwimTimer Pro.")
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(shareIntent, "Athleten exportieren"))
+        } catch (e: Exception) {
+            val textIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_SUBJECT, "SwimTimer Athleten Export")
+                putExtra(Intent.EXTRA_TEXT, json)
+            }
+            context.startActivity(Intent.createChooser(textIntent, "Athleten exportieren (Text)"))
         }
     }
 }

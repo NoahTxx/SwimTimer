@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -25,7 +27,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -34,8 +38,10 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
@@ -50,6 +56,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -63,6 +70,7 @@ import com.example.ui.StopwatchViewModel
 import com.example.ui.theme.AquaPrimary
 import com.example.ui.theme.DeepOceanBackground
 import com.example.ui.theme.OceanSurface
+import com.example.util.ExportHelper
 import com.example.ui.theme.PaceGreen
 import com.example.ui.theme.TextWhite
 import com.example.util.TimeFormatter
@@ -72,11 +80,28 @@ fun SwimmersManagementScreen(
     viewModel: StopwatchViewModel,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val swimmers by viewModel.allSwimmers.collectAsStateWithLifecycle()
     val allSessions by viewModel.allSessions.collectAsStateWithLifecycle()
 
     var selectedSwimmerId by remember { mutableStateOf<Long?>(null) }
     var isAddDialogOpen by remember { mutableStateOf(false) }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let {
+            try {
+                context.contentResolver.openInputStream(it)?.use { stream ->
+                    val json = stream.bufferedReader().readText()
+                    val imported = ExportHelper.importSwimmersFromJson(json)
+                    if (imported.isNotEmpty()) {
+                        viewModel.importSwimmers(imported)
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+    }
 
     val activeSwimmer = swimmers.firstOrNull { it.id == selectedSwimmerId }
 
@@ -104,7 +129,7 @@ fun SwimmersManagementScreen(
             .navigationBarsPadding()
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Header Row
+            // Header Row with Title, Import/Export Buttons
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -112,7 +137,7 @@ fun SwimmersManagementScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Schwimmteam & Kader",
                         style = MaterialTheme.typography.titleLarge.copy(
@@ -128,6 +153,52 @@ fun SwimmersManagementScreen(
                         color = Color.LightGray,
                         maxLines = 1
                     )
+                }
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Export Button
+                    FilledTonalIconButton(
+                        onClick = {
+                            if (swimmers.isNotEmpty()) {
+                                ExportHelper.shareSwimmersExport(context, swimmers)
+                            }
+                        },
+                        enabled = swimmers.isNotEmpty(),
+                        shape = CircleShape,
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = OceanSurface,
+                            contentColor = AquaPrimary
+                        ),
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = "Athleten exportieren",
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    // Import Button
+                    FilledTonalIconButton(
+                        onClick = {
+                            importLauncher.launch("*/*")
+                        },
+                        shape = CircleShape,
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = OceanSurface,
+                            contentColor = AquaPrimary
+                        ),
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Download,
+                            contentDescription = "Athleten importieren",
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
 
@@ -155,10 +226,16 @@ fun SwimmersManagementScreen(
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    items(swimmers, key = { it.id }) { swimmer ->
+                    items(
+                        items = swimmers,
+                        key = { it.id },
+                        contentType = { "SwimmerCard" }
+                    ) { swimmer ->
+                        val swimmerId = swimmer.id
+                        val onClick = remember(swimmerId) { { selectedSwimmerId = swimmerId } }
                         SwimmerCard(
                             swimmer = swimmer,
-                            onClick = { selectedSwimmerId = swimmer.id }
+                            onClick = onClick
                         )
                     }
                 }
@@ -217,11 +294,11 @@ private fun SwimmerCard(
     onClick: () -> Unit
 ) {
     Card(
+        onClick = onClick,
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = OceanSurface),
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() }
             .testTag("swimmer_card_${swimmer.id}")
     ) {
         Row(

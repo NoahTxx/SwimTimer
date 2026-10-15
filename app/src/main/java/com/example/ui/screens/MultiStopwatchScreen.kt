@@ -26,7 +26,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.Undo
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -72,7 +72,6 @@ import com.example.ui.theme.PaceGreen
 import com.example.ui.theme.PaceRed
 import com.example.ui.theme.TextWhite
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MultiStopwatchScreen(
     viewModel: StopwatchViewModel,
@@ -200,22 +199,30 @@ fun MultiStopwatchScreen(
                 contentPadding = PaddingValues(top = 2.dp, bottom = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                items(uiState.lanes, key = { it.laneNumber }) { lane ->
+                items(
+                    items = uiState.lanes,
+                    key = { it.laneNumber },
+                    contentType = { "LaneTimerCard" }
+                ) { lane ->
+                    val laneNum = lane.laneNumber
                     LaneTimerCard(
                         lane = lane,
-                        onLapClick = { viewModel.onLapLane(lane.laneNumber, context) },
-                        onFinishClick = { viewModel.onFinishLane(lane.laneNumber, context) },
-                        onAssignSwimmerClick = { viewModel.openAssignSwimmerDialog(lane.laneNumber) },
-                        onTargetPaceClick = { viewModel.openTargetPaceDialog(lane.laneNumber) },
-                        onStrokeRateClick = { viewModel.openStrokeRateDialog(lane.laneNumber) },
-                        onRemoveLaneClick = if (uiState.lanes.size > 1) {
-                            { viewModel.removeLane(lane.laneNumber, context) }
-                        } else null
+                        onLapClick = { viewModel.onLapLane(laneNum, context) },
+                        onFinishClick = { viewModel.onFinishLane(laneNum, context) },
+                        onAssignSwimmerClick = { viewModel.openAssignSwimmerDialog(laneNum) },
+                        onTargetPaceClick = { viewModel.openTargetPaceDialog(laneNum) },
+                        onRemoveLaneClick = { viewModel.removeLane(laneNum, context) },
+                        onStartSingleLaneClick = { viewModel.onStartSingleLane(laneNum, context) },
+                        onPauseClick = { viewModel.onPauseLane(laneNum, context) },
+                        onResumeClick = { viewModel.onResumeLane(laneNum, context) }
                     )
                 }
 
                 // BOTTOM OF LIST: Centered '+' Button
-                item(key = "add_lane_bottom_control") {
+                item(
+                    key = "add_lane_bottom_control",
+                    contentType = "AddLaneButton"
+                ) {
                     if (uiState.lanes.size < 15) {
                         Box(
                             modifier = Modifier
@@ -249,7 +256,7 @@ fun MultiStopwatchScreen(
             // BOTTOM MASTER CONTROLS BAR
             val anyRunning = uiState.isAnyRunning
             val anyHasTimes = uiState.lanes.any {
-                it.currentElapsedMillis > 0L || it.laps.isNotEmpty() || it.status == LaneStatus.FINISHED
+                (it.currentElapsedMillis > 0L || it.laps.isNotEmpty() || it.status == LaneStatus.FINISHED)
             }
             val anyLapsRecorded = uiState.lanes.any { it.laps.isNotEmpty() }
 
@@ -267,8 +274,16 @@ fun MultiStopwatchScreen(
                     horizontalArrangement = Arrangement.Start,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    var isResetConfirmOpen by remember { mutableStateOf(false) }
+
                     FilledTonalButton(
-                        onClick = { viewModel.onResetAll(context) },
+                        onClick = {
+                            if (anyLapsRecorded && !uiState.isCurrentRunSaved) {
+                                isResetConfirmOpen = true
+                            } else {
+                                viewModel.onResetAll(context)
+                            }
+                        },
                         enabled = !anyRunning && anyHasTimes,
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.filledTonalButtonColors(
@@ -285,6 +300,39 @@ fun MultiStopwatchScreen(
                         Icon(Icons.Default.Refresh, contentDescription = "Reset", modifier = Modifier.size(22.dp))
                     }
 
+                    if (isResetConfirmOpen) {
+                        androidx.compose.material3.AlertDialog(
+                            onDismissRequest = { isResetConfirmOpen = false },
+                            title = { Text("Stoppuhr zurücksetzen?", color = TextWhite, fontWeight = FontWeight.Bold) },
+                            text = {
+                                Text(
+                                    "Die erfassten Zeiten wurden noch nicht gespeichert. Möchtest du wirklich alle Bahnen zurücksetzen?",
+                                    color = Color.LightGray
+                                )
+                            },
+                            containerColor = Color(0xFF101B2B),
+                            confirmButton = {
+                                Button(
+                                    onClick = {
+                                        viewModel.onResetAll(context)
+                                        isResetConfirmOpen = false
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252))
+                                ) {
+                                    Text("Zurücksetzen", color = Color.White, fontWeight = FontWeight.Bold)
+                                }
+                            },
+                            dismissButton = {
+                                Button(
+                                    onClick = { isResetConfirmOpen = false },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
+                                ) {
+                                    Text("Abbrechen", color = Color.LightGray)
+                                }
+                            }
+                        )
+                    }
+
                     if (uiState.canUndo) {
                         Spacer(modifier = Modifier.width(6.dp))
                         FilledTonalButton(
@@ -299,7 +347,7 @@ fun MultiStopwatchScreen(
                                 .size(52.dp)
                                 .testTag("undo_button")
                         ) {
-                            Icon(Icons.Default.Undo, contentDescription = "Rückgängig", modifier = Modifier.size(20.dp))
+                            Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "Rückgängig", modifier = Modifier.size(20.dp))
                         }
                     }
                 }
@@ -386,12 +434,12 @@ fun MultiStopwatchScreen(
             }
         }
 
-        // Floating notification pill at the bottom
+        // Floating notification pill at the top
         SnackbarHost(
             hostState = snackbarHostState,
             modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 76.dp)
+                .align(Alignment.TopCenter)
+                .padding(top = 16.dp)
         ) { snackbarData ->
             Surface(
                 shape = RoundedCornerShape(20.dp),
@@ -416,10 +464,12 @@ fun MultiStopwatchScreen(
                         text = snackbarData.visuals.message,
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.SemiBold,
-                            fontSize = 13.sp
+                            fontSize = 13.sp,
+                            lineHeight = 16.sp
                         ),
                         color = TextWhite,
-                        maxLines = 1
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }

@@ -24,7 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CompareArrows
+import androidx.compose.material.icons.automirrored.filled.CompareArrows
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Button
@@ -71,7 +71,7 @@ import java.util.Locale
 enum class CoachingToolSection(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     PACE("Pace-Rechner", Icons.Default.Calculate),
     STROKE_RATE("Takt / SPM", Icons.Default.Speed),
-    CONVERTER("25m ↔ 50m", Icons.Default.CompareArrows)
+    CONVERTER("25m ↔ 50m", Icons.AutoMirrored.Filled.CompareArrows)
 }
 
 @Composable
@@ -728,12 +728,12 @@ private fun StrokeRateTapView() {
 
         // BIG TAP BUTTON
         Surface(
+            onClick = { handleStrokeTap() },
             shape = CircleShape,
             color = if (currentTapCount > 0) Color(0xFF1A384F) else Color(0xFF0F2436),
             border = BorderStroke(3.dp, if (currentTapCount > 0) AquaPrimary else Color(0xFF1B4066)),
             modifier = Modifier
                 .size(190.dp)
-                .clickable { handleStrokeTap() }
                 .testTag("spm_tap_button")
         ) {
             Box(contentAlignment = Alignment.Center) {

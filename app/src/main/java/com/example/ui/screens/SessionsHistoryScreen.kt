@@ -32,8 +32,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -61,6 +59,8 @@ import com.example.ui.theme.PaceRed
 import com.example.ui.theme.TextWhite
 import com.example.util.ExportHelper
 import com.example.util.TimeFormatter
+
+private val LAGEN_SHORT_NAMES = listOf("Schmett", "Rücken", "Brust", "Freistil")
 
 @Composable
 fun SessionsHistoryScreen(
@@ -104,6 +104,8 @@ fun SessionsHistoryScreen(
                 )
             }
         } else {
+            var sessionToDelete by remember { mutableStateOf<SessionWithLaps?>(null) }
+
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
@@ -111,13 +113,54 @@ fun SessionsHistoryScreen(
                 contentPadding = PaddingValues(bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                items(sessions, key = { it.session.id }) { item ->
+                items(
+                    items = sessions,
+                    key = { it.session.id },
+                    contentType = { "SessionHistoryCard" }
+                ) { item ->
+                    val onShare = remember(context, item) { { ExportHelper.shareSession(context, item) } }
+                    val onDeleteRequest = remember(item) { { sessionToDelete = item } }
+
                     SessionHistoryCard(
                         sessionWithLaps = item,
-                        onShare = { ExportHelper.shareSession(context, item) },
-                        onDelete = { viewModel.deleteSession(item.session.id) }
+                        onShare = onShare,
+                        onDelete = onDeleteRequest
                     )
                 }
+            }
+
+            if (sessionToDelete != null) {
+                val targetSession = sessionToDelete!!
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { sessionToDelete = null },
+                    title = { Text("Trainingseinheit löschen?", color = TextWhite, fontWeight = FontWeight.Bold) },
+                    text = {
+                        Text(
+                            text = "Möchtest du '${targetSession.session.title}' vom ${TimeFormatter.formatDate(targetSession.session.timestamp)} wirklich unwiderruflich löschen?",
+                            color = Color.LightGray
+                        )
+                    },
+                    containerColor = Color(0xFF101B2B),
+                    confirmButton = {
+                        androidx.compose.material3.Button(
+                            onClick = {
+                                viewModel.deleteSession(targetSession.session.id)
+                                sessionToDelete = null
+                            },
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252))
+                        ) {
+                            Text("Löschen", color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    dismissButton = {
+                        androidx.compose.material3.Button(
+                            onClick = { sessionToDelete = null },
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color.Transparent)
+                        ) {
+                            Text("Abbrechen", color = Color.LightGray)
+                        }
+                    }
+                )
             }
         }
     }
@@ -132,7 +175,8 @@ private fun SessionHistoryCard(
     var isExpanded by remember { mutableStateOf(false) }
     val s = sessionWithLaps.session
     val laps = sessionWithLaps.laps
-    val groupedByLane = laps.groupBy { it.laneNumber }
+    val groupedByLane = remember(laps) { laps.groupBy { it.laneNumber } }
+    val sortedLanes = remember(groupedByLane) { groupedByLane.keys.sorted() }
 
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -236,7 +280,7 @@ private fun SessionHistoryCard(
                         .background(Color(0xFF0C1623))
                         .padding(12.dp)
                 ) {
-                    groupedByLane.keys.sorted().forEach { laneNum ->
+                    sortedLanes.forEach { laneNum ->
                         val laneLaps = groupedByLane[laneNum] ?: emptyList()
                         val swimmer = laneLaps.firstOrNull()?.swimmerName ?: "Bahn $laneNum"
                         val finishTime = laneLaps.lastOrNull()?.splitTimeMillis ?: 0L
@@ -279,8 +323,7 @@ private fun SessionHistoryCard(
                         laneLaps.forEach { lap ->
                             val lapLagenStroke = if (isLagen) {
                                 val legIdx = (((lap.lapIndex - 1) * s.splitDistanceMeters) / lagenLegLength).coerceIn(0, 3)
-                                val shortNames = listOf("Schmett", "Rücken", "Brust", "Freistil")
-                                shortNames[legIdx]
+                                LAGEN_SHORT_NAMES[legIdx]
                             } else null
 
                             Row(

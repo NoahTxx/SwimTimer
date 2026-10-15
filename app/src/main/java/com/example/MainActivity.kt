@@ -1,5 +1,6 @@
 package com.example
 
+import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -30,6 +31,7 @@ import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,6 +42,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -69,7 +73,7 @@ class MainActivity : ComponentActivity() {
     private val database by lazy { AppDatabase.getInstance(applicationContext) }
     private val repository by lazy { SwimRepository(database) }
     private val viewModel: StopwatchViewModel by viewModels {
-        StopwatchViewModelFactory(repository)
+        StopwatchViewModelFactory(repository, applicationContext)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -79,6 +83,19 @@ class MainActivity : ComponentActivity() {
         // Keep screen on while coaching at the pool
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         window.decorView.keepScreenOn = true
+
+        // Force maximum display refresh rate (120Hz / 144Hz / 90Hz)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                val displayModes = display?.supportedModes
+                val maxRefreshMode = displayModes?.maxByOrNull { it.refreshRate }
+                if (maxRefreshMode != null) {
+                    window.attributes = window.attributes.apply {
+                        preferredDisplayModeId = maxRefreshMode.modeId
+                    }
+                }
+            } catch (_: Exception) {}
+        }
 
         setContent {
             SwimTimerTheme {
@@ -91,6 +108,13 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainAppContent(viewModel: StopwatchViewModel) {
     var currentScreen by remember { mutableStateOf(AppScreen.STOPWATCH) }
+    var isPreloadReady by remember { mutableStateOf(false) }
+
+    // Defer background screens preload slightly so cold start is 100% smooth from frame 1
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(200L)
+        isPreloadReady = true
+    }
 
     BackHandler(enabled = currentScreen != AppScreen.STOPWATCH) {
         currentScreen = AppScreen.STOPWATCH
@@ -107,11 +131,37 @@ fun MainAppContent(viewModel: StopwatchViewModel) {
                 .weight(1f)
                 .fillMaxWidth()
         ) {
-            when (currentScreen) {
-                AppScreen.STOPWATCH -> MultiStopwatchScreen(viewModel = viewModel)
-                AppScreen.HISTORY -> SessionsHistoryScreen(viewModel = viewModel)
-                AppScreen.SWIMMERS -> SwimmersManagementScreen(viewModel = viewModel)
-                AppScreen.TOOLS -> CoachingToolsScreen(viewModel = viewModel)
+            AppScreen.entries.forEach { screen ->
+                val isActive = currentScreen == screen
+                val shouldRender = isActive || isPreloadReady
+
+                if (shouldRender) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .layout { measurable, constraints ->
+                                if (isActive) {
+                                    val placeable = measurable.measure(constraints)
+                                    layout(placeable.width, placeable.height) {
+                                        placeable.placeRelative(0, 0)
+                                    }
+                                } else {
+                                    // Zero measure & layout cost during scrolling when inactive!
+                                    layout(0, 0) {}
+                                }
+                            }
+                            .graphicsLayer {
+                                alpha = if (isActive) 1f else 0f
+                            }
+                    ) {
+                        when (screen) {
+                            AppScreen.STOPWATCH -> MultiStopwatchScreen(viewModel = viewModel)
+                            AppScreen.HISTORY -> SessionsHistoryScreen(viewModel = viewModel)
+                            AppScreen.SWIMMERS -> SwimmersManagementScreen(viewModel = viewModel)
+                            AppScreen.TOOLS -> CoachingToolsScreen(viewModel = viewModel)
+                        }
+                    }
+                }
             }
         }
 
@@ -150,7 +200,10 @@ fun MainAppContent(viewModel: StopwatchViewModel) {
                             color = if (isSelected) AquaPrimary else Color.Transparent,
                             modifier = Modifier
                                 .weight(1f)
-                                .clickable { currentScreen = screen }
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) { currentScreen = screen }
                                 .testTag("nav_${label.lowercase()}")
                         ) {
                             Row(

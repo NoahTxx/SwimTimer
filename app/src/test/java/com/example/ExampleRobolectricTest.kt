@@ -181,6 +181,68 @@ class ExampleRobolectricTest {
   }
 
   @Test
+  fun `test settings persistence across ViewModel restarts`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = com.example.data.db.AppDatabase.getInstance(context)
+    val repository = com.example.data.repository.SwimRepository(db)
+
+    // Instance 1: User changes settings
+    val vm1 = com.example.ui.StopwatchViewModel(repository, context)
+    vm1.setSessionMeta("Test Session", "Brust", 25, 200, 25)
+    vm1.setStartMode(com.example.ui.StartMode.INTERVAL)
+    vm1.setIntervalOffsetSeconds(10)
+    vm1.initializeLanes(6)
+
+    // Instance 2: Simulates reopening app
+    val vm2 = com.example.ui.StopwatchViewModel(repository, context)
+    val state2 = vm2.uiState.value
+
+    assertEquals("Brust", state2.strokeType)
+    assertEquals(25, state2.poolLengthMeters)
+    assertEquals(200, state2.targetDistanceMeters)
+    assertEquals(25, state2.splitDistanceMeters)
+    assertEquals(com.example.ui.StartMode.INTERVAL, state2.startMode)
+    assertEquals(10, state2.intervalOffsetSeconds)
+    assertEquals(6, state2.laneCount)
+  }
+
+  @Test
+  fun `test session deletion recalculates swimmer PBs`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = com.example.data.db.AppDatabase.getInstance(context)
+    val repository = com.example.data.repository.SwimRepository(db)
+
+    kotlinx.coroutines.runBlocking {
+      val sId = repository.insertSwimmer(com.example.data.model.SwimmerEntity(name = "Paul Test", favoriteStroke = "Freistil", pb50mMillis = 28500L))
+      val swimmer = repository.getSwimmerById(sId)!!
+
+      val session = com.example.data.model.SessionEntity(
+        title = "Test Session",
+        poolLengthMeters = 50,
+        targetDistanceMeters = 50,
+        strokeType = "Freistil"
+      )
+      val lap = com.example.data.model.LapRecordEntity(
+        sessionId = 0,
+        swimmerId = swimmer.id,
+        swimmerName = swimmer.name,
+        laneNumber = 1,
+        lapIndex = 1,
+        splitTimeMillis = 28500L,
+        lapTimeMillis = 28500L
+      )
+
+      val sessionId = repository.saveSessionWithLaps(session, listOf(lap))
+      val savedSessions = repository.allSessionsWithLapsSync()
+      assertEquals(1, savedSessions.size)
+
+      repository.deleteSessionById(sessionId)
+      val remainingSessions = repository.allSessionsWithLapsSync()
+      assertEquals(0, remainingSessions.size)
+    }
+  }
+
+  @Test
   fun `test 15 swimmers max limit and dynamic lane management`() {
     val maxLimit = 15
     var currentLanes = 4
