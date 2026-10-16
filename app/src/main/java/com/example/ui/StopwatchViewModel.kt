@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -212,13 +213,16 @@ class StopwatchViewModel(
         tickerJob = viewModelScope.launch {
             while (isActive) {
                 updateTick()
-                val hasRunningOrCountdown = _uiState.value.lanes.any {
-                    it.status == LaneStatus.RUNNING || it.status == LaneStatus.COUNTDOWN
-                }
-                if (!hasRunningOrCountdown) {
+                val hasCountdown = _uiState.value.lanes.any { it.status == LaneStatus.COUNTDOWN }
+                val hasRunning = _uiState.value.lanes.any { it.status == LaneStatus.RUNNING }
+                if (!hasCountdown && !hasRunning) {
                     break
                 }
-                delay(200L) // Slowed down from 33ms since UI ticks locally now! Only needed for Countdown & start syncs
+                if (hasCountdown) {
+                    delay(10L) // High precision for countdown beep timing
+                } else {
+                    delay(200L) // Only needed for general status updates if no countdowns
+                }
             }
             tickerJob = null
         }
@@ -341,6 +345,8 @@ class StopwatchViewModel(
         val index = lanes.indexOfFirst { it.laneNumber == laneNumber }
         if (index == -1) return
 
+        pushUndo(UndoAction.BulkStop(_uiState.value.lanes))
+
         val lane = lanes[index]
         
         // Single start completely resets laps for this individual lane and detaches it from the master start.
@@ -412,6 +418,13 @@ class StopwatchViewModel(
                         laps = updatedLaps
                     )
                 }
+                LaneStatus.PAUSED -> {
+                    val finalTime = lane.currentElapsedMillis
+                    lane.copy(
+                        status = LaneStatus.FINISHED,
+                        finishTimeMillis = finalTime
+                    )
+                }
                 else -> lane
             }
         }
@@ -441,7 +454,7 @@ class StopwatchViewModel(
             currentElapsedMillis = elapsed
         )
 
-        val anyRunning = lanes.any { it.status == LaneStatus.RUNNING || it.status == LaneStatus.COUNTDOWN }
+        val anyRunning = lanes.any { it.status == LaneStatus.RUNNING || it.status == LaneStatus.COUNTDOWN || it.status == LaneStatus.PAUSED }
         _uiState.value = _uiState.value.copy(
             lanes = lanes,
             isAnyRunning = anyRunning
@@ -471,8 +484,8 @@ class StopwatchViewModel(
         startTicker()
     }
 
-    fun onLapLane(laneNumber: Int, context: Context? = null) {
-        val now = SystemClock.elapsedRealtime()
+    fun onLapLane(laneNumber: Int, exactRealtime: Long = SystemClock.elapsedRealtime(), context: Context? = null) {
+        val now = exactRealtime
         val lanes = _uiState.value.lanes.toMutableList()
         val index = lanes.indexOfFirst { it.laneNumber == laneNumber }
         if (index == -1) return
@@ -529,7 +542,7 @@ class StopwatchViewModel(
             )
         }
 
-        val anyRunning = lanes.any { it.status == LaneStatus.RUNNING || it.status == LaneStatus.COUNTDOWN }
+        val anyRunning = lanes.any { it.status == LaneStatus.RUNNING || it.status == LaneStatus.COUNTDOWN || it.status == LaneStatus.PAUSED }
         _uiState.value = _uiState.value.copy(
             lanes = lanes,
             isAnyRunning = anyRunning,
@@ -538,9 +551,9 @@ class StopwatchViewModel(
         )
     }
 
-    fun onFinishLane(laneNumber: Int, context: Context? = null) {
+    fun onFinishLane(laneNumber: Int, exactRealtime: Long = SystemClock.elapsedRealtime(), context: Context? = null) {
         context?.let { HapticUtil.vibrateHeavy(it) }
-        val now = SystemClock.elapsedRealtime()
+        val now = exactRealtime
         val lanes = _uiState.value.lanes.toMutableList()
         val index = lanes.indexOfFirst { it.laneNumber == laneNumber }
         if (index == -1) return
@@ -577,7 +590,7 @@ class StopwatchViewModel(
             laps = updatedLaps
         )
 
-        val anyRunning = lanes.any { it.status == LaneStatus.RUNNING || it.status == LaneStatus.COUNTDOWN }
+        val anyRunning = lanes.any { it.status == LaneStatus.RUNNING || it.status == LaneStatus.COUNTDOWN || it.status == LaneStatus.PAUSED }
         _uiState.value = _uiState.value.copy(
             lanes = lanes,
             isAnyRunning = anyRunning,
@@ -632,7 +645,7 @@ class StopwatchViewModel(
             }
         }
 
-        val anyRunning = newLanes.any { it.status == LaneStatus.RUNNING || it.status == LaneStatus.COUNTDOWN }
+        val anyRunning = newLanes.any { it.status == LaneStatus.RUNNING || it.status == LaneStatus.COUNTDOWN || it.status == LaneStatus.PAUSED }
         _uiState.value = _uiState.value.copy(
             lanes = newLanes,
             isAnyRunning = anyRunning,
@@ -692,7 +705,7 @@ class StopwatchViewModel(
                             finishTimeMillis = action.previousFinishTime,
                             laps = currentLaps
                         )
-                        val anyRunning = lanes.any { it.status == LaneStatus.RUNNING || it.status == LaneStatus.COUNTDOWN }
+                        val anyRunning = lanes.any { it.status == LaneStatus.RUNNING || it.status == LaneStatus.COUNTDOWN || it.status == LaneStatus.PAUSED }
                         _uiState.value = _uiState.value.copy(
                             lanes = lanes,
                             isAnyRunning = anyRunning,
@@ -725,7 +738,7 @@ class StopwatchViewModel(
                 }
             }
             is UndoAction.BulkStart -> {
-                val anyRun = action.previousLanes.any { it.status == LaneStatus.RUNNING || it.status == LaneStatus.COUNTDOWN }
+                val anyRun = action.previousLanes.any { it.status == LaneStatus.RUNNING || it.status == LaneStatus.COUNTDOWN || it.status == LaneStatus.PAUSED }
                 _uiState.value = _uiState.value.copy(
                     lanes = action.previousLanes,
                     masterStartTimeRealtime = action.previousMasterStart,
@@ -736,7 +749,7 @@ class StopwatchViewModel(
                 stopTickerIfAllIdle()
             }
             is UndoAction.BulkStop -> {
-                val anyRun = action.previousLanes.any { it.status == LaneStatus.RUNNING || it.status == LaneStatus.COUNTDOWN }
+                val anyRun = action.previousLanes.any { it.status == LaneStatus.RUNNING || it.status == LaneStatus.COUNTDOWN || it.status == LaneStatus.PAUSED }
                 _uiState.value = _uiState.value.copy(
                     lanes = action.previousLanes,
                     isAnyRunning = anyRun,
@@ -774,6 +787,9 @@ class StopwatchViewModel(
             return
         }
         context?.let { HapticUtil.vibrateClick(it) }
+        undoStack.clear()
+        _uiState.value = _uiState.value.copy(canUndo = false)
+        
         val nextLaneNumber = (currentLanes.maxOfOrNull { it.laneNumber } ?: 0) + 1
         val newLane = LaneState(
             laneNumber = nextLaneNumber,
@@ -1022,6 +1038,7 @@ class StopwatchViewModel(
 
     fun saveCurrentSession(context: Context? = null) {
         if (_uiState.value.isCurrentRunSaved) return
+        _uiState.value = _uiState.value.copy(isCurrentRunSaved = true) // Set early to prevent double tap
 
         viewModelScope.launch {
             val state = _uiState.value
@@ -1042,7 +1059,7 @@ class StopwatchViewModel(
                 intervalOffsetSeconds = state.intervalOffsetSeconds,
                 laneCount = activeLanesWithLaps.size,
                 splitDistanceMeters = state.splitDistanceMeters,
-                notes = "Erfasst mit SwimTimer Pro am Beckenrand"
+                notes = "Erfasst mit SwimTimer am Beckenrand"
             )
 
             val lapEntities = mutableListOf<LapRecordEntity>()
@@ -1445,9 +1462,16 @@ class StopwatchViewModel(
     }
 
     fun importSwimmers(swimmers: List<SwimmerEntity>) {
-        viewModelScope.launch {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val existing = repository.allSwimmers.firstOrNull() ?: emptyList()
+            val existingNames = existing.map { it.name }.toSet()
+            
+            var addedCount = 0
             swimmers.forEach { swimmer ->
-                repository.insertSwimmer(swimmer.copy(id = 0))
+                if (!existingNames.contains(swimmer.name)) {
+                    repository.insertSwimmer(swimmer.copy(id = 0))
+                    addedCount++
+                }
             }
         }
     }

@@ -1,5 +1,5 @@
 {
-  "name": "SwimTimer Pro",
+  "name": "SwimTimer",
   "description": "Multi-Schwimmer-Stoppuhr für Trainer am Beckenrand mit Bahnen-Splits, Pace-Vergleich, Schlagfrequenz-Rechner und Wasserschutz-Modus.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

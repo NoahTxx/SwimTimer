@@ -92,14 +92,19 @@ object TimeFormatter {
         return sb.toString()
     }
 
+    private val dateFormatThreadLocal = object : ThreadLocal<SimpleDateFormat>() {
+        override fun initialValue() = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMANY)
+    }
+    private val dateFormatShortThreadLocal = object : ThreadLocal<SimpleDateFormat>() {
+        override fun initialValue() = SimpleDateFormat("dd.MM.yy", Locale.GERMANY)
+    }
+
     fun formatDate(timestamp: Long): String {
-        val sdf = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMANY)
-        return sdf.format(Date(timestamp))
+        return dateFormatThreadLocal.get()?.format(Date(timestamp)) ?: ""
     }
 
     fun formatDateShort(timestamp: Long): String {
-        val sdf = SimpleDateFormat("dd.MM.yy", Locale.GERMANY)
-        return sdf.format(Date(timestamp))
+        return dateFormatShortThreadLocal.get()?.format(Date(timestamp)) ?: ""
     }
 
     /**

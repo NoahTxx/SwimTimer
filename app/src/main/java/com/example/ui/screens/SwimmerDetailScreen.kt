@@ -83,12 +83,13 @@ import com.example.util.TimeFormatter
 fun SwimmerDetailScreen(
     swimmer: SwimmerEntity,
     allSessions: List<SessionWithLaps>,
+    isActiveTab: Boolean = true,
     onBack: () -> Unit,
     onUpdateSwimmer: (SwimmerEntity) -> Unit,
     onDeleteSwimmer: (SwimmerEntity) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    BackHandler { onBack() }
+    BackHandler(enabled = isActiveTab) { onBack() }
 
     var isEditDialogOpen by remember { mutableStateOf(false) }
     var isDeleteConfirmOpen by remember { mutableStateOf(false) }
@@ -113,7 +114,12 @@ fun SwimmerDetailScreen(
         swimmerSessionsForPb.forEach { sessionLaps ->
             val s = sessionLaps.session
             val laps = sessionLaps.laps.filter { it.swimmerId == swimmer.id }.sortedBy { it.lapIndex }
-            val finishTime = laps.lastOrNull()?.splitTimeMillis ?: 0L
+            
+            // Check if full distance was swum
+            val totalSplitsNeeded = (s.targetDistanceMeters / s.splitDistanceMeters).coerceAtLeast(1)
+            val completedFullDistance = laps.size >= totalSplitsNeeded
+
+            val finishTime = if (completedFullDistance) laps.lastOrNull()?.splitTimeMillis ?: 0L else 0L
             if (finishTime > 0) {
                 val strokeOptions = listOf("Freistil", "Brust", "Rücken", "Schmetterling", "Lagen")
                 val matchedStroke = strokeOptions.find { StopwatchViewModel.isSameStroke(it, s.strokeType) } ?: s.strokeType
@@ -263,7 +269,7 @@ fun SwimmerDetailScreen(
                             Spacer(modifier = Modifier.height(18.dp))
 
                             // Best Times (PB) Section with Stroke Selector
-                            var selectedPbStroke by remember { mutableStateOf(swimmer.favoriteStroke) }
+                            var selectedPbStroke by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(swimmer.favoriteStroke) }
                             val pbStrokeOptions = listOf("Freistil", "Brust", "Rücken", "Schmetterling", "Lagen")
 
                             Row(
@@ -313,7 +319,7 @@ fun SwimmerDetailScreen(
                                 Spacer(modifier = Modifier.height(16.dp))
 
                                 // Lagen Splits inside the Lagen Tab
-                                var selectedLagenSplitMode by remember { mutableIntStateOf(200) }
+                                var selectedLagenSplitMode by androidx.compose.runtime.saveable.rememberSaveable { mutableIntStateOf(200) }
 
                                 Surface(
                                     shape = RoundedCornerShape(16.dp),

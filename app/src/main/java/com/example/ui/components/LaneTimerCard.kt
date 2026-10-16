@@ -25,6 +25,10 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Timer
@@ -48,16 +52,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.withFrameMillis
 import android.os.SystemClock
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.LaneState
@@ -70,6 +81,7 @@ import com.example.ui.theme.OceanSurface
 import com.example.ui.theme.PaceGreen
 import com.example.ui.theme.PaceRed
 import com.example.ui.theme.TextWhite
+import com.example.ui.theme.PaceNeutral
 import com.example.util.TimeFormatter
 
 private val LAGEN_STROKE_NAMES = listOf("1. Schmett", "2. Rücken", "3. Brust", "4. Freistil")
@@ -79,8 +91,8 @@ private val LAGEN_STROKE_COLORS = listOf(Color(0xFFFF5252), Color(0xFFFFD600), C
 @Composable
 fun LaneTimerCard(
     lane: LaneState,
-    onLapClick: () -> Unit,
-    onFinishClick: () -> Unit,
+    onLapClick: (Long) -> Unit,
+    onFinishClick: (Long) -> Unit,
     onAssignSwimmerClick: () -> Unit,
     onTargetPaceClick: () -> Unit,
     onRemoveLaneClick: (() -> Unit)? = null,
@@ -89,7 +101,7 @@ fun LaneTimerCard(
     onResumeClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    var isExpanded by remember { mutableStateOf(false) }
+    var isExpanded by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
 
     val laneAccentColor = remember(lane.laneNumber) {
         LaneColors.getOrElse((lane.laneNumber - 1) % LaneColors.size) { AquaPrimary }
@@ -314,6 +326,26 @@ private fun LaneHeader(
 }
 
 @Composable
+fun RunningTime(startRealtime: Long, style: TextStyle, color: Color, modifier: Modifier = Modifier) {
+    val measurer = rememberTextMeasurer()
+    val now = remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
+    LaunchedEffect(startRealtime) {
+        while (true) withFrameMillis { now.longValue = SystemClock.elapsedRealtime() }
+    }
+    // feste Größe -> Relayout-Grenze, kein Hochpropagieren
+    val box = remember(style) { measurer.measure("00:00.00", style).size }
+    val density = LocalDensity.current
+    Spacer(
+        modifier
+            .size(with(density) { DpSize(box.width.toDp(), box.height.toDp()) })
+            .drawBehind {
+                val text = TimeFormatter.formatMillis(now.longValue - startRealtime)
+                drawText(measurer, text, style = style.copy(color = color))
+            }
+    )
+}
+
+@Composable
 private fun DigitalTimerDisplay(
     status: LaneStatus,
     countdownRemainingSeconds: Int,
@@ -322,62 +354,47 @@ private fun DigitalTimerDisplay(
     finishTimeMillis: Long?,
     laneNumber: Int
 ) {
-    val elapsedMillisState = remember(laneNumber) { mutableLongStateOf(0L) }
-
-    // Update value when status or static times change
-    LaunchedEffect(status, pausedElapsedMillis, finishTimeMillis, laneStartTimeRealtime) {
-        if (status != LaneStatus.RUNNING) {
-            elapsedMillisState.longValue = when (status) {
-                LaneStatus.IDLE -> 0L
-                LaneStatus.FINISHED -> finishTimeMillis ?: pausedElapsedMillis
-                LaneStatus.PAUSED -> pausedElapsedMillis
-                else -> 0L
-            }
-        }
-    }
-
-    // High frequency ticker loop ONLY when running
-    LaunchedEffect(status, laneStartTimeRealtime) {
-        if (status == LaneStatus.RUNNING && laneStartTimeRealtime != null) {
-            while (true) {
-                elapsedMillisState.longValue = (SystemClock.elapsedRealtime() - laneStartTimeRealtime).coerceAtLeast(0L)
-                kotlinx.coroutines.delay(16L)
-            }
-        }
-    }
-
-    // Main Digital Timer Display Row - Centered
-    val displayTime = when (status) {
-        LaneStatus.IDLE -> "00:00.00"
-        LaneStatus.COUNTDOWN -> "in ${countdownRemainingSeconds}s"
-        LaneStatus.RUNNING, LaneStatus.PAUSED -> TimeFormatter.formatMillis(elapsedMillisState.longValue)
-        LaneStatus.FINISHED -> TimeFormatter.formatMillis(finishTimeMillis ?: elapsedMillisState.longValue)
-    }
+    val textStyle = MaterialTheme.typography.displayLarge.copy(
+        fontFamily = FontFamily.Monospace,
+        fontSize = 38.sp,
+        fontWeight = FontWeight.Black,
+        letterSpacing = (-0.5).sp
+    )
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 2.dp),
+            .padding(vertical = 2.dp)
+            .testTag("timer_text_lane_$laneNumber"),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = displayTime,
-            style = MaterialTheme.typography.displayLarge.copy(
-                fontFamily = FontFamily.Monospace,
-                fontSize = 38.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = (-0.5).sp
-            ),
-            textAlign = TextAlign.Center,
-            color = when (status) {
-                LaneStatus.COUNTDOWN -> Color(0xFFFFD600)
-                LaneStatus.FINISHED -> Color(0xFFB0BEC5)
-                LaneStatus.PAUSED -> Color(0xFFFFCC80)
-                else -> TextWhite
-            },
-            maxLines = 1,
-            modifier = Modifier.testTag("timer_text_lane_$laneNumber")
-        )
+        if (status == LaneStatus.RUNNING && laneStartTimeRealtime != null) {
+            RunningTime(
+                startRealtime = laneStartTimeRealtime,
+                style = textStyle,
+                color = TextWhite
+            )
+        } else {
+            val displayTime = when (status) {
+                LaneStatus.IDLE -> "00:00.00"
+                LaneStatus.COUNTDOWN -> "in ${countdownRemainingSeconds}s"
+                LaneStatus.PAUSED -> TimeFormatter.formatMillis(pausedElapsedMillis)
+                LaneStatus.FINISHED -> TimeFormatter.formatMillis(finishTimeMillis ?: pausedElapsedMillis)
+                else -> "00:00.00"
+            }
+            Text(
+                text = displayTime,
+                style = textStyle,
+                textAlign = TextAlign.Center,
+                color = when (status) {
+                    LaneStatus.COUNTDOWN -> Color(0xFFFFD600)
+                    LaneStatus.FINISHED -> Color(0xFFB0BEC5)
+                    LaneStatus.PAUSED -> Color(0xFFFFCC80)
+                    else -> TextWhite
+                },
+                maxLines = 1
+            )
+        }
     }
 }
 
@@ -522,8 +539,8 @@ private fun LaneProgressAndLaps(
 private fun LaneControls(
     status: LaneStatus,
     laneNumber: Int,
-    onLapClick: () -> Unit,
-    onFinishClick: () -> Unit,
+    onLapClick: (Long) -> Unit,
+    onFinishClick: (Long) -> Unit,
     onPauseClick: (() -> Unit)?,
     onResumeClick: (() -> Unit)?,
     onStartSingleLaneClick: (() -> Unit)?
@@ -535,13 +552,20 @@ private fun LaneControls(
         ) {
             // LAP / SPLIT Button
             Surface(
-                onClick = onLapClick,
                 shape = RoundedCornerShape(14.dp),
                 color = AquaPrimary,
                 modifier = Modifier
                     .weight(1.6f)
                     .height(60.dp)
                     .testTag("lap_button_lane_$laneNumber")
+                    .pointerInput(Unit) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            val t = SystemClock.elapsedRealtime() - (SystemClock.uptimeMillis() - down.uptimeMillis)
+                            onLapClick(t)
+                            waitForUpOrCancellation()
+                        }
+                    }
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -594,13 +618,20 @@ private fun LaneControls(
 
             // FINISH Button
             Surface(
-                onClick = onFinishClick,
                 shape = RoundedCornerShape(14.dp),
                 color = Color(0xFFD32F2F),
                 modifier = Modifier
                     .weight(1.2f)
                     .height(60.dp)
                     .testTag("finish_button_lane_$laneNumber")
+                    .pointerInput(Unit) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            val t = SystemClock.elapsedRealtime() - (SystemClock.uptimeMillis() - down.uptimeMillis)
+                            onFinishClick(t)
+                            waitForUpOrCancellation()
+                        }
+                    }
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -670,12 +701,19 @@ private fun LaneControls(
 
             // FINISH Button
             Surface(
-                onClick = onFinishClick,
                 shape = RoundedCornerShape(14.dp),
                 color = Color(0xFFD32F2F),
                 modifier = Modifier
                     .weight(1.2f)
                     .height(60.dp)
+                    .pointerInput(Unit) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            val t = SystemClock.elapsedRealtime() - (SystemClock.uptimeMillis() - down.uptimeMillis)
+                            onFinishClick(t)
+                            waitForUpOrCancellation()
+                        }
+                    }
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -702,14 +740,39 @@ private fun LaneControls(
                 }
             }
         }
+    } else if (status == LaneStatus.COUNTDOWN) {
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = Color(0xFF1B2C3F),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                Text(
+                    text = "STARTET GLEICH...",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = PaceNeutral
+                )
+            }
+        }
     } else {
         // IDLE or FINISHED State -> Allow Einzelstart / Intervall Re-Start
         if (onStartSingleLaneClick != null) {
             val isFinished = status == LaneStatus.FINISHED
+            var enableRestart by remember(isFinished) { mutableStateOf(!isFinished) }
+            LaunchedEffect(isFinished) {
+                if (isFinished) {
+                    kotlinx.coroutines.delay(1500)
+                    enableRestart = true
+                }
+            }
+            
             Surface(
                 onClick = onStartSingleLaneClick,
+                enabled = enableRestart,
                 shape = RoundedCornerShape(14.dp),
-                color = PaceGreen,
+                color = if (enableRestart) PaceGreen else Color(0xFF1B2C3F),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)

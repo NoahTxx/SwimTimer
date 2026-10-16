@@ -66,7 +66,9 @@ fun TargetPaceDialog(
             25 -> swimmer.pb25mMillis ?: (swimmer.pb50mMillis?.let { it / 2 })
             50 -> swimmer.pb50mMillis ?: (swimmer.pb100mMillis?.let { it / 2 })
             100 -> if (strokeType == "Lagen") swimmer.pb100mLagenMillis ?: swimmer.pb100mMillis else swimmer.pb100mMillis
-            else -> swimmer.pb50mMillis
+            200 -> if (strokeType == "Lagen") swimmer.pb200mLagenMillis ?: (swimmer.pb100mMillis?.let { it * 2 }) else (swimmer.pb100mMillis?.let { it * 2 })
+            400 -> if (strokeType == "Lagen") swimmer.pb400mLagenMillis else (swimmer.pb100mMillis?.let { it * 4 })
+            else -> swimmer.pb100mMillis?.let { it * (splitDistanceMeters / 100) }
         }
     }
 
@@ -240,9 +242,9 @@ fun TargetPaceDialog(
 
                     Button(
                         onClick = {
-                            val parsedSec = inputSeconds.replace(',', '.').toDoubleOrNull()
-                            if (parsedSec != null && parsedSec > 0) {
-                                onSavePace((parsedSec * 1000).toLong())
+                            val millis = TimeFormatter.parseTimeInputToMillis(inputSeconds)
+                            if (millis != null && millis > 0) {
+                                onSavePace(millis)
                             } else {
                                 onSavePace(null)
                             }

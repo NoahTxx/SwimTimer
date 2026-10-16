@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -78,6 +79,7 @@ import com.example.util.TimeFormatter
 @Composable
 fun SwimmersManagementScreen(
     viewModel: StopwatchViewModel,
+    isActiveTab: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -110,6 +112,7 @@ fun SwimmersManagementScreen(
         SwimmerDetailScreen(
             swimmer = activeSwimmer,
             allSessions = allSessions,
+            isActiveTab = isActiveTab,
             onBack = { selectedSwimmerId = null },
             onUpdateSwimmer = { updated -> viewModel.updateSwimmer(updated) },
             onDeleteSwimmer = { toDelete ->
@@ -125,8 +128,7 @@ fun SwimmersManagementScreen(
         modifier = modifier
             .fillMaxSize()
             .background(DeepOceanBackground)
-            .padding(16.dp)
-            .navigationBarsPadding()
+            .padding(horizontal = 16.dp, vertical = 16.dp)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Header Row with Title, Import/Export Buttons
@@ -224,7 +226,8 @@ fun SwimmersManagementScreen(
                 }
             } else {
                 LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(bottom = 80.dp)
                 ) {
                     items(
                         items = swimmers,

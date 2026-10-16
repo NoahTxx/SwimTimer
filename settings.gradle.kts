@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "SwimTimer Pro"
+rootProject.name = "SwimTimer"
 
 include(":app")

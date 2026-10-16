@@ -15,7 +15,7 @@ object ExportHelper {
     fun generateTextSummary(sessionWithLaps: SessionWithLaps): String {
         val s = sessionWithLaps.session
         val sb = StringBuilder()
-        sb.append("SWIMTIMER PRO - TRAININGSBERICHT\n")
+        sb.append("SWIMTIMER - TRAININGSBERICHT\n")
         sb.append("----------------------------------------\n")
         sb.append("Datum: ${TimeFormatter.formatDate(s.timestamp)}\n")
         sb.append("Titel: ${s.title}\n")
@@ -51,7 +51,7 @@ object ExportHelper {
             }
         }
         sb.append("\n----------------------------------------\n")
-        sb.append("Erfasst mit SwimTimer Pro am Beckenrand")
+        sb.append("Erfasst mit SwimTimer am Beckenrand")
         return sb.toString()
     }
 
@@ -61,9 +61,18 @@ object ExportHelper {
         val legDist = (s.targetDistanceMeters / 4).coerceAtLeast(1)
         val strokeNames = listOf("1. Schmett", "2. Rücken", "3. Brust", "4. Freistil")
 
+        fun escapeCsv(value: String): String {
+            return if (value.contains("\"") || value.contains(";") || value.contains("\n")) {
+                "\"${value.replace("\"", "\"\"")}\""
+            } else {
+                value
+            }
+        }
+
         val sb = StringBuilder()
+        sb.append("\uFEFF") // UTF-8 BOM
         sb.append("SessionID;Datum;Titel;Disziplin;Beckenlaenge_m;Zielstrecke_m;Startmodus;Intervall_s\n")
-        sb.append("${s.id};${TimeFormatter.formatDate(s.timestamp)};\"${s.title}\";${s.strokeType};${s.poolLengthMeters};${s.targetDistanceMeters};${s.startMode};${s.intervalOffsetSeconds}\n\n")
+        sb.append("${s.id};${TimeFormatter.formatDate(s.timestamp)};${escapeCsv(s.title)};${escapeCsv(s.strokeType)};${s.poolLengthMeters};${s.targetDistanceMeters};${s.startMode};${s.intervalOffsetSeconds}\n\n")
 
         sb.append("Bahn;Schwimmer;Lap_Nr;Lage;Split_Zeit_ms;Split_Formatiert;Runden_Zeit_ms;Runde_Formatiert;Soll_Zeit_ms;Delta_Soll_ms;Schlagfrequenz_SPM\n")
         sessionWithLaps.laps.sortedWith(compareBy({ it.laneNumber }, { it.lapIndex })).forEach { lap ->
@@ -71,7 +80,7 @@ object ExportHelper {
                 val legIdx = (((lap.lapIndex - 1) * s.splitDistanceMeters) / legDist).coerceIn(0, 3)
                 strokeNames[legIdx]
             } else s.strokeType
-            sb.append("${lap.laneNumber};\"${lap.swimmerName}\";${lap.lapIndex};\"$strokeName\";${lap.splitTimeMillis};${TimeFormatter.formatMillis(lap.splitTimeMillis)};${lap.lapTimeMillis};${TimeFormatter.formatMillis(lap.lapTimeMillis)};${lap.targetLapMillis ?: ""};${lap.deltaTargetMillis ?: ""};${lap.strokeRateSpm ?: ""}\n")
+            sb.append("${lap.laneNumber};${escapeCsv(lap.swimmerName)};${lap.lapIndex};${escapeCsv(strokeName)};${lap.splitTimeMillis};${TimeFormatter.formatMillis(lap.splitTimeMillis)};${lap.lapTimeMillis};${TimeFormatter.formatMillis(lap.lapTimeMillis)};${lap.targetLapMillis ?: ""};${lap.deltaTargetMillis ?: ""};${lap.strokeRateSpm ?: ""}\n")
         }
         return sb.toString()
     }
@@ -123,6 +132,10 @@ object ExportHelper {
                 swimmer.pb50mMillis?.let { put("pb50mMillis", it) }
                 swimmer.pb100mMillis?.let { put("pb100mMillis", it) }
                 swimmer.pb100mLagenMillis?.let { put("pb100mLagenMillis", it) }
+                swimmer.lagenFlySplitMillis?.let { put("lagenFlySplitMillis", it) }
+                swimmer.lagenBackSplitMillis?.let { put("lagenBackSplitMillis", it) }
+                swimmer.lagenBreastSplitMillis?.let { put("lagenBreastSplitMillis", it) }
+                swimmer.lagenFreeSplitMillis?.let { put("lagenFreeSplitMillis", it) }
                 swimmer.pb200mLagenMillis?.let { put("pb200mLagenMillis", it) }
                 swimmer.pb400mLagenMillis?.let { put("pb400mLagenMillis", it) }
                 swimmer.pb200mLagenFlySplitMillis?.let { put("pb200mLagenFlySplitMillis", it) }
@@ -158,6 +171,10 @@ object ExportHelper {
                     pb50mMillis = optLongNullable("pb50mMillis"),
                     pb100mMillis = optLongNullable("pb100mMillis"),
                     pb100mLagenMillis = optLongNullable("pb100mLagenMillis"),
+                    lagenFlySplitMillis = optLongNullable("lagenFlySplitMillis"),
+                    lagenBackSplitMillis = optLongNullable("lagenBackSplitMillis"),
+                    lagenBreastSplitMillis = optLongNullable("lagenBreastSplitMillis"),
+                    lagenFreeSplitMillis = optLongNullable("lagenFreeSplitMillis"),
                     pb200mLagenMillis = optLongNullable("pb200mLagenMillis"),
                     pb400mLagenMillis = optLongNullable("pb400mLagenMillis"),
                     pb200mLagenFlySplitMillis = optLongNullable("pb200mLagenFlySplitMillis"),
@@ -192,7 +209,7 @@ object ExportHelper {
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                 type = "application/json"
                 putExtra(Intent.EXTRA_SUBJECT, "SwimTimer Athleten Export (${swimmers.size} Schwimmer)")
-                putExtra(Intent.EXTRA_TEXT, "Anbei der Export deiner ${swimmers.size} Athleten für SwimTimer Pro.")
+                putExtra(Intent.EXTRA_TEXT, "Anbei der Export deiner ${swimmers.size} Athleten für SwimTimer.")
                 putExtra(Intent.EXTRA_STREAM, uri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }

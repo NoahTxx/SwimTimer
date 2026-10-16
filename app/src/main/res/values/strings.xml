@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">SwimTimer Pro</string>
+    <string name="app_name">SwimTimer</string>
     <string name="title_stopwatch">Stoppuhr</string>
     <string name="title_sessions">Historie</string>
     <string name="title_swimmers">Schwimmer</string>

@@ -223,8 +223,9 @@ fun IntervalConfigDialog(
                             selected = stroke == s,
                             onClick = {
                                 stroke = s
-                                if (s == "Lagen" && distance < 100) {
-                                    distance = 100
+                                if (s == "Lagen") {
+                                    if (distance < 100) distance = 100
+                                    if (distance > 400) distance = 400
                                 }
                             },
                             label = { Text(s, maxLines = 1) },

@@ -107,10 +107,8 @@ fun SessionsHistoryScreen(
             var sessionToDelete by remember { mutableStateOf<SessionWithLaps?>(null) }
 
             LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .navigationBarsPadding(),
-                contentPadding = PaddingValues(bottom = 24.dp),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 80.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 items(
@@ -172,7 +170,7 @@ private fun SessionHistoryCard(
     onShare: () -> Unit,
     onDelete: () -> Unit
 ) {
-    var isExpanded by remember { mutableStateOf(false) }
+    var isExpanded by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     val s = sessionWithLaps.session
     val laps = sessionWithLaps.laps
     val groupedByLane = remember(laps) { laps.groupBy { it.laneNumber } }

@@ -12,7 +12,8 @@ object SoundUtil {
     init {
         executor.execute {
             try {
-                toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
+                // Use STREAM_ALARM to ensure the start signal is loud and audible even if media is muted
+                toneGenerator = ToneGenerator(AudioManager.STREAM_ALARM, 100)
             } catch (_: Exception) {
                 toneGenerator = null
             }

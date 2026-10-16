@@ -119,7 +119,7 @@ fun MultiStopwatchScreen(
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1B2E46)),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { isConfigDialogOpen = true }
+                        .clickable(enabled = !uiState.isAnyRunning) { isConfigDialogOpen = true }
                         .testTag("session_info_pill")
                 ) {
                     Row(
@@ -207,8 +207,8 @@ fun MultiStopwatchScreen(
                     val laneNum = lane.laneNumber
                     LaneTimerCard(
                         lane = lane,
-                        onLapClick = { viewModel.onLapLane(laneNum, context) },
-                        onFinishClick = { viewModel.onFinishLane(laneNum, context) },
+                        onLapClick = { exactTime -> viewModel.onLapLane(laneNum, exactTime, context) },
+                        onFinishClick = { exactTime -> viewModel.onFinishLane(laneNum, exactTime, context) },
                         onAssignSwimmerClick = { viewModel.openAssignSwimmerDialog(laneNum) },
                         onTargetPaceClick = { viewModel.openTargetPaceDialog(laneNum) },
                         onRemoveLaneClick = { viewModel.removeLane(laneNum, context) },

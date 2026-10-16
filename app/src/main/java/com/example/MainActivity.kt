@@ -157,7 +157,7 @@ fun MainAppContent(viewModel: StopwatchViewModel) {
                         when (screen) {
                             AppScreen.STOPWATCH -> MultiStopwatchScreen(viewModel = viewModel)
                             AppScreen.HISTORY -> SessionsHistoryScreen(viewModel = viewModel)
-                            AppScreen.SWIMMERS -> SwimmersManagementScreen(viewModel = viewModel)
+                            AppScreen.SWIMMERS -> SwimmersManagementScreen(viewModel = viewModel, isActiveTab = isActive)
                             AppScreen.TOOLS -> CoachingToolsScreen(viewModel = viewModel)
                         }
                     }

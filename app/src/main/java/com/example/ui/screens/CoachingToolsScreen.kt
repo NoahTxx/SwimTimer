@@ -195,12 +195,17 @@ private fun PaceCalculatorView(
                     if (count >= 2) {
                         val half = count / 2
                         val deltaPerLap = (1500L / count.coerceAtLeast(2))
+                        val totalDelta = deltaPerLap * half
+                        val subtractPerLap = totalDelta / (count - half)
                         for (i in 0 until half) {
                             lapDurations[i] += deltaPerLap
                         }
                         for (i in half until count) {
-                            lapDurations[i] -= deltaPerLap
+                            lapDurations[i] -= subtractPerLap
                         }
+                        // Ausgleich von Rundungsfehlern
+                        val diff = targetMillis - lapDurations.sum()
+                        lapDurations[count - 1] += diff
                     }
                 }
                 "Startsprung-Bonus" -> {
