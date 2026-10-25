@@ -77,7 +77,7 @@ fun SessionsHistoryScreen(
     val sessions by viewModel.allSessions.collectAsStateWithLifecycle()
 
     val importLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.GetContent(),
     ) { uri ->
         uri?.let {
             viewModel.importSessionsFromContent(context, it) { _ -> }
@@ -200,7 +200,7 @@ fun SessionsHistoryScreen(
                 ) {
                     items(
                         items = sessions,
-                        key = { it.session.id },
+                        key = { sessionWithLaps -> sessionWithLaps.session.id },
                         contentType = { "SessionHistoryCard" }
                     ) { item ->
                         val onShare = remember(context, item) { { ExportHelper.shareSession(context, item) } }
@@ -227,20 +227,20 @@ fun SessionsHistoryScreen(
                         },
                         containerColor = Color(0xFF101B2B),
                         confirmButton = {
-                            androidx.compose.material3.Button(
+                            Button(
                                 onClick = {
                                     viewModel.deleteSession(targetSession.session.id)
                                     sessionToDelete = null
                                 },
-                                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252))
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252))
                             ) {
                                 Text("Löschen", color = Color.White, fontWeight = FontWeight.Bold)
                             }
                         },
                         dismissButton = {
-                            androidx.compose.material3.Button(
+                            Button(
                                 onClick = { sessionToDelete = null },
-                                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color.Transparent)
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
                             ) {
                                 Text("Abbrechen", color = Color.LightGray)
                             }

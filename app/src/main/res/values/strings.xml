@@ -1,20 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">SwimTimer</string>
-    <string name="title_stopwatch">Stoppuhr</string>
-    <string name="title_sessions">Historie</string>
-    <string name="title_swimmers">Schwimmer</string>
-    <string name="title_stroke_rate">Schlagfrequenz</string>
-    <string name="lane_format">Bahn %d</string>
-    <string name="start_all">START (ALLE)</string>
-    <string name="stop_all">STOPP (ALLE)</string>
-    <string name="reset_all">RESET</string>
-    <string name="undo">UNDO</string>
-    <string name="lap">SPLIT / LAP</string>
-    <string name="finish">ZIEL</string>
-    <string name="mode_mass_start">Gemeinsamer Start</string>
-    <string name="mode_interval_start">Intervall-Start</string>
-    <string name="target_pace">Soll-Pace</string>
-    <string name="no_sessions">Keine gespeicherten Trainingseinheiten</string>
-    <string name="no_swimmers">Keine Schwimmer hinterlegt</string>
-    <string name="export_session">Training teilen / exportieren</string>
 </resources>

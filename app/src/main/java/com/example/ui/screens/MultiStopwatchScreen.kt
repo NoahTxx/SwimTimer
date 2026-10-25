@@ -102,7 +102,7 @@ fun MultiStopwatchScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(DeepOceanBackground)
+            .background(DeepOceanBackground),
     ) {
         Column(
             modifier = Modifier.fillMaxSize()
@@ -202,7 +202,7 @@ fun MultiStopwatchScreen(
             ) {
                 items(
                     items = uiState.lanes,
-                    key = { it.laneNumber },
+                    key = { lane -> lane.laneNumber },
                     contentType = { "LaneTimerCard" }
                 ) { lane ->
                     val laneNum = lane.laneNumber
@@ -524,8 +524,7 @@ fun MultiStopwatchScreen(
                 laneNumber = laneNum,
                 swimmers = swimmers,
                 onDismiss = { viewModel.closeAssignSwimmerDialog() },
-                onSelectSwimmer = { swimmer -> viewModel.assignSwimmerToLane(laneNum, swimmer) }
-            )
+            ) { swimmer -> viewModel.assignSwimmerToLane(laneNum, swimmer) }
         }
 
         if (uiState.isStrokeRateDialogVisible) {

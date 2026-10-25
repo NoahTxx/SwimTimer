@@ -92,7 +92,7 @@ fun IntervalConfigDialog(
             color = Color(0xFF101B2B),
             modifier = Modifier
                 .fillMaxWidth()
-                .testTag("interval_config_dialog")
+                .testTag("interval_config_dialog"),
         ) {
             Column(
                 modifier = Modifier

@@ -66,7 +66,7 @@ data class CalculatedSplit(
     val splitDistanceMeters: Int,
     val strokeName: String,
     val lapDurationMillis: Long,
-    val cumulativeTimeMillis: Long
+    val cumulativeTimeMillis: Long,
 )
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -124,7 +124,7 @@ fun SwimPaceCalculatorDialog(
                 val parts = text.split(':')
                 val mins = parts[0].toLongOrNull() ?: 0L
                 val secs = parts.getOrNull(1)?.toDoubleOrNull() ?: 0.0
-                ((mins * 60 + secs) * 1000).toLong()
+                (((mins * 60) + secs) * 1000).toLong()
             } else {
                 val secs = text.toDoubleOrNull() ?: 0.0
                 (secs * 1000).toLong()
@@ -145,7 +145,7 @@ fun SwimPaceCalculatorDialog(
 
             val splits = mutableListOf<CalculatedSplit>()
 
-            if (isLagen && (strategy == PacingStrategy.MEDLEY_DISTRIBUTION || distance >= 100)) {
+            if (isLagen && ((strategy == PacingStrategy.MEDLEY_DISTRIBUTION) || (distance >= 100))) {
                 // Medley Physiological Ratios:
                 // 1. Schmett: 24%, 2. Rücken: 26%, 3. Brust: 27%, 4. Freistil: 23%
                 val ratios = listOf(0.24, 0.26, 0.27, 0.23)
@@ -537,20 +537,20 @@ fun SwimPaceCalculatorDialog(
 
                         HorizontalDivider(color = Color(0xFF152638), modifier = Modifier.padding(bottom = 6.dp))
 
-                        calculatedSplits.forEach { split ->
+                        calculatedSplits.forEach { (_, splitDistanceMeters, strokeName, lapDurationMillis, cumulativeTimeMillis) ->
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "${split.splitDistanceMeters}m",
+                                    text = "${splitDistanceMeters}m",
                                     style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
                                     color = AquaPrimary,
                                     modifier = Modifier.width(55.dp)
                                 )
                                 Text(
-                                    text = split.strokeName,
+                                    text = strokeName,
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         fontWeight = FontWeight.Bold,
                                         color = if (stroke == "Lagen") Color(0xFFFFD600) else Color.LightGray
@@ -559,13 +559,13 @@ fun SwimPaceCalculatorDialog(
                                     maxLines = 1
                                 )
                                 Text(
-                                    text = TimeFormatter.formatMillis(split.lapDurationMillis, shortFormat = true),
+                                    text = TimeFormatter.formatMillis(lapDurationMillis, shortFormat = true),
                                     style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
                                     color = TextWhite,
                                     modifier = Modifier.width(60.dp)
                                 )
                                 Text(
-                                    text = TimeFormatter.formatMillis(split.cumulativeTimeMillis),
+                                    text = TimeFormatter.formatMillis(cumulativeTimeMillis),
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         fontFamily = FontFamily.Monospace,
                                         fontWeight = FontWeight.Bold

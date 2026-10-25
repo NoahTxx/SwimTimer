@@ -66,7 +66,9 @@ fun SwimTimerTheme(
         SideEffect {
             val window = (view.context as? Activity)?.window
             if (window != null) {
+                @Suppress("DEPRECATION")
                 window.statusBarColor = DeepOceanBackground.toArgb()
+                @Suppress("DEPRECATION")
                 window.navigationBarColor = DeepOceanBackground.toArgb()
                 val insetsController = WindowCompat.getInsetsController(window, view)
                 insetsController.isAppearanceLightStatusBars = !darkTheme

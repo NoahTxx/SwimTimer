@@ -570,7 +570,7 @@ private fun SwimmerSessionHistoryCard(
     swimmer: SwimmerEntity,
     dynamicPbs: Map<Pair<String, Int>, Long>
 ) {
-    var isExpanded by remember { mutableStateOf(false) }
+    var isExpanded by remember { mutableStateOf(value = false) }
     val s = sessionWithLaps.session
     val swimmerLaps = remember(sessionWithLaps, swimmer.id) {
         sessionWithLaps.laps

@@ -36,6 +36,7 @@ object TimeFormatter {
      * um negative Werte beim gestaffelten Wellen-Start als "-00:04.85" darzustellen.
      * Gibt die Anzahl geschriebener Zeichen zurück (8 oder 9).
      */
+    @Suppress("unused")
     fun writeSignedMillisToBuffer(signedMillis: Long, buffer: CharArray): Int {
         val isCountdown = signedMillis < 0L
         val absMillis = abs(signedMillis)

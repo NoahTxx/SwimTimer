@@ -107,7 +107,7 @@ fun SwimmersManagementScreen(
         }
     }
 
-    val activeSwimmer = allSwimmers.firstOrNull { it.id == selectedSwimmerId }
+    val activeSwimmer = allSwimmers.firstOrNull { swimmer -> swimmer.id == selectedSwimmerId }
 
     // If an athlete is selected, show their personal history / detail screen
     if (activeSwimmer != null) {
@@ -498,7 +498,7 @@ private fun AddSwimmerDialog(
 ) {
     var name by remember { mutableStateOf("") }
     var stroke by remember { mutableStateOf("Freistil") }
-    var isStrokeDropdownExpanded by remember { mutableStateOf(false) }
+    var isStrokeDropdownExpanded by remember { mutableStateOf(value = false) }
 
     var pb25Text by remember { mutableStateOf("") }
     var pb50Text by remember { mutableStateOf("") }

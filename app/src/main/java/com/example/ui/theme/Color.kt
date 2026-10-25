@@ -15,6 +15,7 @@ val OceanBorder = Color(0xFF264060)
 
 val TextWhite = Color(0xFFF0F6FC)
 val TextSecondary = Color(0xFF90A4AE)
+@Suppress("unused")
 val TextMuted = Color(0xFF607D8B)
 
 // Timing & Pace performance indicators
@@ -22,7 +23,9 @@ val PaceGreen = Color(0xFF00E676)           // Faster than target pace
 val PaceGreenContainer = Color(0xFF003816)
 val PaceRed = Color(0xFFFF1744)             // Slower than target pace
 val PaceRedContainer = Color(0xFF420B13)
+@Suppress("unused")
 val PaceNeutral = Color(0xFFFFD600)         // On pace / yellow accent
+@Suppress("unused")
 val PaceNeutralContainer = Color(0xFF382E00)
 
 

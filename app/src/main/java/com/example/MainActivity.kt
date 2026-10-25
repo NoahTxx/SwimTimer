@@ -130,7 +130,7 @@ fun MainAppContent(viewModel: StopwatchViewModel) {
         Box(
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth()
+                .fillMaxWidth(),
         ) {
             AppScreen.entries.forEach { screen ->
                 val isActive = currentScreen == screen

@@ -73,7 +73,7 @@ data class LaneState(
     val splitDistanceMeters: Int = 50,
     val strokeType: String = "Freistil",
     val spmTapStartRealtime: Long? = null,
-    val currentSpm: Double? = null
+    val currentSpm: Double? = null,
 )
 
 sealed interface UndoAction {
@@ -125,8 +125,9 @@ data class StopwatchUiState(
     // Swim Pace & Split Calculator
     val isPaceCalculatorVisible: Boolean = false
 ) {
+    @Suppress("unused")
     val hasTickingLanes: Boolean
-        get() = lanes.any { (it.status == LaneStatus.RUNNING) || (it.status == LaneStatus.COUNTDOWN) }
+        get() = lanes.any { lane -> lane.status == LaneStatus.RUNNING || lane.status == LaneStatus.COUNTDOWN }
 
     val hasOpenRun: Boolean
         get() = lanes.any { (it.status == LaneStatus.RUNNING) || (it.status == LaneStatus.COUNTDOWN) || (it.status == LaneStatus.PAUSED) }
@@ -444,6 +445,7 @@ class StopwatchViewModel(
      * Startet alle besetzten (oder alle) Bahnen gestaffelt im festen Abstand
      * (z. B. staggerIntervalMillis = 5_000L für +5s Wellen-Start).
      */
+    @Suppress("unused")
     fun startStaggeredWave(staggerIntervalMillis: Long = 5_000L, context: Context? = null) {
         context?.let { HapticUtil.vibrateHeavy(it) }
         SoundUtil.playStartSignal()
@@ -768,6 +770,7 @@ class StopwatchViewModel(
         pushedUndo?.let { pushUndo(it) }
     }
 
+    @Suppress("unused")
     fun onLapAllRunning(context: Context? = null) {
         val now = clock.nowMillis()
         context?.let { HapticUtil.vibrateClick(it) }
@@ -952,6 +955,7 @@ class StopwatchViewModel(
 
     // --- Configuration & Settings ---
 
+    @Suppress("unused")
     fun setLaneCount(count: Int) {
         initializeLanes(count)
     }
@@ -1008,6 +1012,7 @@ class StopwatchViewModel(
         savePreferences()
     }
 
+    @Suppress("unused")
     fun removeLastLane(context: Context? = null) {
         val currentLanes = _uiState.value.lanes
         if (currentLanes.size <= 1) {
@@ -1029,10 +1034,12 @@ class StopwatchViewModel(
         savePreferences()
     }
 
+    @Suppress("unused")
     fun setSelectedFocusedLane(laneNumber: Int) {
         _uiState.update { it.copy(selectedFocusedLane = laneNumber) }
     }
 
+    @Suppress("unused")
     fun setSplitDistance(splitMeters: Int) {
         val currentDist = _uiState.value.targetDistanceMeters
         validateDistances(currentDist, splitMeters)
@@ -1046,6 +1053,7 @@ class StopwatchViewModel(
         savePreferences()
     }
 
+    @Suppress("unused")
     fun setTargetDistance(distance: Int) {
         val enforcedDistance = if (_uiState.value.strokeType == "Lagen" && distance < 100) 100 else distance
         val currentSplit = _uiState.value.splitDistanceMeters
@@ -1062,6 +1070,7 @@ class StopwatchViewModel(
         savePreferences()
     }
 
+    @Suppress("unused")
     fun setStrokeType(stroke: String) {
         val currentDist = _uiState.value.targetDistanceMeters
         val enforcedDist = if (stroke == "Lagen" && currentDist < 100) 100 else currentDist
@@ -1142,6 +1151,7 @@ class StopwatchViewModel(
         ) }
     }
 
+    @Suppress("unused")
     fun openPaceCalculator() {
         _uiState.update { it.copy(isPaceCalculatorVisible = true) }
     }
@@ -1189,6 +1199,7 @@ class StopwatchViewModel(
 
     // --- Stroke Rate Calculator ---
 
+    @Suppress("unused")
     fun openStrokeRateDialog(targetLane: Int? = null) {
         _uiState.update { it.copy(
             isStrokeRateDialogVisible = true,
@@ -1772,13 +1783,11 @@ class StopwatchViewModel(
             }
 
             // Lagen:
-            if (s.strokeType == "Lagen") {
-                if (s.targetDistanceMeters == 100 && finishTime != null && finishTime > 0) {
-                    best100Lagen.let { b -> if (b == null || finishTime < b) best100Lagen = finishTime }
-                } else if (s.targetDistanceMeters == 200 && finishTime != null && finishTime > 0) {
-                    best200Lagen.let { b -> if (b == null || finishTime < b) best200Lagen = finishTime }
-                } else if (s.targetDistanceMeters == 400 && finishTime != null && finishTime > 0) {
-                    best400Lagen.let { b -> if (b == null || finishTime < b) best400Lagen = finishTime }
+            if (s.strokeType == "Lagen" && finishTime != null && finishTime > 0) {
+                when (s.targetDistanceMeters) {
+                    100 -> best100Lagen.let { b -> if (b == null || finishTime < b) best100Lagen = finishTime }
+                    200 -> best200Lagen.let { b -> if (b == null || finishTime < b) best200Lagen = finishTime }
+                    400 -> best400Lagen.let { b -> if (b == null || finishTime < b) best400Lagen = finishTime }
                 }
 
                 val legDist = (s.targetDistanceMeters / 4).coerceAtLeast(1)

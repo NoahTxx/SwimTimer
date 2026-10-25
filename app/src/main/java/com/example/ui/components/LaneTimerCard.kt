@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import android.os.SystemClock
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
@@ -10,7 +11,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -24,10 +24,6 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Pause
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Timer
@@ -44,37 +40,24 @@ import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.withFrameMillis
-import android.os.SystemClock
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.onClick
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.runtime.rememberUpdatedState
-
 import com.example.ui.LaneState
 import com.example.ui.LaneStatus
 import com.example.ui.LapItem
@@ -85,13 +68,8 @@ import com.example.ui.theme.OceanSurface
 import com.example.ui.theme.PaceGreen
 import com.example.ui.theme.PaceRed
 import com.example.ui.theme.TextWhite
-import com.example.ui.theme.PaceNeutral
 import com.example.util.TimeFormatter
-import kotlin.time.Duration.Companion.milliseconds
-
-private val LAGEN_STROKE_NAMES = listOf("1. Schmett", "2. Rücken", "3. Brust", "4. Freistil")
-private val LAGEN_SHORT_NAMES = listOf("Schmett", "Rücken", "Brust", "Freistil")
-private val LAGEN_STROKE_COLORS = listOf(Color(0xFFFF5252), Color(0xFFFFD600), Color(0xFF00E676), Color(0xFF00E5FF))
+import java.util.Locale
 
 @Composable
 fun LaneTimerCard(
@@ -100,14 +78,14 @@ fun LaneTimerCard(
     onFinishClick: (Long) -> Unit,
     onAssignSwimmerClick: () -> Unit,
     onTargetPaceClick: () -> Unit,
+    modifier: Modifier = Modifier,
     onRemoveLaneClick: (() -> Unit)? = null,
     onStartSingleLaneClick: (() -> Unit)? = null,
     onPauseClick: (() -> Unit)? = null,
     onResumeClick: (() -> Unit)? = null,
     onStrokeRateTap: (() -> Unit)? = null,
-    modifier: Modifier = Modifier,
 ) {
-    var isExpanded by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(value = false) }
+    var isExpanded by rememberSaveable { mutableStateOf(false) }
 
     val laneAccentColor = remember(lane.laneNumber) {
         LaneColors.getOrElse((lane.laneNumber - 1) % LaneColors.size) { AquaPrimary }
@@ -139,7 +117,6 @@ fun LaneTimerCard(
                 laneNumber = lane.laneNumber,
                 swimmerName = lane.swimmerName,
                 status = lane.status,
-                countdownRemainingSeconds = lane.countdownRemainingSeconds,
                 targetLapMillis = lane.targetLapMillis,
                 laneAccentColor = laneAccentColor,
                 onAssignSwimmerClick = onAssignSwimmerClick,
@@ -154,17 +131,13 @@ fun LaneTimerCard(
                 countdownRemainingSeconds = lane.countdownRemainingSeconds,
                 pausedElapsedMillis = lane.currentElapsedMillis,
                 laneStartTimeRealtime = lane.laneStartTimeRealtime,
-                finishTimeMillis = lane.finishTimeMillis,
-                laneNumber = lane.laneNumber
+                finishTimeMillis = lane.finishTimeMillis
             )
 
             LaneProgressAndLaps(
-                status = lane.status,
                 targetDistanceMeters = lane.targetDistanceMeters,
                 splitDistanceMeters = lane.splitDistanceMeters,
                 strokeType = lane.strokeType,
-                finishTimeMillis = lane.finishTimeMillis,
-                laneStartTimeRealtime = lane.laneStartTimeRealtime,
                 laps = lane.laps,
                 isExpanded = isExpanded,
                 onExpandClick = { isExpanded = !isExpanded }
@@ -174,23 +147,19 @@ fun LaneTimerCard(
 
             LaneControls(
                 status = lane.status,
-                laneNumber = lane.laneNumber,
                 onLapClick = onLapClick,
                 onFinishClick = onFinishClick,
                 onPauseClick = onPauseClick,
                 onResumeClick = onResumeClick,
                 onStartSingleLaneClick = onStartSingleLaneClick,
                 onStrokeRateTap = onStrokeRateTap,
-                currentSpm = lane.currentSpm,
-                spmTapStartRealtime = lane.spmTapStartRealtime
+                currentSpm = lane.currentSpm
             )
 
             LaneLapsHistory(
                 isExpanded = isExpanded,
                 laps = lane.laps,
-                splitDistanceMeters = lane.splitDistanceMeters,
-                targetDistanceMeters = lane.targetDistanceMeters,
-                strokeType = lane.strokeType
+                splitDistanceMeters = lane.splitDistanceMeters
             )
         }
     }
@@ -201,160 +170,102 @@ private fun LaneHeader(
     laneNumber: Int,
     swimmerName: String,
     status: LaneStatus,
-    countdownRemainingSeconds: Int,
     targetLapMillis: Long?,
     laneAccentColor: Color,
     onAssignSwimmerClick: () -> Unit,
     onTargetPaceClick: () -> Unit,
     onRemoveLaneClick: (() -> Unit)?
 ) {
-    // Header Row: Lane Badge, Swimmer Name, Settings Chips
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .weight(1f, fill = false)
-                .clickable { onAssignSwimmerClick() }
-                .padding(vertical = 4.dp)
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Lane Badge
             Surface(
-                shape = CircleShape,
                 color = laneAccentColor,
+                shape = CircleShape,
                 modifier = Modifier.size(32.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
-                        text = laneNumber.toString(),
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Black,
-                            fontSize = 17.sp
-                        ),
+                        text = "B$laneNumber",
+                        fontWeight = FontWeight.Bold,
                         color = Color.Black,
+                        fontSize = 13.sp,
                         maxLines = 1
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.width(8.dp))
 
-            Column(modifier = Modifier.weight(1f, fill = false)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = swimmerName,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 17.sp
-                        ),
-                        color = TextWhite,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "Schwimmer zuweisen",
-                        tint = Color.Gray,
-                        modifier = Modifier.size(15.dp)
-                    )
-                }
-
-                // Status subtitle
-                val statusLabel = when (status) {
-                    LaneStatus.IDLE -> "Bereit"
-                    LaneStatus.COUNTDOWN -> "Start in ${countdownRemainingSeconds}s"
-                    LaneStatus.RUNNING -> "Aktiv"
-                    LaneStatus.PAUSED -> "Pausiert"
-                    LaneStatus.FINISHED -> "Ziel erreicht"
-                }
-                val statusColor = when (status) {
-                    LaneStatus.IDLE -> Color.LightGray
-                    LaneStatus.COUNTDOWN -> Color(0xFFFFD600)
-                    LaneStatus.RUNNING -> PaceGreen
-                    LaneStatus.PAUSED -> Color(0xFFF57C00)
-                    LaneStatus.FINISHED -> Color.Gray
-                }
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onAssignSwimmerClick() },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = "Schwimmer zuweisen",
+                    tint = TextWhite.copy(alpha = 0.7f),
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = statusLabel,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = statusColor,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1
+                    text = swimmerName,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = TextWhite,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
 
-        Spacer(modifier = Modifier.width(6.dp))
-
-        // Action chips: Target Pace & Delete Action
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // Target Pace Chip
             SuggestionChip(
                 onClick = onTargetPaceClick,
                 label = {
                     Text(
-                        text = if (targetLapMillis != null) {
-                            "Soll: ${TimeFormatter.formatMillis(targetLapMillis, shortFormat = true)}"
-                        } else "Soll-Pace",
+                        text = if (targetLapMillis != null && targetLapMillis > 0) {
+                            "Ziel: ${TimeFormatter.formatForInput(targetLapMillis)}"
+                        } else {
+                            "Zielpace"
+                        },
                         fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 },
                 colors = SuggestionChipDefaults.suggestionChipColors(
-                    containerColor = if (targetLapMillis != null) Color(0xFF193248) else Color(0xFF132030),
-                    labelColor = if (targetLapMillis != null) AquaPrimary else Color.LightGray
+                    containerColor = OceanSurface,
+                    labelColor = AquaPrimary
                 ),
-                border = BorderStroke(0.5.dp, Color(0xFF2C4360)),
-                modifier = Modifier.height(28.dp)
+                border = SuggestionChipDefaults.suggestionChipBorder(
+                    enabled = true,
+                    borderColor = AquaPrimary.copy(alpha = 0.5f)
+                )
             )
 
-            // Remove Lane Button (Individual box remove)
-            if (onRemoveLaneClick != null) {
-                Spacer(modifier = Modifier.width(4.dp))
+            if (onRemoveLaneClick != null && (status == LaneStatus.IDLE || status == LaneStatus.FINISHED)) {
                 IconButton(
                     onClick = onRemoveLaneClick,
-                    modifier = Modifier
-                        .size(32.dp)
-                        .testTag("remove_lane_button_$laneNumber")
+                    modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "Bahn $laneNumber entfernen",
-                        tint = Color(0xFFFF5252).copy(alpha = 0.85f),
-                        modifier = Modifier.size(18.dp)
+                        contentDescription = "Bahn entfernen",
+                        tint = TextWhite.copy(alpha = 0.6f)
                     )
                 }
             }
         }
     }
-}
-
-@Composable
-fun RunningTime(startRealtime: Long, style: TextStyle, color: Color, modifier: Modifier = Modifier) {
-    val measurer = rememberTextMeasurer(cacheSize = 64)
-    val now = remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
-    LaunchedEffect(startRealtime) {
-        while (true) withFrameMillis { now.longValue = SystemClock.elapsedRealtime() }
-    }
-    val charBuffer = remember { CharArray(9) }
-    val box = remember(style) { measurer.measure("-00:00.00", style).size }
-    val density = LocalDensity.current
-    Spacer(
-        modifier
-            .size(with(density) { DpSize(box.width.toDp(), box.height.toDp()) })
-            .drawBehind {
-                val elapsed = now.longValue - startRealtime
-                val len = TimeFormatter.writeSignedMillisToBuffer(elapsed, charBuffer)
-                val text = String(charBuffer, 0, len)
-                val textColor = if (elapsed < 0L) Color(0xFFFFD600) else color
-                drawText(measurer, text, style = style.copy(color = textColor))
-            }
-    )
 }
 
 @Composable
@@ -363,184 +274,135 @@ private fun DigitalTimerDisplay(
     countdownRemainingSeconds: Int,
     pausedElapsedMillis: Long,
     laneStartTimeRealtime: Long?,
-    finishTimeMillis: Long?,
-    laneNumber: Int
+    finishTimeMillis: Long?
 ) {
-    val textStyle = MaterialTheme.typography.displayLarge.copy(
-        fontFamily = FontFamily.Monospace,
-        fontSize = 38.sp,
-        fontWeight = FontWeight.Black,
-        letterSpacing = (-0.5).sp
-    )
+    var currentTimeRealtime by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
+
+    LaunchedEffect(status, laneStartTimeRealtime) {
+        if (status == LaneStatus.RUNNING && laneStartTimeRealtime != null) {
+            while (true) {
+                withFrameMillis {
+                    currentTimeRealtime = SystemClock.elapsedRealtime()
+                }
+            }
+        }
+    }
+
+    val displayMillis = when (status) {
+        LaneStatus.RUNNING -> {
+            if (laneStartTimeRealtime != null) {
+                (currentTimeRealtime - laneStartTimeRealtime).coerceAtLeast(0L)
+            } else 0L
+        }
+        LaneStatus.PAUSED -> pausedElapsedMillis
+        LaneStatus.FINISHED -> finishTimeMillis ?: pausedElapsedMillis
+        LaneStatus.COUNTDOWN -> -(countdownRemainingSeconds * 1000L)
+        LaneStatus.IDLE -> 0L
+    }
+
+    val displayColor = when (status) {
+        LaneStatus.RUNNING -> TextWhite
+        LaneStatus.PAUSED -> Color(0xFFFFB74D)
+        LaneStatus.COUNTDOWN -> Color(0xFFFFD600)
+        LaneStatus.FINISHED -> AquaPrimary
+        LaneStatus.IDLE -> TextWhite.copy(alpha = 0.5f)
+    }
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 2.dp)
-            .testTag("timer_text_lane_$laneNumber"),
+            .background(Color(0xFF0A141D), shape = RoundedCornerShape(12.dp))
+            .padding(vertical = 10.dp, horizontal = 16.dp),
         contentAlignment = Alignment.Center
     ) {
-        if ((status == LaneStatus.RUNNING) && (laneStartTimeRealtime != null)) {
-            RunningTime(
-                startRealtime = laneStartTimeRealtime,
-                style = textStyle,
-                color = TextWhite
-            )
-        } else {
-            val displayTime = when (status) {
-                LaneStatus.IDLE -> "00:00.00"
-                LaneStatus.COUNTDOWN -> "in ${countdownRemainingSeconds}s"
-                LaneStatus.PAUSED -> TimeFormatter.formatMillis(pausedElapsedMillis)
-                LaneStatus.FINISHED -> TimeFormatter.formatMillis(finishTimeMillis ?: pausedElapsedMillis)
-                else -> "00:00.00"
-            }
-            Text(
-                text = displayTime,
-                style = textStyle,
-                textAlign = TextAlign.Center,
-                color = when (status) {
-                    LaneStatus.COUNTDOWN -> Color(0xFFFFD600)
-                    LaneStatus.FINISHED -> Color(0xFFB0BEC5)
-                    LaneStatus.PAUSED -> Color(0xFFFFCC80)
-                    else -> TextWhite
-                },
-                maxLines = 1
-            )
-        }
+        Text(
+            text = if (status == LaneStatus.COUNTDOWN) {
+                "-${TimeFormatter.formatSeconds(countdownRemainingSeconds.toLong())}"
+            } else {
+                TimeFormatter.formatMillis(displayMillis)
+            },
+            fontFamily = FontFamily.Monospace,
+            fontSize = 38.sp,
+            fontWeight = FontWeight.Bold,
+            color = displayColor,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
 @Composable
 private fun LaneProgressAndLaps(
-    status: LaneStatus,
     targetDistanceMeters: Int,
     splitDistanceMeters: Int,
     strokeType: String,
-    finishTimeMillis: Long?,
-    laneStartTimeRealtime: Long?,
     laps: List<LapItem>,
     isExpanded: Boolean,
     onExpandClick: () -> Unit
 ) {
-    var restSecondsState by remember(status, finishTimeMillis, laneStartTimeRealtime) {
-        mutableLongStateOf(
-            if ((status == LaneStatus.FINISHED) && (finishTimeMillis != null) && (laneStartTimeRealtime != null)) {
-                val now = SystemClock.elapsedRealtime()
-                ((now - laneStartTimeRealtime).coerceAtLeast(0L) - finishTimeMillis).coerceAtLeast(0L) / 1000L
-            } else 0L
-        )
-    }
-
-    LaunchedEffect(status, finishTimeMillis, laneStartTimeRealtime) {
-        if ((status == LaneStatus.FINISHED) && (finishTimeMillis != null) && (laneStartTimeRealtime != null)) {
-            while (true) {
-                val now = SystemClock.elapsedRealtime()
-                val totalElapsed = (now - laneStartTimeRealtime).coerceAtLeast(0L)
-                val restMillis = (totalElapsed - finishTimeMillis).coerceAtLeast(0L)
-                restSecondsState = restMillis / 1000L
-                kotlinx.coroutines.delay(200.milliseconds)
-            }
-        }
-    }
-
-    val totalSplitsNeeded = (targetDistanceMeters / splitDistanceMeters).coerceAtLeast(1)
-    val currentLapNumber = (laps.size + 1).coerceAtMost(totalSplitsNeeded)
-    val nextSplitDistance = (currentLapNumber * splitDistanceMeters).coerceAtMost(targetDistanceMeters)
-    val isLagen = strokeType.equals("Lagen", ignoreCase = true)
-    val lagenLegLength = (targetDistanceMeters / 4).coerceAtLeast(1)
-    val currentLagenLegIndex = (((currentLapNumber - 1) * splitDistanceMeters) / lagenLegLength).coerceIn(0, 3)
+    val completedDistance = laps.size * splitDistanceMeters
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .padding(top = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        // Split distance progress label + Lagen leg
         Row(
+            modifier = Modifier.weight(1f),
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.weight(1f, fill = false)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            if (isLagen && status == LaneStatus.RUNNING) {
-                val color = LAGEN_STROKE_COLORS[currentLagenLegIndex]
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = color.copy(alpha = 0.18f),
-                    border = BorderStroke(1.dp, color),
-                    modifier = Modifier.padding(end = 6.dp)
-                ) {
-                    Text(
-                        text = LAGEN_STROKE_NAMES[currentLagenLegIndex],
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = color,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                        maxLines = 1
-                    )
-                }
-            }
-
-            val progressText = when {
-                status == LaneStatus.FINISHED -> {
-                    "Ziel erreicht • Pause: ${TimeFormatter.formatSeconds(restSecondsState)}"
-                }
-                status == LaneStatus.RUNNING || status == LaneStatus.PAUSED -> {
-                    if (currentLapNumber >= totalSplitsNeeded) {
-                        "Ziel ${targetDistanceMeters}m ($currentLapNumber/$totalSplitsNeeded)"
-                    } else {
-                        "${nextSplitDistance}m ($currentLapNumber/$totalSplitsNeeded)"
-                    }
-                }
-                else -> "${targetDistanceMeters}m • alle ${splitDistanceMeters}m"
-            }
-
-            Text(
-                text = progressText,
-                style = MaterialTheme.typography.labelSmall,
-                color = if (status == LaneStatus.RUNNING || status == LaneStatus.PAUSED) AquaPrimary else Color.LightGray,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-
-        // Last Lap badge if laps exist
-        if (laps.isNotEmpty()) {
-            val lastLap = laps.last()
-            Spacer(modifier = Modifier.width(6.dp))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .clickable { onExpandClick() }
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(Color(0xFF132030))
-                    .padding(horizontal = 6.dp, vertical = 2.dp)
+            Surface(
+                color = OceanSurface,
+                shape = RoundedCornerShape(8.dp),
+                border = BorderStroke(1.dp, OceanBorder)
             ) {
                 Text(
-                    text = "L${lastLap.lapIndex}: ${TimeFormatter.formatMillis(lastLap.lapTimeMillis, shortFormat = true)}",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold
-                    ),
-                    color = TextWhite,
+                    text = "${completedDistance}m / ${targetDistanceMeters}m",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = AquaPrimary,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Surface(
+                color = OceanSurface,
+                shape = RoundedCornerShape(8.dp),
+                border = BorderStroke(1.dp, OceanBorder)
+            ) {
+                Text(
+                    text = strokeType,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = TextWhite.copy(alpha = 0.8f),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+
+        if (laps.isNotEmpty()) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.clickable { onExpandClick() }
+            ) {
+                Text(
+                    text = "${laps.size} Laps",
+                    fontSize = 12.sp,
+                    color = TextWhite.copy(alpha = 0.7f),
                     maxLines = 1
                 )
-                if (lastLap.deltaTargetMillis != null) {
-                    Spacer(modifier = Modifier.width(4.dp))
-                    val isFaster = lastLap.deltaTargetMillis <= 0
-                    Text(
-                        text = TimeFormatter.formatDelta(lastLap.deltaTargetMillis),
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = if (isFaster) PaceGreen else PaceRed,
-                        maxLines = 1
-                    )
-                }
-                Spacer(modifier = Modifier.width(2.dp))
                 Icon(
                     imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = "Details",
-                    tint = Color.LightGray,
-                    modifier = Modifier.size(14.dp)
+                    contentDescription = if (isExpanded) "Einklappen" else "Ausklappen",
+                    tint = TextWhite.copy(alpha = 0.7f)
                 )
             }
         }
@@ -550,320 +412,133 @@ private fun LaneProgressAndLaps(
 @Composable
 private fun LaneControls(
     status: LaneStatus,
-    laneNumber: Int,
     onLapClick: (Long) -> Unit,
     onFinishClick: (Long) -> Unit,
     onPauseClick: (() -> Unit)?,
     onResumeClick: (() -> Unit)?,
     onStartSingleLaneClick: (() -> Unit)?,
-    onStrokeRateTap: (() -> Unit)? = null,
-    currentSpm: Double? = null,
-    spmTapStartRealtime: Long? = null
+    onStrokeRateTap: (() -> Unit)?,
+    currentSpm: Double?
 ) {
-    if (status == LaneStatus.RUNNING) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            // SPM Live Tap Button
-            if (onStrokeRateTap != null) {
-                val isTapping = spmTapStartRealtime != null
-                Surface(
-                    onClick = onStrokeRateTap,
-                    shape = RoundedCornerShape(14.dp),
-                    color = if (isTapping) Color(0xFFFFD600) else Color(0xFF1E3A5F),
-                    modifier = Modifier
-                        .weight(1.1f)
-                        .height(60.dp)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        when (status) {
+            LaneStatus.IDLE -> {
+                if (onStartSingleLaneClick != null) {
+                    FilledTonalButton(
+                        onClick = onStartSingleLaneClick,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.filledTonalButtonColors(containerColor = AquaPrimary, contentColor = Color.Black)
+                    ) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Einzelstart", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+            LaneStatus.RUNNING -> {
+                FilledTonalButton(
+                    onClick = { onLapClick(SystemClock.elapsedRealtime()) },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.filledTonalButtonColors(containerColor = AquaPrimary, contentColor = Color.Black)
                 ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier.fillMaxSize()
+                    Icon(Icons.Default.Timer, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Split", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+
+                FilledTonalButton(
+                    onClick = { onFinishClick(SystemClock.elapsedRealtime()) },
+                    colors = ButtonDefaults.filledTonalButtonColors(containerColor = Color(0xFFEF5350), contentColor = Color.White)
+                ) {
+                    Icon(Icons.Default.Flag, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Ziel", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+
+                if (onPauseClick != null) {
+                    IconButton(
+                        onClick = onPauseClick,
+                        modifier = Modifier
+                            .background(OceanBorder, CircleShape)
+                            .size(40.dp)
+                    ) {
+                        Icon(Icons.Default.Pause, contentDescription = "Pause", tint = TextWhite)
+                    }
+                }
+
+                if (onStrokeRateTap != null) {
+                    FilledTonalButton(
+                        onClick = onStrokeRateTap,
+                        colors = ButtonDefaults.filledTonalButtonColors(containerColor = Color(0xFF00B0FF), contentColor = Color.Black)
                     ) {
                         Text(
-                            text = when {
-                                isTapping -> "3 Züge"
-                                currentSpm != null -> "${currentSpm.toInt()} SPM"
-                                else -> "SPM"
-                            },
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp
-                            ),
-                            color = if (isTapping) Color.Black else TextWhite,
+                            text = if (currentSpm != null && currentSpm > 0) {
+                                String.format(Locale.US, "%.0f SPM", currentSpm)
+                            } else "SPM",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
                             maxLines = 1,
-                            softWrap = false
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
             }
-
-            // LAP / SPLIT Button
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = AquaPrimary,
-                modifier = Modifier
-                    .weight(1.6f)
-                    .height(60.dp)
-                    .testTag("lap_button_lane_$laneNumber")
-                    .preciseTimingTap(
-                        label = "Zwischenzeit auf Bahn $laneNumber",
-                        onAcceptedTap = onLapClick
-                    )
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Timer,
-                        contentDescription = null,
-                        tint = Color.Black,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "LAP",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Black,
-                            fontSize = 15.sp
-                        ),
-                        color = Color.Black,
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                }
-            }
-
-            // PAUSE Button
-            if (onPauseClick != null) {
-                Surface(
-                    onClick = onPauseClick,
-                    shape = RoundedCornerShape(14.dp),
-                    color = Color(0xFFF57C00),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(60.dp)
-                ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier.fillMaxSize()
+            LaneStatus.PAUSED -> {
+                if (onResumeClick != null) {
+                    FilledTonalButton(
+                        onClick = onResumeClick,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.filledTonalButtonColors(containerColor = Color(0xFFFFA726), contentColor = Color.Black)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Pause,
-                            contentDescription = "Pause",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Weiter", maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
-            }
 
-            // FINISH Button
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = Color(0xFFD32F2F),
-                modifier = Modifier
-                    .weight(1.2f)
-                    .height(60.dp)
-                    .testTag("finish_button_lane_$laneNumber")
-                    .preciseTimingTap(
-                        label = "Ziel auf Bahn $laneNumber",
-                        onAcceptedTap = onFinishClick
-                    )
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.fillMaxSize()
+                FilledTonalButton(
+                    onClick = { onFinishClick(SystemClock.elapsedRealtime()) },
+                    colors = ButtonDefaults.filledTonalButtonColors(containerColor = Color(0xFFEF5350), contentColor = Color.White)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Flag,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(19.dp)
-                    )
+                    Icon(Icons.Default.Flag, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "ZIEL",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Black,
-                            fontSize = 15.sp
-                        ),
-                        color = Color.White,
-                        maxLines = 1,
-                        softWrap = false
-                    )
+                    Text("Ziel", maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
-        }
-    } else if (status == LaneStatus.PAUSED) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            // RESUME Button
-            if (onResumeClick != null) {
-                Surface(
-                    onClick = onResumeClick,
-                    shape = RoundedCornerShape(14.dp),
-                    color = PaceGreen,
-                    modifier = Modifier
-                        .weight(1.8f)
-                        .height(60.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.PlayArrow,
-                            contentDescription = null,
-                            tint = Color.Black,
-                            modifier = Modifier.size(22.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "WEITER",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Black,
-                                fontSize = 15.sp
-                            ),
-                            color = Color.Black,
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                    }
-                }
-            }
-
-            // FINISH Button
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = Color(0xFFD32F2F),
-                modifier = Modifier
-                    .weight(1.2f)
-                    .height(60.dp)
-                    .preciseTimingTap(
-                        label = "Ziel auf Bahn $laneNumber",
-                        onAcceptedTap = onFinishClick
-                    )
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Flag,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(19.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "ZIEL",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Black,
-                            fontSize = 15.sp
-                        ),
-                        color = Color.White,
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                }
-            }
-        }
-    } else if (status == LaneStatus.COUNTDOWN) {
-        Surface(
-            shape = RoundedCornerShape(14.dp),
-            color = Color(0xFF1B2C3F),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-        ) {
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+            LaneStatus.COUNTDOWN -> {
                 Text(
-                    text = "STARTET GLEICH...",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = PaceNeutral
+                    text = "Startet in Kürze...",
+                    color = Color(0xFFFFD600),
+                    fontSize = 13.sp,
+                    modifier = Modifier.weight(1f),
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
-        }
-    } else {
-        // IDLE or FINISHED State -> Allow Einzelstart / Intervall Re-Start
-        if (onStartSingleLaneClick != null) {
-            val isFinished = status == LaneStatus.FINISHED
-            var enableRestart by remember(isFinished) { mutableStateOf(!isFinished) }
-            LaunchedEffect(isFinished) {
-                if (isFinished) {
-                    kotlinx.coroutines.delay(1500.milliseconds)
-                    enableRestart = true
-                }
-            }
-            
-            Surface(
-                onClick = onStartSingleLaneClick,
-                enabled = enableRestart,
-                shape = RoundedCornerShape(14.dp),
-                color = if (enableRestart) PaceGreen else Color(0xFF1B2C3F),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
-                    .testTag("restart_lane_button_$laneNumber")
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = null,
-                        tint = Color.Black,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
+            LaneStatus.FINISHED -> {
+                if (onStartSingleLaneClick != null) {
+                    FilledTonalButton(
+                        onClick = onStartSingleLaneClick,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.filledTonalButtonColors(containerColor = OceanBorder, contentColor = TextWhite)
+                    ) {
+                        Text("Neustart", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                } else {
                     Text(
-                        text = if (isFinished) "NEU STARTEN" else "START (BAHN $laneNumber)",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Black,
-                            fontSize = 15.sp
-                        ),
-                        color = Color.Black,
+                        text = "Ziel erreicht",
+                        color = AquaPrimary,
+                        fontSize = 13.sp,
+                        modifier = Modifier.weight(1f),
+                        textAlign = TextAlign.Center,
                         maxLines = 1,
-                        softWrap = false
+                        overflow = TextOverflow.Ellipsis
                     )
-                }
-            }
-        } else {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = Color(0xFF1B2C3F),
-                    modifier = Modifier
-                        .weight(1.8f)
-                        .height(60.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                        Text("SPLIT / LAP", color = Color.DarkGray, fontWeight = FontWeight.Bold)
-                    }
-                }
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = Color(0xFF1B2C3F),
-                    modifier = Modifier
-                        .weight(1.2f)
-                        .height(60.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                        Text("ZIEL", color = Color.DarkGray, fontWeight = FontWeight.Bold)
-                    }
                 }
             }
         }
@@ -874,154 +549,71 @@ private fun LaneControls(
 private fun LaneLapsHistory(
     isExpanded: Boolean,
     laps: List<LapItem>,
-    splitDistanceMeters: Int,
-    targetDistanceMeters: Int,
-    strokeType: String
+    splitDistanceMeters: Int
 ) {
     AnimatedVisibility(visible = isExpanded && laps.isNotEmpty()) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 10.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFF0C1623))
-                .padding(10.dp)
         ) {
-            Text(
-                text = "Zwischenzeiten (Splits alle ${splitDistanceMeters}m):",
-                style = MaterialTheme.typography.labelSmall,
-                color = AquaPrimary,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1
+            HorizontalDivider(
+                modifier = Modifier.padding(bottom = 8.dp),
+                color = OceanBorder
             )
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Column Titles
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text("Lap", style = MaterialTheme.typography.labelSmall, color = Color.Gray, modifier = Modifier.width(36.dp), maxLines = 1)
-                Text("Split", style = MaterialTheme.typography.labelSmall, color = Color.Gray, modifier = Modifier.width(70.dp), maxLines = 1)
-                Text("Runde", style = MaterialTheme.typography.labelSmall, color = Color.Gray, modifier = Modifier.width(60.dp), maxLines = 1)
-                Text("Pace / Abw.", style = MaterialTheme.typography.labelSmall, color = Color.Gray, maxLines = 1)
-            }
-
-            HorizontalDivider(color = Color(0xFF1E2D40), modifier = Modifier.padding(bottom = 4.dp))
-
-            val isLagen = strokeType.equals("Lagen", ignoreCase = true)
-            val lagenLegLength = (targetDistanceMeters / 4).coerceAtLeast(1)
 
             laps.forEach { lap ->
-                val lapLagenStroke = if (isLagen) {
-                    val legIdx = (((lap.lapIndex - 1) * splitDistanceMeters) / lagenLegLength).coerceIn(0, 3)
-                    LAGEN_SHORT_NAMES[legIdx]
-                } else null
-
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 3.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
+                    Text(
+                        text = "Lap ${lap.lapIndex} (${lap.lapIndex * splitDistanceMeters}m)",
+                        fontSize = 12.sp,
+                        color = TextWhite.copy(alpha = 0.7f),
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.width(62.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            text = "L${lap.lapIndex}",
-                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                            color = AquaPrimary,
-                            maxLines = 1
-                        )
-                        if (lapLagenStroke != null) {
-                            Spacer(modifier = Modifier.width(3.dp))
+                        if (lap.strokeRateSpm != null && lap.strokeRateSpm > 0) {
                             Text(
-                                text = lapLagenStroke,
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                                color = Color.LightGray,
-                                maxLines = 1
-                            )
-                        }
-                    }
-                    Text(
-                        text = TimeFormatter.formatMillis(lap.splitTimeMillis),
-                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                        color = TextWhite,
-                        modifier = Modifier.width(70.dp),
-                        maxLines = 1
-                    )
-                    Text(
-                        text = TimeFormatter.formatMillis(lap.lapTimeMillis, shortFormat = true),
-                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                        color = Color.LightGray,
-                        modifier = Modifier.width(60.dp),
-                        maxLines = 1
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (lap.deltaTargetMillis != null) {
-                            val isFaster = lap.deltaTargetMillis <= 0
-                            Text(
-                                text = TimeFormatter.formatDelta(lap.deltaTargetMillis),
-                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                                color = if (isFaster) PaceGreen else PaceRed,
-                                maxLines = 1
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                        }
-                        if (lap.strokeRateSpm != null) {
-                            Text(
-                                text = "%.0f SPM".format(lap.strokeRateSpm),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color(0xFFFFD600),
-                                maxLines = 1
-                            )
-                        } else if (lap.deltaTargetMillis == null) {
-                            Text(
-                                text = TimeFormatter.formatPacePer100m(lap.lapTimeMillis, splitDistanceMeters),
-                                style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
+                                text = String.format(Locale.US, "%.0f SPM", lap.strokeRateSpm),
+                                fontSize = 11.sp,
                                 color = AquaPrimary,
                                 maxLines = 1
                             )
                         }
+
+                        if (lap.deltaTargetMillis != null) {
+                            val deltaColor = if (lap.deltaTargetMillis <= 0) PaceGreen else PaceRed
+                            Text(
+                                text = TimeFormatter.formatDelta(lap.deltaTargetMillis),
+                                fontSize = 11.sp,
+                                color = deltaColor,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1
+                            )
+                        }
+
+                        Text(
+                            text = TimeFormatter.formatMillis(lap.lapTimeMillis),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextWhite,
+                            fontFamily = FontFamily.Monospace,
+                            maxLines = 1
+                        )
                     }
                 }
             }
         }
     }
-}
-
-@Composable
-fun Modifier.preciseTimingTap(
-    label: String,
-    onAcceptedTap: (Long) -> Unit
-): Modifier {
-    val latestOnTap by rememberUpdatedState(onAcceptedTap)
-
-    return this
-        .semantics {
-            role = Role.Button
-            onClick(label = label) {
-                latestOnTap(SystemClock.elapsedRealtime())
-                true
-            }
-        }
-        .pointerInput(Unit) {
-            awaitEachGesture {
-                val down = awaitFirstDown(requireUnconsumed = true)
-
-                val capturedAt = SystemClock.elapsedRealtime() -
-                    (SystemClock.uptimeMillis() - down.uptimeMillis)
-
-                val up = waitForUpOrCancellation()
-
-                if (up != null) {
-                    up.consume()
-                    latestOnTap(capturedAt)
-                }
-            }
-        }
 }

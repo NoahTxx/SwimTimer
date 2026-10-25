@@ -13,7 +13,7 @@ import java.io.FileOutputStream
 object ExportHelper {
 
     fun generateTextSummary(sessionWithLaps: SessionWithLaps): String {
-        val (s, _) = sessionWithLaps
+        val s = sessionWithLaps.session
         val sb = StringBuilder()
         sb.append("SWIMTIMER - TRAININGSBERICHT\n")
         sb.append("----------------------------------------\n")
@@ -45,7 +45,7 @@ object ExportHelper {
                     " [Pace: ${TimeFormatter.formatDelta(lap.deltaTargetMillis)}]"
                 } else ""
                 val sr = if (lap.strokeRateSpm != null) {
-                    " (Takt: %.1f SPM)".format(lap.strokeRateSpm)
+                    String.format(java.util.Locale.GERMANY, " (Takt: %.1f SPM)", lap.strokeRateSpm)
                 } else ""
                 sb.append("  • Lap ${lap.lapIndex}$strokeTag: Split ${TimeFormatter.formatMillis(lap.splitTimeMillis)} | Runde: ${TimeFormatter.formatMillis(lap.lapTimeMillis)}$paceDelta$sr\n")
             }

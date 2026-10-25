@@ -42,7 +42,7 @@ fun AssignSwimmerDialog(
     laneNumber: Int,
     swimmers: List<SwimmerEntity>,
     onDismiss: () -> Unit,
-    onSelectSwimmer: (SwimmerEntity?) -> Unit
+    onSelectSwimmer: (SwimmerEntity?) -> Unit,
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -119,7 +119,7 @@ fun AssignSwimmerDialog(
                     LazyColumn(
                         modifier = Modifier.height(260.dp)
                     ) {
-                        items(swimmers, key = { it.id }) { swimmer ->
+                        items(swimmers, key = { swimmer -> swimmer.id }) { swimmer ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -161,9 +161,9 @@ fun AssignSwimmerDialog(
                                     }
                                 }
 
-                                if (swimmer.pb50mMillis != null) {
+                                swimmer.pb50mMillis?.let { pb50m ->
                                     Text(
-                                        text = "PB: ${TimeFormatter.formatMillis(swimmer.pb50mMillis, shortFormat = true)}",
+                                        text = "PB: ${TimeFormatter.formatMillis(pb50m, shortFormat = true)}",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = AquaPrimary,
                                         maxLines = 1

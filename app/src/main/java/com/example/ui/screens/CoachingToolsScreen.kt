@@ -60,7 +60,7 @@ fun CoachingToolsScreen(
         modifier = modifier
             .fillMaxSize()
             .background(DeepOceanBackground)
-            .padding(horizontal = 14.dp, vertical = 8.dp)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
     ) {
         // Top Tool Selector Tabs
         Row(

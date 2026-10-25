@@ -34,19 +34,19 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.example.data.model.SwimmerEntity
 import com.example.ui.theme.AquaPrimary
 import com.example.ui.theme.PaceGreen
 import com.example.ui.theme.TextWhite
 import com.example.util.TimeFormatter
-
-import com.example.data.model.SwimmerEntity
+import java.util.Locale
 
 @Composable
 fun TargetPaceDialog(
     laneNumber: Int,
     currentPaceMillis: Long?,
     assignedSwimmer: SwimmerEntity? = null,
-    targetDistanceMeters: Int = 100,
+    @Suppress("UNUSED_PARAMETER") targetDistanceMeters: Int = 100,
     splitDistanceMeters: Int = 50,
     strokeType: String = "Freistil",
     onDismiss: () -> Unit,
@@ -55,7 +55,7 @@ fun TargetPaceDialog(
     var inputSeconds by remember {
         mutableStateOf(
             if (currentPaceMillis != null) {
-                String.format(java.util.Locale.US, "%.2f", currentPaceMillis / 1000.0)
+                String.format(Locale.US, "%.2f", currentPaceMillis / 1000.0)
             } else "",
         )
     }
@@ -142,9 +142,9 @@ fun TargetPaceDialog(
                     ) {
                         // GA1 Chip
                         FilterChip(
-                            selected = inputSeconds == String.format(java.util.Locale.US, "%.2f", ga1Sec),
-                            onClick = { inputSeconds = String.format(java.util.Locale.US, "%.2f", ga1Sec) },
-                            label = { Text("GA1 (%.1fs)".format(ga1Sec)) },
+                            selected = inputSeconds == String.format(Locale.US, "%.2f", ga1Sec),
+                            onClick = { inputSeconds = String.format(Locale.US, "%.2f", ga1Sec) },
+                            label = { Text(String.format(Locale.GERMANY, "GA1 (%.1fs)", ga1Sec)) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = Color(0xFF00E676),
                                 selectedLabelColor = Color.Black
@@ -153,9 +153,9 @@ fun TargetPaceDialog(
                         )
                         // GA2 Chip
                         FilterChip(
-                            selected = inputSeconds == String.format(java.util.Locale.US, "%.2f", ga2Sec),
-                            onClick = { inputSeconds = String.format(java.util.Locale.US, "%.2f", ga2Sec) },
-                            label = { Text("GA2 (%.1fs)".format(ga2Sec)) },
+                            selected = inputSeconds == String.format(Locale.US, "%.2f", ga2Sec),
+                            onClick = { inputSeconds = String.format(Locale.US, "%.2f", ga2Sec) },
+                            label = { Text(String.format(Locale.GERMANY, "GA2 (%.1fs)", ga2Sec)) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = Color(0xFFFFD600),
                                 selectedLabelColor = Color.Black
@@ -172,9 +172,9 @@ fun TargetPaceDialog(
                     ) {
                         // WSA Chip
                         FilterChip(
-                            selected = inputSeconds == String.format(java.util.Locale.US, "%.2f", wsaSec),
-                            onClick = { inputSeconds = String.format(java.util.Locale.US, "%.2f", wsaSec) },
-                            label = { Text("WSA (%.1fs)".format(wsaSec)) },
+                            selected = inputSeconds == String.format(Locale.US, "%.2f", wsaSec),
+                            onClick = { inputSeconds = String.format(Locale.US, "%.2f", wsaSec) },
+                            label = { Text(String.format(Locale.GERMANY, "WSA (%.1fs)", wsaSec)) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = Color(0xFFFF9100),
                                 selectedLabelColor = Color.Black
@@ -183,9 +183,9 @@ fun TargetPaceDialog(
                         )
                         // Sprint Chip
                         FilterChip(
-                            selected = inputSeconds == String.format(java.util.Locale.US, "%.2f", pbSec),
-                            onClick = { inputSeconds = String.format(java.util.Locale.US, "%.2f", pbSec) },
-                            label = { Text("PB (%.1fs)".format(pbSec)) },
+                            selected = inputSeconds == String.format(Locale.US, "%.2f", pbSec),
+                            onClick = { inputSeconds = String.format(Locale.US, "%.2f", pbSec) },
+                            label = { Text(String.format(Locale.GERMANY, "PB (%.1fs)", pbSec)) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = AquaPrimary,
                                 selectedLabelColor = Color.Black
@@ -211,10 +211,10 @@ fun TargetPaceDialog(
                 ) {
                     quickPaces.forEach { pace ->
                         FilterChip(
-                            selected = (inputSeconds == String.format(java.util.Locale.US, "%.1f", pace)) ||
-                                    (inputSeconds == String.format(java.util.Locale.US, "%.2f", pace)),
+                            selected = (inputSeconds == String.format(Locale.US, "%.1f", pace)) ||
+                                    (inputSeconds == String.format(Locale.US, "%.2f", pace)),
                             onClick = {
-                                inputSeconds = String.format(java.util.Locale.US, "%.2f", pace)
+                                inputSeconds = String.format(Locale.US, "%.2f", pace)
                             },
                             label = { Text("${pace.toInt()}s") },
                             colors = FilterChipDefaults.filterChipColors(
