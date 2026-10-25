@@ -30,7 +30,10 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
@@ -364,6 +367,12 @@ fun SwimmersManagementScreen(
                 onCreateGroup = { newGroup ->
                     viewModel.selectedGroupFilter.value = newGroup
                     isAddGroupDialogOpen = false
+                },
+                onRenameGroup = { oldName, newName ->
+                    viewModel.renameGroup(oldName, newName)
+                },
+                onDeleteGroup = { group ->
+                    viewModel.deleteGroup(group)
                 }
             )
         }
@@ -570,10 +579,14 @@ private fun SwimmerCard(
 private fun ManageGroupsDialog(
     existingGroups: List<String>,
     onDismiss: () -> Unit,
-    onCreateGroup: (String) -> Unit
+    onCreateGroup: (String) -> Unit,
+    onRenameGroup: (oldName: String, newName: String) -> Unit,
+    onDeleteGroup: (groupName: String) -> Unit
 ) {
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     var newGroupName by remember { mutableStateOf("") }
+    var groupToRename by remember { mutableStateOf<String?>(null) }
+    var renameInputText by remember { mutableStateOf("") }
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -613,24 +626,77 @@ private fun ManageGroupsDialog(
 
                 if (existingGroups.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(14.dp))
-                    Text("Vorhandene Gruppen:", style = MaterialTheme.typography.labelSmall, color = AquaPrimary)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
+                    Text("Vorhandene Gruppen bearbeiten / löschen:", style = MaterialTheme.typography.labelSmall, color = AquaPrimary)
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         existingGroups.forEach { group ->
                             Surface(
-                                shape = RoundedCornerShape(8.dp),
+                                shape = RoundedCornerShape(10.dp),
                                 color = OceanSurface,
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1B2E46))
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1B2E46)),
+                                modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text(
-                                    text = group,
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = TextWhite,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                )
+                                if (groupToRename == group) {
+                                    Row(
+                                        modifier = Modifier.padding(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        OutlinedTextField(
+                                            value = renameInputText,
+                                            onValueChange = { renameInputText = it },
+                                            singleLine = true,
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                focusedTextColor = TextWhite,
+                                                unfocusedTextColor = TextWhite,
+                                                focusedBorderColor = AquaPrimary
+                                            ),
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        IconButton(onClick = {
+                                            if (renameInputText.isNotBlank() && renameInputText.trim() != group) {
+                                                onRenameGroup(group, renameInputText.trim())
+                                            }
+                                            groupToRename = null
+                                        }) {
+                                            Icon(imageVector = Icons.Default.Check, contentDescription = "Speichern", tint = PaceGreen)
+                                        }
+                                        IconButton(onClick = { groupToRename = null }) {
+                                            Icon(imageVector = Icons.Default.Close, contentDescription = "Abbrechen", tint = Color.LightGray)
+                                        }
+                                    }
+                                } else {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = group,
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                            color = TextWhite,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        Row {
+                                            IconButton(
+                                                onClick = {
+                                                    groupToRename = group
+                                                    renameInputText = group
+                                                },
+                                                modifier = Modifier.size(32.dp)
+                                            ) {
+                                                Icon(imageVector = Icons.Default.Edit, contentDescription = "Umbenennen", tint = AquaPrimary, modifier = Modifier.size(18.dp))
+                                            }
+                                            IconButton(
+                                                onClick = { onDeleteGroup(group) },
+                                                modifier = Modifier.size(32.dp)
+                                            ) {
+                                                Icon(imageVector = Icons.Default.Delete, contentDescription = "Gruppe löschen", tint = Color(0xFFFF5252), modifier = Modifier.size(18.dp))
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }

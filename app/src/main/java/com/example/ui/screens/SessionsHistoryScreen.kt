@@ -397,10 +397,10 @@ private fun SessionHistoryCard(
                                 .padding(vertical = 4.dp),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("Lap", style = MaterialTheme.typography.labelSmall, color = Color.Gray, modifier = Modifier.width(36.dp), maxLines = 1)
-                            Text("Gesamt", style = MaterialTheme.typography.labelSmall, color = Color.Gray, modifier = Modifier.width(70.dp), maxLines = 1)
-                            Text("Runde", style = MaterialTheme.typography.labelSmall, color = Color.Gray, modifier = Modifier.width(60.dp), maxLines = 1)
-                            Text("Pace/SPM", style = MaterialTheme.typography.labelSmall, color = Color.Gray, maxLines = 1)
+                            Text("Lap", style = MaterialTheme.typography.labelSmall, color = Color.Gray, modifier = Modifier.weight(1.2f), maxLines = 1)
+                            Text("Gesamt", style = MaterialTheme.typography.labelSmall, color = Color.Gray, modifier = Modifier.weight(1.8f), maxLines = 1)
+                            Text("Runde", style = MaterialTheme.typography.labelSmall, color = Color.Gray, modifier = Modifier.weight(1.6f), maxLines = 1)
+                            Text("Pace/SPM", style = MaterialTheme.typography.labelSmall, color = Color.Gray, modifier = Modifier.weight(2.2f), maxLines = 1)
                         }
 
                         val isLagen = s.strokeType.equals("Lagen", ignoreCase = true)
@@ -421,7 +421,7 @@ private fun SessionHistoryCard(
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.width(76.dp)
+                                    modifier = Modifier.weight(1.2f)
                                 ) {
                                     Text(
                                         text = "L${lap.lapIndex}",
@@ -443,17 +443,20 @@ private fun SessionHistoryCard(
                                     text = TimeFormatter.formatMillis(lap.splitTimeMillis),
                                     style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
                                     color = TextWhite,
-                                    modifier = Modifier.width(68.dp),
+                                    modifier = Modifier.weight(1.8f),
                                     maxLines = 1
                                 )
                                 Text(
                                     text = TimeFormatter.formatMillis(lap.lapTimeMillis, shortFormat = true),
                                     style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
                                     color = Color.LightGray,
-                                    modifier = Modifier.width(60.dp),
+                                    modifier = Modifier.weight(1.6f),
                                     maxLines = 1
                                 )
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(2.2f)
+                                ) {
                                     if (lap.deltaTargetMillis != null) {
                                         val isFaster = lap.deltaTargetMillis <= 0
                                         Text(

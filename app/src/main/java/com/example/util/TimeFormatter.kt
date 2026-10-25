@@ -128,22 +128,27 @@ object TimeFormatter {
 
     /**
      * Parses both "MM:SS.cc" (e.g. "1:04.50") and seconds ("64.50" or "64,5") into milliseconds.
+     * Lehnt leere Strings, negative Werte, unzulässige Sekunden (>= 60 bei MM:SS) und Zeiten > 60min ab.
      */
     fun parseTimeInputToMillis(input: String): Long? {
         val cleaned = input.trim().replace(',', '.')
-        if (cleaned.isEmpty()) return null
+        if (cleaned.isEmpty() || cleaned.startsWith("-")) return null
         return try {
             if (cleaned.contains(":")) {
                 val parts = cleaned.split(":")
                 if (parts.size != 2) return null
                 val min = parts[0].trim().toLongOrNull() ?: return null
+                if (min < 0) return null
                 val secDouble = parts[1].trim().toDoubleOrNull() ?: return null
+                // Sekunden müssen zwingend zwischen 0 und 59 liegen (strict range < 60.0)
+                if (secDouble < 0.0 || secDouble >= 60.0) return null
                 val totalMillis = (min * 60_000L) + (secDouble * 1000.0).roundToLong()
-                if (totalMillis > 0L) totalMillis else null
+                if (totalMillis in 1L..3_600_000L) totalMillis else null
             } else {
                 val secDouble = cleaned.toDoubleOrNull() ?: return null
+                if (secDouble <= 0.0) return null
                 val totalMillis = (secDouble * 1000.0).roundToLong()
-                if (totalMillis > 0L) totalMillis else null
+                if (totalMillis in 1L..3_600_000L) totalMillis else null
             }
         } catch (_: Exception) {
             null

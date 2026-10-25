@@ -204,6 +204,31 @@ class StopwatchViewModel(
         if (prefs == null) {
             initializeLanes(4)
         }
+        viewModelScope.launch {
+            allSwimmers.collect { swimmers ->
+                val currentFilter = selectedGroupFilter.value
+                if (currentFilter != null) {
+                    val groupExists = swimmers.any { it.groupName?.trim()?.equals(currentFilter, ignoreCase = true) == true }
+                    if (!groupExists) {
+                        selectedGroupFilter.value = null
+                    }
+                }
+            }
+        }
+    }
+
+    fun renameGroup(oldName: String, newName: String) {
+        if (oldName.isBlank() || newName.isBlank()) return
+        viewModelScope.launch {
+            repository.renameGroupForAllSwimmers(oldName.trim(), newName.trim())
+        }
+    }
+
+    fun deleteGroup(groupName: String) {
+        if (groupName.isBlank()) return
+        viewModelScope.launch {
+            repository.clearGroupForAllSwimmers(groupName.trim())
+        }
     }
 
     private fun validateDistances(targetMeters: Int, splitMeters: Int) {
@@ -216,21 +241,31 @@ class StopwatchViewModel(
 
     private fun loadSavedPreferences() {
         if (prefs == null) return
-        val pool = prefs.getInt("poolLengthMeters", 50)
-        val dist = prefs.getInt("targetDistanceMeters", 100)
-        val split = prefs.getInt("splitDistanceMeters", 50)
+        val poolRaw = prefs.getInt("poolLengthMeters", 50)
+        val pool = poolRaw.coerceIn(10, 100)
+
+        val distRaw = prefs.getInt("targetDistanceMeters", 100)
+        val dist = distRaw.coerceIn(25, 10000)
+
+        val splitRaw = prefs.getInt("splitDistanceMeters", 50)
+        var split = splitRaw.coerceIn(25, dist)
+        if (dist % split != 0) {
+            split = if (dist % 50 == 0) 50 else dist
+        }
+
         val stroke = prefs.getString("strokeType", "Freistil") ?: "Freistil"
         val startModeStr = prefs.getString("startMode", "MASS") ?: "MASS"
-        val interval = prefs.getInt("intervalOffsetSeconds", 5)
-        val count = prefs.getInt("laneCount", 4)
+        val intervalRaw = prefs.getInt("intervalOffsetSeconds", 5)
+        val interval = intervalRaw.coerceIn(1, 120)
+
+        val countRaw = prefs.getInt("laneCount", 4)
+        val count = countRaw.coerceIn(1, 15)
 
         val startModeVal = try {
             StartMode.valueOf(startModeStr)
         } catch (_: Exception) {
             StartMode.MASS
         }
-        
-        validateDistances(dist, split)
 
         _uiState.update { currentState ->
             currentState.copy(

@@ -54,14 +54,56 @@ class SwimRepository(private val database: AppDatabase) {
         sessionId
     }
 
+    suspend fun renameGroupForAllSwimmers(oldName: String, newName: String) =
+        swimmerDao.renameGroupForAllSwimmers(oldName, newName)
+
+    suspend fun clearGroupForAllSwimmers(groupName: String) =
+        swimmerDao.clearGroupForAllSwimmers(groupName)
+
     suspend fun importSessionsWithLaps(sessionsWithLaps: List<SessionWithLaps>) = database.withTransaction {
+        val existingSwimmers = swimmerDao.getAllSwimmersSync()
+        val swimmerMapByNormalizedName = existingSwimmers
+            .associateBy { it.name.trim().lowercase() }
+            .toMutableMap()
+
         sessionsWithLaps.forEach { (session, laps) ->
-            // If id is 0, insert generates a new ID. If id > 0, REPLACE strategy upserts the session.
-            val sessionToInsert = if (session.id > 0) session else session.copy(id = 0)
-            val newSessionId = sessionDao.insertSession(sessionToInsert)
-            val lapsWithNewId = laps.map { it.copy(id = if (session.id > 0) it.id else 0, sessionId = newSessionId) }
-            if (lapsWithNewId.isNotEmpty()) {
-                lapRecordDao.insertLaps(lapsWithNewId)
+            // Speichere jede zu importierende Session zwingend als neuen Eintrag mit id = 0
+            val newSessionId = sessionDao.insertSession(session.copy(id = 0))
+
+            val lapsWithNewIdAndResolvedSwimmers = laps.map { lap ->
+                var resolvedSwimmerId = lap.swimmerId
+
+                val swimmerName = lap.swimmerName.trim()
+                if (swimmerName.isNotEmpty()) {
+                    val normalizedName = swimmerName.lowercase()
+                    val matchedSwimmer = swimmerMapByNormalizedName[normalizedName]
+                    if (matchedSwimmer != null) {
+                        resolvedSwimmerId = matchedSwimmer.id
+                    } else {
+                        // Schwimmer neu anlegen und dessen neue DB-ID nutzen
+                        val newSwimmer = SwimmerEntity(id = 0, name = swimmerName)
+                        val newSwimmerId = swimmerDao.insertSwimmer(newSwimmer)
+                        val createdEntity = newSwimmer.copy(id = newSwimmerId)
+                        swimmerMapByNormalizedName[normalizedName] = createdEntity
+                        resolvedSwimmerId = newSwimmerId
+                    }
+                } else if (resolvedSwimmerId != null && resolvedSwimmerId > 0) {
+                    val swimmerExists = existingSwimmers.any { it.id == resolvedSwimmerId }
+                    if (!swimmerExists) {
+                        resolvedSwimmerId = null
+                    }
+                }
+
+                // Laps zwingend neue Session ID und id = 0 zuweisen
+                lap.copy(
+                    id = 0,
+                    sessionId = newSessionId,
+                    swimmerId = resolvedSwimmerId
+                )
+            }
+
+            if (lapsWithNewIdAndResolvedSwimmers.isNotEmpty()) {
+                lapRecordDao.insertLaps(lapsWithNewIdAndResolvedSwimmers)
             }
         }
     }

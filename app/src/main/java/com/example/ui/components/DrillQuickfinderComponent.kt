@@ -6,8 +6,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -41,10 +39,12 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,16 +63,15 @@ import com.example.ui.theme.TextWhite
 private val STROKE_FILTERS = listOf("Alle", "Kraul", "Rücken", "Brust", "Delfin", "Wenden / Starts")
 private val FOCUS_AREA_FILTERS = listOf("Alle", "Arme (Zug)", "Beine (Kick)", "Wasserlage & Rumpf", "Atmung & Koordination")
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DrillQuickfinderComponent(
     modifier: Modifier = Modifier
 ) {
     val focusManager = LocalFocusManager.current
-    var searchQuery by remember { mutableStateOf("") }
-    var selectedStrokeFilter by remember { mutableStateOf("Alle") }
-    var selectedFocusAreaFilter by remember { mutableStateOf("Alle") }
-    var selectedSpecificFocusFilter by remember { mutableStateOf("Alle") }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var selectedStrokeFilter by rememberSaveable { mutableStateOf("Alle") }
+    var selectedFocusAreaFilter by rememberSaveable { mutableStateOf("Alle") }
+    var selectedSpecificFocusFilter by rememberSaveable { mutableStateOf("Alle") }
 
     val allDrills = remember { StandardTechDrills.DEFAULT_DRILLS }
 
@@ -85,6 +84,12 @@ fun DrillQuickfinderComponent(
                 matchesStroke && matchesFocusArea
             }
             listOf("Alle") + filtered.mapNotNull { it.specificFocus }.distinct().sorted()
+        }
+    }
+
+    LaunchedEffect(selectedStrokeFilter, selectedFocusAreaFilter, availableSpecificFocuses) {
+        if (selectedSpecificFocusFilter != "Alle" && selectedSpecificFocusFilter !in availableSpecificFocuses) {
+            selectedSpecificFocusFilter = "Alle"
         }
     }
 
@@ -275,7 +280,6 @@ fun DrillQuickfinderComponent(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TechDrillCard(
     drill: TechDrill

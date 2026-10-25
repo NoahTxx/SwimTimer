@@ -102,23 +102,26 @@ fun RelayRandomizerComponent(
     var teamCount by remember { mutableIntStateOf(2) }
     var generatedTeams by remember { mutableStateOf<List<List<String>>>(emptyList()) }
 
+    // Aktive Teilnehmer (DB + Gäste)
+    val activeSwimmers = remember(dbSwimmers, selectedSwimmerIds, manualInputText) {
+        val presentSwimmers = dbSwimmers.filter { selectedSwimmerIds.contains(it.id) }
+        val customNames = if (manualInputText.isNotBlank()) {
+            manualInputText.split(",", "\n", ";").map { it.trim() }.filter { it.isNotEmpty() }
+        } else emptyList()
+        (presentSwimmers.map { it.name } + customNames).distinct()
+    }
+
+    val activeCount = activeSwimmers.size
+    val effectiveTeamCount = remember(teamCount, activeCount) {
+        teamCount.coerceIn(2, activeCount.coerceAtLeast(2))
+    }
+
     fun drawTeams() {
         focusManager.clearFocus()
-        val allNames = mutableListOf<String>()
-        // Active DB swimmers
-        val presentSwimmers = dbSwimmers.filter { selectedSwimmerIds.contains(it.id) }
-        allNames.addAll(presentSwimmers.map { it.name })
+        if (activeCount < 2) return
 
-        // Manual guest names
-        if (manualInputText.isNotBlank()) {
-            val customNames = manualInputText.split(",", "\n", ";").map { it.trim() }.filter { it.isNotEmpty() }
-            allNames.addAll(customNames)
-        }
-        val uniqueNames = allNames.distinct()
-        if (uniqueNames.isEmpty()) return
-
-        val shuffled = uniqueNames.shuffled()
-        val numTeams = teamCount.coerceIn(2, 6)
+        val shuffled = activeSwimmers.shuffled()
+        val numTeams = effectiveTeamCount
         val result = List(numTeams) { mutableListOf<String>() }
 
         shuffled.forEachIndexed { idx, name ->
@@ -263,6 +266,7 @@ fun RelayRandomizerComponent(
         )
 
         // Team Count Selector Controls
+        val maxSelectableTeams = activeCount.coerceIn(2, 6)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -284,38 +288,75 @@ fun RelayRandomizerComponent(
                     Text("-", style = MaterialTheme.typography.titleLarge, color = if (teamCount > 2) AquaPrimary else Color.Gray)
                 }
                 Text(
-                    text = "$teamCount Teams",
+                    text = "$effectiveTeamCount Teams",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = AquaPrimary,
                     modifier = Modifier.padding(horizontal = 8.dp)
                 )
                 IconButton(
-                    onClick = { if (teamCount < 6) teamCount++ },
-                    enabled = teamCount < 6
+                    onClick = { if (teamCount < maxSelectableTeams) teamCount++ },
+                    enabled = teamCount < maxSelectableTeams
                 ) {
-                    Text("+", style = MaterialTheme.typography.titleLarge, color = if (teamCount < 6) AquaPrimary else Color.Gray)
+                    Text("+", style = MaterialTheme.typography.titleLarge, color = if (teamCount < maxSelectableTeams) AquaPrimary else Color.Gray)
                 }
             }
         }
 
-        // SCHRITT 3: AUSLOSEN BUTTON
+        // SCHRITT 3: AUSLOSEN BUTTON (Deaktiviert falls < 2 Teilnehmer)
         Button(
             onClick = { drawTeams() },
+            enabled = activeCount >= 2,
             shape = RoundedCornerShape(14.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = AquaPrimary, contentColor = Color.Black),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = AquaPrimary,
+                contentColor = Color.Black,
+                disabledContainerColor = OceanSurface,
+                disabledContentColor = Color.Gray
+            ),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(46.dp)
         ) {
-            Icon(imageVector = Icons.Default.Shuffle, contentDescription = null, tint = Color.Black, modifier = Modifier.size(20.dp))
+            Icon(imageVector = Icons.Default.Shuffle, contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(8.dp))
             Text("TEAMS AUSLOSEN", fontWeight = FontWeight.Black, fontSize = 15.sp)
+        }
+
+        if (activeCount < 2) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Hinweis: Mindestens 2 ausgewählte / anwesende Athleten für eine Auslosung erforderlich.",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.Gray,
+                modifier = Modifier.padding(horizontal = 4.dp)
+            )
         }
 
         Spacer(modifier = Modifier.height(12.dp))
 
         // Generated Teams Output
         if (generatedTeams.isNotEmpty()) {
+            val totalSwimmersInTeams = generatedTeams.sumOf { it.size }
+            val isUneven = generatedTeams.isNotEmpty() && (totalSwimmersInTeams % generatedTeams.size != 0)
+
+            if (isUneven) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFFFFD600).copy(alpha = 0.12f),
+                    border = BorderStroke(1.dp, Color(0xFFFFD600).copy(alpha = 0.5f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 10.dp)
+                ) {
+                    Text(
+                        text = "Hinweis: Ungleiche Teilnehmerzahl – Teams unterscheiden sich um 1 Person",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = Color(0xFFFFD600),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
+            }
+
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.fillMaxSize()
