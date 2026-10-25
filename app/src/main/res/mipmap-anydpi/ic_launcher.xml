@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+
+    <!-- Background rounded rect rx=112 -->
+    <path
+        android:fillColor="#0B2A4A"
+        android:pathData="M 112,0 L 400,0 A 112,112 0 0,1 512,112 L 512,400 A 112,112 0 0,1 400,512 L 112,512 A 112,112 0 0,1 0,400 L 0,112 A 112,112 0 0,1 112,0 Z" />
+
+    <!-- Top button -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 236,58 L 276,58 A 10,10 0 0,1 286,68 L 286,86 A 10,10 0 0,1 276,96 L 236,96 A 10,10 0 0,1 226,86 L 226,68 A 10,10 0 0,1 236,58 Z" />
+
+    <!-- Side button -->
+    <group
+        android:pivotX="398"
+        android:pivotY="130"
+        android:rotation="45">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M 383,116 L 413,116 A 9,9 0 0,1 422,125 L 422,135 A 9,9 0 0,1 413,144 L 383,144 A 9,9 0 0,1 374,135 L 374,125 A 9,9 0 0,1 383,116 Z" />
+    </group>
+
+    <!-- Stopwatch case -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="28"
+        android:pathData="M 256, 118 A 172, 172 0 1, 0 256, 462 A 172, 172 0 1, 0 256, 118 Z" />
+
+    <!-- Water waves -->
+    <group>
+        <clip-path android:pathData="M 256, 144 A 146, 146 0 1, 0 256, 436 A 146, 146 0 1, 0 256, 144 Z" />
+        <path
+            android:fillColor="#22C7E8"
+            android:pathData="M100 330 q39 -38 78 0 t78 0 t78 0 t78 0 V460 H100Z" />
+    </group>
+
+    <!-- Tick -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="12"
+        android:strokeLineCap="round"
+        android:pathData="M 256,150 L 256,174" />
+
+    <!-- Hand -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="22"
+        android:strokeLineCap="round"
+        android:pathData="M 256,290 L 322,224" />
+
+    <!-- Center circle -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 256, 272 A 18, 18 0 1, 0 256, 308 A 18, 18 0 1, 0 256, 272 Z" />
+
+</vector>
