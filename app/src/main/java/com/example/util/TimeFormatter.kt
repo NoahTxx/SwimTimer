@@ -8,11 +8,6 @@ import kotlin.math.roundToLong
 
 object TimeFormatter {
 
-    /**
-     * Schreibt MM:SS.cc direkt in ein bestehendes CharArray(8), um bei 120 FPS
-     * 0 Bytes Garbage-Collection-Allokationen im Render-Loop zu erzeugen.
-     * Gibt die Anzahl geschriebener Zeichen zurück (8).
-     */
     fun writeMillisToBuffer(millis: Long, buffer: CharArray): Int {
         val safeMillis = millis.coerceAtLeast(0L)
         val totalSeconds = (safeMillis / 1_000L).toInt()
@@ -31,11 +26,6 @@ object TimeFormatter {
         return 8
     }
 
-    /**
-     * Schreibt MM:SS.cc oder -MM:SS.cc direkt in ein bestehendes CharArray(9),
-     * um negative Werte beim gestaffelten Wellen-Start als "-00:04.85" darzustellen.
-     * Gibt die Anzahl geschriebener Zeichen zurück (8 oder 9).
-     */
     @Suppress("unused")
     fun writeSignedMillisToBuffer(signedMillis: Long, buffer: CharArray): Int {
         val isCountdown = signedMillis < 0L
@@ -67,10 +57,6 @@ object TimeFormatter {
         return String(buf)
     }
 
-    /**
-     * Formats milliseconds into standard swimming digital format: MM:SS.cc
-     * If under 1 minute and shortFormat is true: SS.cc
-     */
     fun formatMillis(millis: Long, shortFormat: Boolean = false): String {
         val safeMillis = millis.coerceAtLeast(0L)
         val minutes = (safeMillis / 60_000L).toInt()
@@ -102,9 +88,6 @@ object TimeFormatter {
     @Suppress("unused")
     fun formatDetailed(millis: Long): String = formatMillis(millis, shortFormat = false)
 
-    /**
-     * Formats whole seconds into standard MM:SS format (e.g. 00:05, 01:15)
-     */
     fun formatSeconds(totalSeconds: Long): String {
         if (totalSeconds <= 0) return "00:00"
         val m = totalSeconds / 60
@@ -118,20 +101,14 @@ object TimeFormatter {
         }
     }
 
-    /**
-     * Formats milliseconds for text input fields (e.g. "24.80" or "01:04.50")
-     */
     fun formatForInput(millis: Long?): String {
         if ((millis == null) || (millis <= 0L)) return ""
         return formatMillis(millis, shortFormat = millis < 60_000L)
     }
 
-    /**
-     * Parses both "MM:SS.cc" (e.g. "1:04.50") and seconds ("64.50" or "64,5") into milliseconds.
-     */
     fun parseTimeInputToMillis(input: String): Long? {
         val cleaned = input.trim().replace(',', '.')
-        if (cleaned.isEmpty()) return null
+        if (cleaned.isEmpty() || cleaned.startsWith("-")) return null
         return try {
             if (cleaned.contains(":")) {
                 val parts = cleaned.split(":")
@@ -139,27 +116,24 @@ object TimeFormatter {
                 val min = parts[0].trim().toLongOrNull() ?: return null
                 val secDouble = parts[1].trim().toDoubleOrNull() ?: return null
                 val totalMillis = (min * 60_000L) + (secDouble * 1000.0).roundToLong()
-                if (totalMillis > 0L) totalMillis else null
+                if (totalMillis <= 0L || totalMillis > 86_400_000L) null else totalMillis
             } else {
                 val secDouble = cleaned.toDoubleOrNull() ?: return null
                 val totalMillis = (secDouble * 1000.0).roundToLong()
-                if (totalMillis > 0L) totalMillis else null
+                if (totalMillis <= 0L || totalMillis > 86_400_000L) null else totalMillis
             }
         } catch (_: Exception) {
             null
         }
     }
 
-    /**
-     * Formats difference from target pace: e.g. -0.45s or +1.20s
-     */
     fun formatDelta(deltaMillis: Long?): String {
         if (deltaMillis == null) return ""
         val sign = if (deltaMillis <= 0) '-' else '+'
         val absMillis = abs(deltaMillis)
         val s = absMillis / 1000
         val h = (absMillis % 1000) / 10
-        
+
         return buildString(8) {
             append(sign)
             append(s)
@@ -186,12 +160,10 @@ object TimeFormatter {
         return dateFormatShortThreadLocal.get()?.format(Date(timestamp)) ?: ""
     }
 
-    /**
-     * Calculates and formats pace per 100m: e.g. 01:14.50/100m
-     */
     fun formatPacePer100m(lapTimeMillis: Long, splitDistanceMeters: Int): String {
         if ((lapTimeMillis <= 0) || (splitDistanceMeters <= 0)) return "--:--"
         val pace100mMillis = ((lapTimeMillis.toDouble() / splitDistanceMeters) * 100.0).roundToLong()
         return "${formatMillis(pace100mMillis, shortFormat = false)}/100m"
     }
 }
+

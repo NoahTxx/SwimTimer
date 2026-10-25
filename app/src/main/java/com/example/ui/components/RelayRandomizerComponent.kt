@@ -61,39 +61,35 @@ import com.example.ui.theme.OceanSurface
 import com.example.ui.theme.TextWhite
 
 private val TEAM_COLORS = listOf(
-    Color(0xFF00E5FF), // Aqua
-    Color(0xFFFF5252), // Red
-    Color(0xFFFFD600), // Yellow
-    Color(0xFF00E676), // Green
-    Color(0xFFFF4081), // Pink
-    Color(0xFF7C4DFF), // Purple
+    Color(0xFF00E5FF),
+    Color(0xFFFF5252),
+    Color(0xFFFFD600),
+    Color(0xFF00E676),
+    Color(0xFFFF4081),
+    Color(0xFF7C4DFF),
 )
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun RelayRandomizerComponent(
     dbSwimmers: List<SwimmerEntity>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val focusManager = LocalFocusManager.current
 
-    // Available training groups
     val availableGroups = remember(dbSwimmers) {
         dbSwimmers.mapNotNull { it.groupName?.trim() }.filter { it.isNotEmpty() }.distinct().sorted()
     }
 
-    var selectedGroup by remember { mutableStateOf<String?>(null) } // null = Alle
+    var selectedGroup by remember { mutableStateOf<String?>(null) }
 
-    // Filter swimmers by selected group
     val groupSwimmers = remember(dbSwimmers, selectedGroup) {
         if (selectedGroup == null) dbSwimmers
         else dbSwimmers.filter { it.groupName.equals(selectedGroup, ignoreCase = true) }
     }
 
-    // Set of active/present swimmer IDs in selected group
     var selectedSwimmerIds by remember { mutableStateOf(groupSwimmers.map { it.id }.toSet()) }
 
-    // Sync selected swimmer IDs whenever group changes
     LaunchedEffect(selectedGroup, dbSwimmers) {
         selectedSwimmerIds = groupSwimmers.map { it.id }.toSet()
     }
@@ -105,24 +101,23 @@ fun RelayRandomizerComponent(
     fun drawTeams() {
         focusManager.clearFocus()
         val allNames = mutableListOf<String>()
-        // Active DB swimmers
         val presentSwimmers = dbSwimmers.filter { selectedSwimmerIds.contains(it.id) }
-        allNames.addAll(presentSwimmers.map { it.name })
+        allNames.addAll(presentSwimmers.map { it.name.trim() }.filter { it.isNotEmpty() })
 
-        // Manual guest names
         if (manualInputText.isNotBlank()) {
             val customNames = manualInputText.split(",", "\n", ";").map { it.trim() }.filter { it.isNotEmpty() }
             allNames.addAll(customNames)
         }
-        val uniqueNames = allNames.distinct()
-        if (uniqueNames.isEmpty()) return
 
+        val uniqueNames = allNames.distinct()
+        if (uniqueNames.size < 2) return
+
+        val effectiveTeamCount = teamCount.coerceIn(2, uniqueNames.size.coerceAtMost(6))
         val shuffled = uniqueNames.shuffled()
-        val numTeams = teamCount.coerceIn(2, 6)
-        val result = List(numTeams) { mutableListOf<String>() }
+        val result = List(effectiveTeamCount) { mutableListOf<String>() }
 
         shuffled.forEachIndexed { idx, name ->
-            result[idx % numTeams].add(name)
+            result[idx % effectiveTeamCount].add(name)
         }
         generatedTeams = result
     }
@@ -132,7 +127,6 @@ fun RelayRandomizerComponent(
             .fillMaxSize()
             .padding(bottom = 12.dp)
     ) {
-        // SCHRITT 1: GRUPPE VORFILTERN
         if (availableGroups.isNotEmpty()) {
             Text(
                 text = "1. Trainingsgruppe wählen:",
@@ -176,7 +170,6 @@ fun RelayRandomizerComponent(
             }
         }
 
-        // SCHRITT 2: ANWESENHEIT PRÜFEN
         if (groupSwimmers.isNotEmpty()) {
             Row(
                 modifier = Modifier
@@ -240,7 +233,6 @@ fun RelayRandomizerComponent(
             }
         }
 
-        // Manual Guest Names Input
         OutlinedTextField(
             value = manualInputText,
             onValueChange = { manualInputText = it },
@@ -262,7 +254,6 @@ fun RelayRandomizerComponent(
                 .padding(bottom = 10.dp)
         )
 
-        // Team Count Selector Controls
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -298,7 +289,6 @@ fun RelayRandomizerComponent(
             }
         }
 
-        // SCHRITT 3: AUSLOSEN BUTTON
         Button(
             onClick = { drawTeams() },
             shape = RoundedCornerShape(14.dp),
@@ -314,7 +304,6 @@ fun RelayRandomizerComponent(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Generated Teams Output
         if (generatedTeams.isNotEmpty()) {
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -377,3 +366,4 @@ private fun Modifier.noRippleClickable(onClick: () -> Unit): Modifier = this.the
         onClick = onClick
     )
 )
+
