@@ -245,19 +245,40 @@ fun SwimmerDetailScreen(
                                         overflow = TextOverflow.Ellipsis
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
-                                    Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = Color(0xFF132A38)
-                                    ) {
-                                        Text(
-                                            text = "Hauptlage: ${swimmer.favoriteStroke}",
-                                            style = MaterialTheme.typography.labelMedium.copy(
-                                                fontWeight = FontWeight.SemiBold
-                                            ),
-                                            color = AquaPrimary,
-                                            maxLines = 1,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                        )
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = Color(0xFF132A38)
+                                        ) {
+                                            Text(
+                                                text = "Hauptlage: ${swimmer.favoriteStroke}",
+                                                style = MaterialTheme.typography.labelMedium.copy(
+                                                    fontWeight = FontWeight.SemiBold
+                                                ),
+                                                color = AquaPrimary,
+                                                maxLines = 1,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                            )
+                                        }
+
+                                        if (!swimmer.groupName.isNullOrBlank()) {
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Surface(
+                                                shape = RoundedCornerShape(8.dp),
+                                                color = AquaPrimary.copy(alpha = 0.15f),
+                                                border = androidx.compose.foundation.BorderStroke(1.dp, AquaPrimary.copy(alpha = 0.6f))
+                                            ) {
+                                                Text(
+                                                    text = swimmer.groupName,
+                                                    style = MaterialTheme.typography.labelMedium.copy(
+                                                        fontWeight = FontWeight.Bold
+                                                    ),
+                                                    color = AquaPrimary,
+                                                    maxLines = 1,
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -702,7 +723,9 @@ private fun EditSwimmerDialog(
     onDismiss: () -> Unit,
     onSave: (SwimmerEntity) -> Unit
 ) {
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     var name by remember { mutableStateOf(swimmer.name) }
+    var groupName by remember { mutableStateOf(swimmer.groupName ?: "") }
     var stroke by remember { mutableStateOf(swimmer.favoriteStroke) }
     var isStrokeDropdownExpanded by remember { mutableStateOf(false) }
 
@@ -759,6 +782,26 @@ private fun EditSwimmerDialog(
                     onValueChange = { name = it },
                     label = { Text("Name") },
                     singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { focusManager.clearFocus() }),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = TextWhite,
+                        unfocusedTextColor = TextWhite,
+                        focusedBorderColor = AquaPrimary
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedTextField(
+                    value = groupName,
+                    onValueChange = { groupName = it },
+                    label = { Text("Trainingsgruppe (z. B. Dolphins 1)") },
+                    placeholder = { Text("z. B. Teens 2") },
+                    singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { focusManager.clearFocus() }),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = TextWhite,
                         unfocusedTextColor = TextWhite,
@@ -822,6 +865,8 @@ private fun EditSwimmerDialog(
                         label = { Text("PB 25m", fontSize = 11.sp) },
                         placeholder = { Text("12.50") },
                         singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                        keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { focusManager.clearFocus() }),
                         colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite),
                         modifier = Modifier.weight(1f)
                     )
@@ -831,6 +876,8 @@ private fun EditSwimmerDialog(
                         label = { Text("PB 50m", fontSize = 11.sp) },
                         placeholder = { Text("26.80") },
                         singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                        keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { focusManager.clearFocus() }),
                         colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite),
                         modifier = Modifier.weight(1f)
                     )
@@ -840,6 +887,8 @@ private fun EditSwimmerDialog(
                         label = { Text("PB 100m", fontSize = 11.sp) },
                         placeholder = { Text("58.20") },
                         singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                        keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { focusManager.clearFocus() }),
                         colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite),
                         modifier = Modifier.weight(1f)
                     )
@@ -860,6 +909,8 @@ private fun EditSwimmerDialog(
                         label = { Text("100mLagen", fontSize = 11.sp) },
                         placeholder = { Text("1:04.50") },
                         singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                        keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { focusManager.clearFocus() }),
                         colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite),
                         modifier = Modifier.weight(1f)
                     )
@@ -869,6 +920,8 @@ private fun EditSwimmerDialog(
                         label = { Text("200mLagen", fontSize = 11.sp) },
                         placeholder = { Text("2:18.50") },
                         singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                        keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { focusManager.clearFocus() }),
                         colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite),
                         modifier = Modifier.weight(1f)
                     )
@@ -878,6 +931,8 @@ private fun EditSwimmerDialog(
                         label = { Text("400mLagen", fontSize = 11.sp) },
                         placeholder = { Text("4:55.00") },
                         singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                        keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { focusManager.clearFocus() }),
                         colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite),
                         modifier = Modifier.weight(1f)
                     )
@@ -902,6 +957,7 @@ private fun EditSwimmerDialog(
                                 onSave(
                                     swimmer.copy(
                                         name = name.trim(),
+                                        groupName = groupName.trim().ifEmpty { null },
                                         favoriteStroke = stroke,
                                         pb25mMillis = TimeFormatter.parseTimeInputToMillis(pb25Text),
                                         pb50mMillis = TimeFormatter.parseTimeInputToMillis(pb50Text),

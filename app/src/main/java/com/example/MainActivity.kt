@@ -32,6 +32,10 @@ import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -111,10 +115,18 @@ fun MainAppContent(viewModel: StopwatchViewModel) {
     var currentScreen by remember { mutableStateOf(AppScreen.STOPWATCH) }
     var isPreloadReady by remember { mutableStateOf(value = false) }
 
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+
     // Defer background screens preload slightly so cold start is 100% smooth from frame 1
     androidx.compose.runtime.LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(200.milliseconds)
         isPreloadReady = true
+    }
+
+    androidx.compose.runtime.LaunchedEffect(currentScreen) {
+        focusManager.clearFocus()
+        keyboardController?.hide()
     }
 
     BackHandler(enabled = currentScreen != AppScreen.STOPWATCH) {
@@ -125,7 +137,13 @@ fun MainAppContent(viewModel: StopwatchViewModel) {
         modifier = Modifier
             .fillMaxSize()
             .background(DeepOceanBackground)
-            .statusBarsPadding(),
+            .statusBarsPadding()
+            .pointerInput(Unit) {
+                detectTapGestures(onTap = {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                })
+            },
     ) {
         Box(
             modifier = Modifier

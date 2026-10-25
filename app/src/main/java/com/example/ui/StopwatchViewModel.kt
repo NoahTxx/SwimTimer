@@ -142,6 +142,7 @@ data class SwimmerCardUiModel(
     val pb50mText: String,
     val pb100mText: String,
     val pb100mImText: String,
+    val groupName: String? = null,
     val originalEntity: SwimmerEntity
 )
 
@@ -161,14 +162,19 @@ class StopwatchViewModel(
 
     val swimmersSearchQuery = MutableStateFlow("")
 
+    val selectedGroupFilter = MutableStateFlow<String?>(null) // null = Alle
+
     val swimmerUiList: StateFlow<List<SwimmerCardUiModel>> = combine(
         allSwimmers,
-        swimmersSearchQuery
-    ) { swimmers, query ->
-        val filtered = if (query.isBlank()) {
-            swimmers
-        } else {
-            swimmers.filter { it.name.contains(query, ignoreCase = true) }
+        swimmersSearchQuery,
+        selectedGroupFilter
+    ) { swimmers, query, selectedGroup ->
+        var filtered = swimmers
+        if (selectedGroup != null) {
+            filtered = filtered.filter { it.groupName.equals(selectedGroup, ignoreCase = true) }
+        }
+        if (query.isNotBlank()) {
+            filtered = filtered.filter { it.name.contains(query, ignoreCase = true) }
         }
         filtered.map { swimmer ->
             SwimmerCardUiModel(
@@ -179,6 +185,7 @@ class StopwatchViewModel(
                 pb50mText = swimmer.pb50mMillis?.let { TimeFormatter.formatMillis(it, shortFormat = true) } ?: "",
                 pb100mText = swimmer.pb100mMillis?.let { TimeFormatter.formatMillis(it) } ?: "",
                 pb100mImText = swimmer.pb100mLagenMillis?.let { TimeFormatter.formatMillis(it) } ?: "",
+                groupName = swimmer.groupName,
                 originalEntity = swimmer
             )
         }
@@ -1608,6 +1615,7 @@ class StopwatchViewModel(
     fun addSwimmer(
         name: String,
         stroke: String,
+        groupName: String? = null,
         pb25m: Long? = null,
         pb50m: Long? = null,
         pb100m: Long? = null,
@@ -1632,6 +1640,7 @@ class StopwatchViewModel(
                 name = name.trim(),
                 ageGroup = "Offen",
                 favoriteStroke = stroke,
+                groupName = groupName?.trim()?.takeIf { it.isNotBlank() },
                 pb25mMillis = pb25m,
                 pb50mMillis = pb50m,
                 pb100mMillis = pb100m,

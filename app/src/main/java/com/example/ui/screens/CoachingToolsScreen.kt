@@ -5,10 +5,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -32,7 +34,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.StopwatchViewModel
 import com.example.ui.components.DrillQuickfinderComponent
@@ -44,8 +49,8 @@ import com.example.ui.theme.OceanSurface
 
 enum class CoachingToolSection(val label: String, val icon: ImageVector) {
     DRILLS("Technik-Drills", Icons.AutoMirrored.Filled.MenuBook),
-    RELAY("Staffel-Auslosung", Icons.Default.Groups),
-    LOGGER("Soll/Ist-Logger", Icons.Default.Timer)
+    RELAY("Team-Losung", Icons.Default.Groups),
+    LOGGER("Soll vs. Ist", Icons.Default.Timer)
 }
 
 @Composable
@@ -60,54 +65,58 @@ fun CoachingToolsScreen(
         modifier = modifier
             .fillMaxSize()
             .background(DeepOceanBackground)
-            .padding(horizontal = 14.dp, vertical = 8.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp),
     ) {
-        // Top Tool Selector Tabs
-        Row(
+        // Compact, Flat Top Tool Selector Tabs
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = OceanSurface,
+            border = BorderStroke(1.dp, Color(0xFF1B2E46)),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 10.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
+                .padding(bottom = 10.dp)
         ) {
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = OceanSurface,
-                border = BorderStroke(1.dp, Color(0xFF1B2E46))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Min)
+                    .padding(3.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.padding(3.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    CoachingToolSection.entries.forEach { section ->
-                        val isSelected = selectedSection == section
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = if (isSelected) AquaPrimary else Color.Transparent,
-                            modifier = Modifier
-                                .clickable { selectedSection = section }
-                                .testTag("tool_tab_${section.name.lowercase()}")
+                CoachingToolSection.entries.forEach { section ->
+                    val isSelected = selectedSection == section
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (isSelected) AquaPrimary else Color.Transparent,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { selectedSection = section }
+                            .testTag("tool_tab_${section.name.lowercase()}")
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
                         ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = section.icon,
-                                    contentDescription = section.label,
-                                    tint = if (isSelected) Color.Black else Color.LightGray,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = section.label,
-                                    style = MaterialTheme.typography.labelMedium.copy(
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold
-                                    ),
-                                    color = if (isSelected) Color.Black else Color.LightGray
-                                )
-                            }
+                            Icon(
+                                imageVector = section.icon,
+                                contentDescription = section.label,
+                                tint = if (isSelected) Color.Black else Color.LightGray,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(5.dp))
+                            Text(
+                                text = section.label,
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                                    fontSize = 12.sp
+                                ),
+                                color = if (isSelected) Color.Black else Color.LightGray,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                textAlign = TextAlign.Center
+                            )
                         }
                     }
                 }

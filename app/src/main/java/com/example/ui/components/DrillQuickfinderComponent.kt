@@ -6,22 +6,29 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
@@ -42,7 +49,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.model.StandardTechDrills
@@ -51,26 +60,49 @@ import com.example.ui.theme.AquaPrimary
 import com.example.ui.theme.OceanSurface
 import com.example.ui.theme.TextWhite
 
-private val STROKE_FILTERS = listOf("Alle", "Kraul", "Delfin", "Rücken", "Brust", "Allgemein")
+private val STROKE_FILTERS = listOf("Alle", "Kraul", "Rücken", "Brust", "Delfin", "Wenden / Starts")
+private val FOCUS_AREA_FILTERS = listOf("Alle", "Arme (Zug)", "Beine (Kick)", "Wasserlage & Rumpf", "Atmung & Koordination")
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DrillQuickfinderComponent(
     modifier: Modifier = Modifier
 ) {
+    val focusManager = LocalFocusManager.current
     var searchQuery by remember { mutableStateOf("") }
     var selectedStrokeFilter by remember { mutableStateOf("Alle") }
+    var selectedFocusAreaFilter by remember { mutableStateOf("Alle") }
+    var selectedSpecificFocusFilter by remember { mutableStateOf("Alle") }
 
-    val drills = remember { StandardTechDrills.DEFAULT_DRILLS }
+    val allDrills = remember { StandardTechDrills.DEFAULT_DRILLS }
 
-    val filteredDrills by remember(searchQuery, selectedStrokeFilter) {
+    // Dynamic specific focus list based on selected stroke / focus area
+    val availableSpecificFocuses by remember(selectedStrokeFilter, selectedFocusAreaFilter) {
         derivedStateOf {
-            drills.filter { drill ->
+            val filtered = allDrills.filter { drill ->
                 val matchesStroke = (selectedStrokeFilter == "Alle") || drill.stroke.equals(selectedStrokeFilter, ignoreCase = true)
+                val matchesFocusArea = (selectedFocusAreaFilter == "Alle") || drill.focusArea.equals(selectedFocusAreaFilter, ignoreCase = true)
+                matchesStroke && matchesFocusArea
+            }
+            listOf("Alle") + filtered.mapNotNull { it.specificFocus }.distinct().sorted()
+        }
+    }
+
+    val filteredDrills by remember(searchQuery, selectedStrokeFilter, selectedFocusAreaFilter, selectedSpecificFocusFilter) {
+        derivedStateOf {
+            allDrills.filter { drill ->
+                val matchesStroke = (selectedStrokeFilter == "Alle") || drill.stroke.equals(selectedStrokeFilter, ignoreCase = true)
+                val matchesFocusArea = (selectedFocusAreaFilter == "Alle") || drill.focusArea.equals(selectedFocusAreaFilter, ignoreCase = true)
+                val matchesSpecificFocus = (selectedSpecificFocusFilter == "Alle") || drill.specificFocus.equals(selectedSpecificFocusFilter, ignoreCase = true)
                 val matchesQuery = searchQuery.isEmpty() ||
                         drill.title.contains(searchQuery, ignoreCase = true) ||
                         drill.stroke.contains(searchQuery, ignoreCase = true) ||
-                        drill.description.any { it.contains(searchQuery, ignoreCase = true) }
-                matchesStroke && matchesQuery
+                        drill.focusArea.contains(searchQuery, ignoreCase = true) ||
+                        (drill.specificFocus?.contains(searchQuery, ignoreCase = true) == true) ||
+                        drill.tips.any { it.contains(searchQuery, ignoreCase = true) } ||
+                        drill.goal.contains(searchQuery, ignoreCase = true)
+
+                matchesStroke && matchesFocusArea && matchesSpecificFocus && matchesQuery
             }
         }
     }
@@ -82,7 +114,7 @@ fun DrillQuickfinderComponent(
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
-            placeholder = { Text("Übung oder Lage suchen...", color = Color.Gray) },
+            placeholder = { Text("Übung, Lage oder Stichwort suchen...", color = Color.Gray, fontSize = 13.sp) },
             leadingIcon = {
                 Icon(imageVector = Icons.Default.Search, contentDescription = null, tint = AquaPrimary)
             },
@@ -94,6 +126,8 @@ fun DrillQuickfinderComponent(
                 }
             },
             singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
             shape = RoundedCornerShape(14.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = OceanSurface,
@@ -105,35 +139,110 @@ fun DrillQuickfinderComponent(
             ),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 8.dp)
+                .padding(bottom = 6.dp)
         )
 
-        // Stroke Filter Chips
+        // FILTER LEVEL 1: Hauptkategorie (Schwimmart)
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = Modifier.padding(bottom = 10.dp)
+            modifier = Modifier.padding(bottom = 6.dp)
         ) {
             items(STROKE_FILTERS) { filter ->
                 val isSelected = selectedStrokeFilter == filter
                 FilterChip(
                     selected = isSelected,
-                    onClick = { selectedStrokeFilter = filter },
+                    onClick = {
+                        selectedStrokeFilter = filter
+                        selectedSpecificFocusFilter = "Alle"
+                    },
                     label = { Text(filter, fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = AquaPrimary,
                         selectedLabelColor = Color.Black,
                         containerColor = OceanSurface,
                         labelColor = Color.LightGray
-                    ),
-                    border = FilterChipDefaults.filterChipBorder(
-                        enabled = true,
-                        selected = isSelected,
-                        borderColor = Color(0xFF1B2E46),
-                        selectedBorderColor = AquaPrimary
                     )
                 )
             }
         }
+
+        // FILTER LEVEL 2: Fokus-Bereich (Unterkategorie 1)
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.padding(bottom = 6.dp)
+        ) {
+            items(FOCUS_AREA_FILTERS) { focus ->
+                val isSelected = selectedFocusAreaFilter == focus
+                FilterChip(
+                    selected = isSelected,
+                    onClick = {
+                        selectedFocusAreaFilter = focus
+                        selectedSpecificFocusFilter = "Alle"
+                    },
+                    label = { Text(focus, fontSize = 11.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = Color(0xFFFFD600),
+                        selectedLabelColor = Color.Black,
+                        containerColor = Color(0xFF0F1E2E),
+                        labelColor = Color.LightGray
+                    )
+                )
+            }
+        }
+
+        // FILTER LEVEL 3: Spezifischer Schwerpunkt (Unterkategorie 2 - dynamic)
+        if (availableSpecificFocuses.size > 2) {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.padding(bottom = 8.dp)
+            ) {
+                items(availableSpecificFocuses) { specific ->
+                    val isSelected = selectedSpecificFocusFilter == specific
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { selectedSpecificFocusFilter = specific },
+                        label = { Text(specific, fontSize = 10.5.sp) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Color(0xFF00E676),
+                            selectedLabelColor = Color.Black,
+                            containerColor = Color(0xFF0A1828),
+                            labelColor = Color.Gray
+                        )
+                    )
+                }
+            }
+        }
+
+        // Results Summary Header
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 2.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "${filteredDrills.size} von ${allDrills.size} Übungen verfeinert",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.Gray
+            )
+
+            if (selectedStrokeFilter != "Alle" || selectedFocusAreaFilter != "Alle" || selectedSpecificFocusFilter != "Alle" || searchQuery.isNotEmpty()) {
+                Text(
+                    text = "Filter zurücksetzen",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                    color = AquaPrimary,
+                    modifier = Modifier.clickable {
+                        selectedStrokeFilter = "Alle"
+                        selectedFocusAreaFilter = "Alle"
+                        selectedSpecificFocusFilter = "Alle"
+                        searchQuery = ""
+                    }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
 
         // Drills List
         if (filteredDrills.isEmpty()) {
@@ -145,7 +254,7 @@ fun DrillQuickfinderComponent(
                 verticalArrangement = Arrangement.Center
             ) {
                 Text(
-                    text = "Keine passenden Übungen gefunden",
+                    text = "Keine passenden Übungen für diese Filterkombination",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.Gray
                 )
@@ -166,6 +275,7 @@ fun DrillQuickfinderComponent(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TechDrillCard(
     drill: TechDrill
@@ -177,7 +287,7 @@ private fun TechDrillCard(
         "Delfin" -> Color(0xFFFF5252)
         "Rücken" -> Color(0xFFFFD600)
         "Brust" -> Color(0xFF00E676)
-        else -> AquaPrimary
+        else -> Color(0xFF80D8FF)
     }
 
     Card(
@@ -191,50 +301,119 @@ private fun TechDrillCard(
         Column(
             modifier = Modifier.padding(14.dp)
         ) {
+            // Header Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = strokeColor.copy(alpha = 0.2f),
-                        border = BorderStroke(1.dp, strokeColor)
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Text(
-                            text = drill.stroke,
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = strokeColor,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = strokeColor.copy(alpha = 0.15f),
+                            border = BorderStroke(1.dp, strokeColor.copy(alpha = 0.6f))
+                        ) {
+                            Text(
+                                text = drill.stroke,
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 11.sp),
+                                color = strokeColor,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color(0xFF12283A)
+                        ) {
+                            Text(
+                                text = drill.focusArea,
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
+                                color = Color.LightGray,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
                     }
-                    Spacer(modifier = Modifier.width(10.dp))
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
                     Text(
                         text = drill.title,
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 16.sp),
                         color = TextWhite
                     )
+
+                    if (!drill.specificFocus.isNullOrBlank()) {
+                        Text(
+                            text = "Fokus: ${drill.specificFocus}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = AquaPrimary,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
                 }
 
                 Icon(
                     imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                     contentDescription = null,
-                    tint = AquaPrimary
+                    tint = AquaPrimary,
+                    modifier = Modifier.padding(start = 8.dp)
                 )
             }
 
+            // Expanded / Always scannable details
             AnimatedVisibility(visible = isExpanded) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 10.dp)
-                        .background(Color(0xFF0C1623), shape = RoundedCornerShape(10.dp))
+                        .background(Color(0xFF0A1420), shape = RoundedCornerShape(12.dp))
                         .padding(12.dp)
                 ) {
-                    drill.description.forEach { step ->
+                    // Training Goal Box
+                    Row(
+                        verticalAlignment = Alignment.Top,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Star,
+                            contentDescription = null,
+                            tint = Color(0xFFFFD600),
+                            modifier = Modifier
+                                .size(16.dp)
+                                .padding(top = 2.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Column {
+                            Text(
+                                text = "TRAININGSZIEL / WARUM?",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp),
+                                color = Color(0xFFFFD600)
+                            )
+                            Text(
+                                text = drill.goal,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextWhite
+                            )
+                        }
+                    }
+
+                    // Execution Tips ("Worauf achten?")
+                    Text(
+                        text = "AUSFÜHRUNG & WORAUF ACHTEN:",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp),
+                        color = AquaPrimary,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+
+                    drill.tips.forEach { tip ->
                         Row(
-                            modifier = Modifier.padding(vertical = 3.dp),
+                            modifier = Modifier.padding(vertical = 2.dp),
                             verticalAlignment = Alignment.Top
                         ) {
                             Text(
@@ -244,8 +423,8 @@ private fun TechDrillCard(
                                 style = MaterialTheme.typography.bodyMedium
                             )
                             Text(
-                                text = step,
-                                style = MaterialTheme.typography.bodyMedium,
+                                text = tip,
+                                style = MaterialTheme.typography.bodySmall,
                                 color = Color.LightGray
                             )
                         }

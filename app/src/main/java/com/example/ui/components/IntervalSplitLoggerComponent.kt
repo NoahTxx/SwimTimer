@@ -17,14 +17,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -33,7 +29,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,9 +36,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.AquaPrimary
@@ -64,6 +61,8 @@ data class RepetitionSplit(
 fun IntervalSplitLoggerComponent(
     modifier: Modifier = Modifier
 ) {
+    val focusManager = LocalFocusManager.current
+
     var repCountText by remember { mutableStateOf("8") }
     var distanceMetersText by remember { mutableStateOf("50") }
     var targetInputText by remember { mutableStateOf("") }
@@ -123,6 +122,7 @@ fun IntervalSplitLoggerComponent(
                 .padding(bottom = 12.dp)
         ) {
             Column(modifier = Modifier.padding(14.dp)) {
+                // Header with Title and info badge
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -131,33 +131,40 @@ fun IntervalSplitLoggerComponent(
                     Text(
                         text = "Serien-Konfiguration (${repCount}x ${distanceMeters}m)",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = AquaPrimary
+                        color = AquaPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
                     )
 
                     if (sendOffMillis != null) {
                         Surface(
                             shape = RoundedCornerShape(8.dp),
                             color = Color(0xFFFFD600).copy(alpha = 0.15f),
-                            border = BorderStroke(1.dp, Color(0xFFFFD600))
+                            border = BorderStroke(1.dp, Color(0xFFFFD600)),
+                            modifier = Modifier.padding(start = 6.dp)
                         ) {
                             Text(
                                 text = "Abgang alle ${TimeFormatter.formatMillis(sendOffMillis, shortFormat = true)}",
                                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                 color = Color(0xFFFFD600),
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                maxLines = 1
                             )
                         }
                     } else if (restSeconds > 0L) {
                         Surface(
                             shape = RoundedCornerShape(8.dp),
                             color = AquaPrimary.copy(alpha = 0.15f),
-                            border = BorderStroke(1.dp, AquaPrimary)
+                            border = BorderStroke(1.dp, AquaPrimary),
+                            modifier = Modifier.padding(start = 6.dp)
                         ) {
                             Text(
                                 text = "${restSeconds}s Pause nach Sprint",
                                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                 color = AquaPrimary,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                maxLines = 1
                             )
                         }
                     }
@@ -177,6 +184,8 @@ fun IntervalSplitLoggerComponent(
                         onValueChange = { repCountText = it },
                         label = { Text("Anzahl (z.B. 8)", fontSize = 11.sp, color = Color.LightGray) },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedContainerColor = Color(0xFF0C1623),
@@ -194,6 +203,8 @@ fun IntervalSplitLoggerComponent(
                         onValueChange = { distanceMetersText = it },
                         label = { Text("Strecke (m)", fontSize = 11.sp, color = Color.LightGray) },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedContainerColor = Color(0xFF0C1623),
@@ -217,6 +228,8 @@ fun IntervalSplitLoggerComponent(
                         onValueChange = { restPauseText = it },
                         label = { Text("Pause (Sek, z.B. 20)", fontSize = 11.sp, color = Color.LightGray) },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedContainerColor = Color(0xFF0C1623),
@@ -237,6 +250,8 @@ fun IntervalSplitLoggerComponent(
                         },
                         label = { Text("Soll-Zeit (optional)", fontSize = 11.sp, color = Color.LightGray) },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedContainerColor = Color(0xFF0C1623),
@@ -339,6 +354,8 @@ fun IntervalSplitLoggerComponent(
                                 },
                                 placeholder = { Text(if (target != null) TimeFormatter.formatMillis(target, shortFormat = true) else "00:28.50", fontSize = 12.sp, color = Color.Gray) },
                                 singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
                                 shape = RoundedCornerShape(10.dp),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedContainerColor = Color(0xFF0C1623),

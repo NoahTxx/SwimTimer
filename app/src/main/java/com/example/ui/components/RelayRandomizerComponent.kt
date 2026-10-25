@@ -1,9 +1,12 @@
 package com.example.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,6 +21,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Groups
@@ -36,6 +41,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -44,7 +50,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.SwimmerEntity
@@ -61,19 +69,47 @@ private val TEAM_COLORS = listOf(
     Color(0xFF7C4DFF), // Purple
 )
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun RelayRandomizerComponent(
     dbSwimmers: List<SwimmerEntity>,
     modifier: Modifier = Modifier
 ) {
+    val focusManager = LocalFocusManager.current
+
+    // Available training groups
+    val availableGroups = remember(dbSwimmers) {
+        dbSwimmers.mapNotNull { it.groupName?.trim() }.filter { it.isNotEmpty() }.distinct().sorted()
+    }
+
+    var selectedGroup by remember { mutableStateOf<String?>(null) } // null = Alle
+
+    // Filter swimmers by selected group
+    val groupSwimmers = remember(dbSwimmers, selectedGroup) {
+        if (selectedGroup == null) dbSwimmers
+        else dbSwimmers.filter { it.groupName.equals(selectedGroup, ignoreCase = true) }
+    }
+
+    // Set of active/present swimmer IDs in selected group
+    var selectedSwimmerIds by remember { mutableStateOf(groupSwimmers.map { it.id }.toSet()) }
+
+    // Sync selected swimmer IDs whenever group changes
+    LaunchedEffect(selectedGroup, dbSwimmers) {
+        selectedSwimmerIds = groupSwimmers.map { it.id }.toSet()
+    }
+
     var manualInputText by remember { mutableStateOf("") }
-    var selectedSwimmerNames by remember { mutableStateOf(dbSwimmers.map { swimmer -> swimmer.name }.toSet()) }
     var teamCount by remember { mutableIntStateOf(2) }
     var generatedTeams by remember { mutableStateOf<List<List<String>>>(emptyList()) }
 
     fun drawTeams() {
+        focusManager.clearFocus()
         val allNames = mutableListOf<String>()
-        allNames.addAll(selectedSwimmerNames)
+        // Active DB swimmers
+        val presentSwimmers = dbSwimmers.filter { selectedSwimmerIds.contains(it.id) }
+        allNames.addAll(presentSwimmers.map { it.name })
+
+        // Manual guest names
         if (manualInputText.isNotBlank()) {
             val customNames = manualInputText.split(",", "\n", ";").map { it.trim() }.filter { it.isNotEmpty() }
             allNames.addAll(customNames)
@@ -96,34 +132,39 @@ fun RelayRandomizerComponent(
             .fillMaxSize()
             .padding(bottom = 12.dp)
     ) {
-        // Quick DB Swimmers Selector
-        if (dbSwimmers.isNotEmpty()) {
+        // SCHRITT 1: GRUPPE VORFILTERN
+        if (availableGroups.isNotEmpty()) {
             Text(
-                text = "Athleten aus der Datenbank auswählen:",
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.LightGray,
-                modifier = Modifier.padding(bottom = 6.dp)
+                text = "1. Trainingsgruppe wählen:",
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                color = AquaPrimary,
+                modifier = Modifier.padding(bottom = 4.dp)
             )
 
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier.padding(bottom = 10.dp)
             ) {
-                items(dbSwimmers) { swimmer ->
-                    val isSelected = selectedSwimmerNames.contains(swimmer.name)
+                item {
+                    FilterChip(
+                        selected = selectedGroup == null,
+                        onClick = { selectedGroup = null },
+                        label = { Text("Alle (${dbSwimmers.size})", fontSize = 12.sp, fontWeight = if (selectedGroup == null) FontWeight.Bold else FontWeight.Normal) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = AquaPrimary,
+                            selectedLabelColor = Color.Black,
+                            containerColor = OceanSurface,
+                            labelColor = Color.LightGray
+                        )
+                    )
+                }
+                items(availableGroups) { group ->
+                    val isSelected = selectedGroup == group
+                    val groupCount = dbSwimmers.count { it.groupName.equals(group, ignoreCase = true) }
                     FilterChip(
                         selected = isSelected,
-                        onClick = {
-                            selectedSwimmerNames = if (isSelected) {
-                                selectedSwimmerNames - swimmer.name
-                            } else {
-                                selectedSwimmerNames + swimmer.name
-                            }
-                        },
-                        label = { Text(swimmer.name, fontSize = 12.sp) },
-                        leadingIcon = if (isSelected) {
-                            { Icon(imageVector = Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp)) }
-                        } else null,
+                        onClick = { selectedGroup = group },
+                        label = { Text("$group ($groupCount)", fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = AquaPrimary,
                             selectedLabelColor = Color.Black,
@@ -135,13 +176,79 @@ fun RelayRandomizerComponent(
             }
         }
 
-        // Manual Name Input
+        // SCHRITT 2: ANWESENHEIT PRÜFEN
+        if (groupSwimmers.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "2. Anwesende Athleten (${selectedSwimmerIds.size} / ${groupSwimmers.size}):",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                    color = AquaPrimary
+                )
+
+                Row {
+                    Text(
+                        text = if (selectedSwimmerIds.size == groupSwimmers.size) "Alle abwählen" else "Alle auswählen",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.LightGray,
+                        modifier = Modifier
+                            .padding(start = 8.dp)
+                            .noRippleClickable {
+                                selectedSwimmerIds = if (selectedSwimmerIds.size == groupSwimmers.size) {
+                                    emptySet()
+                                } else {
+                                    groupSwimmers.map { it.id }.toSet()
+                                }
+                            }
+                    )
+                }
+            }
+
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.padding(bottom = 10.dp)
+            ) {
+                groupSwimmers.forEach { swimmer ->
+                    val isSelected = selectedSwimmerIds.contains(swimmer.id)
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = {
+                            selectedSwimmerIds = if (isSelected) {
+                                selectedSwimmerIds - swimmer.id
+                            } else {
+                                selectedSwimmerIds + swimmer.id
+                            }
+                        },
+                        label = { Text(swimmer.name, fontSize = 12.sp) },
+                        leadingIcon = if (isSelected) {
+                            { Icon(imageVector = Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                        } else null,
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = AquaPrimary,
+                            selectedLabelColor = Color.Black,
+                            containerColor = OceanSurface,
+                            labelColor = Color.Gray
+                        )
+                    )
+                }
+            }
+        }
+
+        // Manual Guest Names Input
         OutlinedTextField(
             value = manualInputText,
             onValueChange = { manualInputText = it },
-            placeholder = { Text("Zusätzliche Namen eingeben (Komma-getrennt)...", color = Color.Gray, fontSize = 13.sp) },
+            placeholder = { Text("Gäste / Zusätzliche Namen (Komma-getrennt)...", color = Color.Gray, fontSize = 12.sp) },
             singleLine = true,
-            shape = RoundedCornerShape(14.dp),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+            shape = RoundedCornerShape(12.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = OceanSurface,
                 unfocusedContainerColor = OceanSurface,
@@ -159,12 +266,12 @@ fun RelayRandomizerComponent(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 12.dp),
+                .padding(bottom = 10.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(imageVector = Icons.Default.Groups, contentDescription = null, tint = AquaPrimary)
+                Icon(imageVector = Icons.Default.Groups, contentDescription = null, tint = AquaPrimary, modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(text = "Anzahl Teams:", style = MaterialTheme.typography.bodyMedium, color = TextWhite)
             }
@@ -191,21 +298,21 @@ fun RelayRandomizerComponent(
             }
         }
 
-        // Action Draw Teams Button
+        // SCHRITT 3: AUSLOSEN BUTTON
         Button(
             onClick = { drawTeams() },
             shape = RoundedCornerShape(14.dp),
             colors = ButtonDefaults.buttonColors(containerColor = AquaPrimary, contentColor = Color.Black),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp)
+                .height(46.dp)
         ) {
-            Icon(imageVector = Icons.Default.Shuffle, contentDescription = null, tint = Color.Black)
+            Icon(imageVector = Icons.Default.Shuffle, contentDescription = null, tint = Color.Black, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(8.dp))
             Text("TEAMS AUSLOSEN", fontWeight = FontWeight.Black, fontSize = 15.sp)
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         // Generated Teams Output
         if (generatedTeams.isNotEmpty()) {
@@ -261,3 +368,12 @@ fun RelayRandomizerComponent(
         }
     }
 }
+
+@Composable
+private fun Modifier.noRippleClickable(onClick: () -> Unit): Modifier = this.then(
+    Modifier.clickable(
+        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+        indication = null,
+        onClick = onClick
+    )
+)

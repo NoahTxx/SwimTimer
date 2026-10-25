@@ -34,4 +34,5 @@ data class SwimmerEntity(
     val pb400mLagenFreeSplitMillis: Long? = null,
     val colorHex: Long = 0xFF00E5FF,
     val notes: String = "",
+    val groupName: String? = null,
 )

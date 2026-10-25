@@ -103,12 +103,14 @@ fun TargetPaceDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
                 OutlinedTextField(
                     value = inputSeconds,
                     onValueChange = { inputSeconds = it },
                     label = { Text("Zielzeit in Sekunden (z. B. 31.50)") },
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { focusManager.clearFocus() }),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = TextWhite,
                         unfocusedTextColor = TextWhite,

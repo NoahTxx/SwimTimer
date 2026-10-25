@@ -148,6 +148,7 @@ object ExportHelper {
                 swimmer.pb400mLagenFreeSplitMillis?.let { put("pb400mLagenFreeSplitMillis", it) }
                 put("colorHex", swimmer.colorHex)
                 put("notes", swimmer.notes)
+                swimmer.groupName?.let { put("groupName", it) }
             }
             jsonArray.put(obj)
         }
@@ -160,6 +161,7 @@ object ExportHelper {
         for (i in 0 until array.length()) {
             val obj = array.getJSONObject(i)
             fun optLongNullable(key: String): Long? = if (obj.has(key) && !obj.isNull(key)) obj.getLong(key) else null
+            fun optStringNullable(key: String): String? = if (obj.has(key) && !obj.isNull(key) && obj.getString(key).isNotBlank()) obj.getString(key) else null
 
             list.add(
                 SwimmerEntity(
@@ -187,6 +189,7 @@ object ExportHelper {
                     pb400mLagenFreeSplitMillis = optLongNullable("pb400mLagenFreeSplitMillis"),
                     colorHex = obj.optLong("colorHex", 0xFF00E5FF),
                     notes = obj.optString("notes", ""),
+                    groupName = optStringNullable("groupName")
                 )
             )
         }

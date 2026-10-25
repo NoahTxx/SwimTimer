@@ -3,6 +3,7 @@ package com.example.ui.screens
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -90,6 +91,14 @@ fun SwimmersManagementScreen(
 
     var selectedSwimmerId by remember { mutableStateOf<Long?>(null) }
     var isAddDialogOpen by remember { mutableStateOf(value = false) }
+    var isAddGroupDialogOpen by remember { mutableStateOf(value = false) }
+
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+
+    val availableGroups = remember(allSwimmers) {
+        allSwimmers.mapNotNull { it.groupName?.trim() }.filter { it.isNotEmpty() }.distinct().sorted()
+    }
+    val selectedGroup by viewModel.selectedGroupFilter.collectAsStateWithLifecycle()
 
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
@@ -141,23 +150,15 @@ fun SwimmersManagementScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Schwimmteam & Kader",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp
-                        ),
-                        color = TextWhite,
-                        maxLines = 1
-                    )
-                    Text(
-                        text = "Tippe auf einen Athleten für die persönliche Historie",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.LightGray,
-                        maxLines = 1
-                    )
-                }
+                Text(
+                    text = "Schwimmteam & Kader",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    ),
+                    color = TextWhite,
+                    maxLines = 1
+                )
 
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -211,9 +212,11 @@ fun SwimmersManagementScreen(
                 onValueChange = { viewModel.swimmersSearchQuery.value = it },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 12.dp),
+                    .padding(bottom = 10.dp),
                 placeholder = { Text("Schwimmer suchen...") },
                 singleLine = true,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { focusManager.clearFocus() }),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = AquaPrimary,
@@ -240,6 +243,66 @@ fun SwimmersManagementScreen(
                     }
                 }
             )
+
+            // Group Filter Bar
+            androidx.compose.foundation.lazy.LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp)
+            ) {
+                item {
+                    androidx.compose.material3.FilterChip(
+                        selected = selectedGroup == null,
+                        onClick = { viewModel.selectedGroupFilter.value = null },
+                        label = { Text("Alle (${allSwimmers.size})", fontSize = 12.sp, fontWeight = if (selectedGroup == null) FontWeight.Bold else FontWeight.Normal) },
+                        colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = AquaPrimary,
+                            selectedLabelColor = Color.Black,
+                            containerColor = OceanSurface,
+                            labelColor = Color.LightGray
+                        )
+                    )
+                }
+                items(
+                    items = availableGroups,
+                    key = { it }
+                ) { group ->
+                    val isSelected = selectedGroup == group
+                    val count = remember(allSwimmers, group) { allSwimmers.count { it.groupName.equals(group, ignoreCase = true) } }
+                    androidx.compose.material3.FilterChip(
+                        selected = isSelected,
+                        onClick = {
+                            viewModel.selectedGroupFilter.value = if (isSelected) null else group
+                        },
+                        label = { Text("$group ($count)", fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                        colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = AquaPrimary,
+                            selectedLabelColor = Color.Black,
+                            containerColor = OceanSurface,
+                            labelColor = Color.LightGray
+                        )
+                    )
+                }
+                item {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFF132738),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AquaPrimary.copy(alpha = 0.5f)),
+                        modifier = Modifier.clickable { isAddGroupDialogOpen = true }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(imageVector = Icons.Default.Add, contentDescription = null, tint = AquaPrimary, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("+ Gruppe", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = AquaPrimary)
+                        }
+                    }
+                }
+            }
 
             if (swimmers.isEmpty()) {
                 Column(
@@ -294,13 +357,27 @@ fun SwimmersManagementScreen(
             Icon(imageVector = Icons.Default.Add, contentDescription = "Schwimmer hinzufügen")
         }
 
+        if (isAddGroupDialogOpen) {
+            ManageGroupsDialog(
+                existingGroups = availableGroups,
+                onDismiss = { isAddGroupDialogOpen = false },
+                onCreateGroup = { newGroup ->
+                    viewModel.selectedGroupFilter.value = newGroup
+                    isAddGroupDialogOpen = false
+                }
+            )
+        }
+
         if (isAddDialogOpen) {
             AddSwimmerDialog(
+                availableGroups = availableGroups,
+                defaultGroup = selectedGroup,
                 onDismiss = { isAddDialogOpen = false },
-                onAdd = { name, stroke, pb25, pb50, pb100, pb100Lagen, pb200Lagen, pb400Lagen, fly, back, breast, free, pb200Fly, pb200Back, pb200Breast, pb200Free, pb400Fly, pb400Back, pb400Breast, pb400Free ->
+                onAdd = { name, stroke, groupName, pb25, pb50, pb100, pb100Lagen, pb200Lagen, pb400Lagen, fly, back, breast, free, pb200Fly, pb200Back, pb200Breast, pb200Free, pb400Fly, pb400Back, pb400Breast, pb400Free ->
                     viewModel.addSwimmer(
                         name = name,
                         stroke = stroke,
+                        groupName = groupName,
                         pb25m = pb25,
                         pb50m = pb50,
                         pb100m = pb100,
@@ -368,13 +445,32 @@ private fun SwimmerCard(
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = swimmer.name,
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = TextWhite,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = swimmer.name,
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = TextWhite,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        if (!swimmer.groupName.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = AquaPrimary.copy(alpha = 0.15f),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, AquaPrimary.copy(alpha = 0.5f))
+                            ) {
+                                Text(
+                                    text = swimmer.groupName,
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold),
+                                    color = AquaPrimary,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
                     Text(
                         text = "Hauptlage: ${swimmer.groupOrClub}",
                         style = MaterialTheme.typography.bodySmall,
@@ -469,13 +565,111 @@ private fun SwimmerCard(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ManageGroupsDialog(
+    existingGroups: List<String>,
+    onDismiss: () -> Unit,
+    onCreateGroup: (String) -> Unit
+) {
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    var newGroupName by remember { mutableStateOf("") }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(22.dp),
+            color = Color(0xFF101B2B),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Text(
+                    text = "Trainingsgruppen verwalten",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, fontSize = 20.sp),
+                    color = TextWhite
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                OutlinedTextField(
+                    value = newGroupName,
+                    onValueChange = { newGroupName = it },
+                    label = { Text("Neue Gruppe erstellen") },
+                    placeholder = { Text("z. B. Dolphins 1") },
+                    singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = {
+                        focusManager.clearFocus()
+                        if (newGroupName.isNotBlank()) {
+                            onCreateGroup(newGroupName.trim())
+                        }
+                    }),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = TextWhite,
+                        unfocusedTextColor = TextWhite,
+                        focusedBorderColor = AquaPrimary
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                if (existingGroups.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Text("Vorhandene Gruppen:", style = MaterialTheme.typography.labelSmall, color = AquaPrimary)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        existingGroups.forEach { group ->
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = OceanSurface,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1B2E46))
+                            ) {
+                                Text(
+                                    text = group,
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = TextWhite,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(onClick = onDismiss, colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)) {
+                        Text("Schließen", color = Color.LightGray)
+                    }
+                    if (newGroupName.isNotBlank()) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = { onCreateGroup(newGroupName.trim()) },
+                            colors = ButtonDefaults.buttonColors(containerColor = AquaPrimary)
+                        ) {
+                            Text("Erstellen", color = Color.Black, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun AddSwimmerDialog(
+    availableGroups: List<String> = emptyList(),
+    defaultGroup: String? = null,
     onDismiss: () -> Unit,
     onAdd: (
         name: String,
         stroke: String,
+        groupName: String?,
         pb25m: Long?,
         pb50m: Long?,
         pb100m: Long?,
@@ -496,7 +690,9 @@ private fun AddSwimmerDialog(
         pb400Free: Long?
     ) -> Unit
 ) {
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     var name by remember { mutableStateOf("") }
+    var groupName by remember { mutableStateOf(defaultGroup ?: "") }
     var stroke by remember { mutableStateOf("Freistil") }
     var isStrokeDropdownExpanded by remember { mutableStateOf(value = false) }
 
@@ -558,6 +754,8 @@ private fun AddSwimmerDialog(
                     onValueChange = { name = it },
                     label = { Text("Name") },
                     singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { focusManager.clearFocus() }),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = TextWhite,
                         unfocusedTextColor = TextWhite,
@@ -567,6 +765,46 @@ private fun AddSwimmerDialog(
                         .fillMaxWidth()
                         .testTag("add_swimmer_name_input")
                 )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Group field with quick selection chips
+                OutlinedTextField(
+                    value = groupName,
+                    onValueChange = { groupName = it },
+                    label = { Text("Trainingsgruppe (z. B. Dolphins 1)") },
+                    placeholder = { Text("z. B. Teens 2") },
+                    singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { focusManager.clearFocus() }),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = TextWhite,
+                        unfocusedTextColor = TextWhite,
+                        focusedBorderColor = AquaPrimary
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                if (availableGroups.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        availableGroups.forEach { grp ->
+                            val isSelected = groupName.equals(grp, ignoreCase = true)
+                            androidx.compose.material3.FilterChip(
+                                selected = isSelected,
+                                onClick = { groupName = if (isSelected) "" else grp },
+                                label = { Text(grp, fontSize = 11.sp) },
+                                colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = AquaPrimary,
+                                    selectedLabelColor = Color.Black
+                                )
+                            )
+                        }
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(10.dp))
 
@@ -890,6 +1128,7 @@ private fun AddSwimmerDialog(
                                 onAdd(
                                     name.trim(),
                                     stroke,
+                                    groupName.trim().ifEmpty { null },
                                     TimeFormatter.parseTimeInputToMillis(pb25Text),
                                     TimeFormatter.parseTimeInputToMillis(pb50Text),
                                     TimeFormatter.parseTimeInputToMillis(pb100Text),

@@ -372,19 +372,21 @@ fun MultiStopwatchScreen(
                         ),
                         shape = RoundedCornerShape(18.dp),
                         elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
                         modifier = Modifier
-                            .weight(2.2f)
+                            .weight(2.4f)
                             .height(56.dp)
                             .testTag("master_start_all_button")
                     ) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(28.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(26.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = if (uiState.startMode == StartMode.INTERVAL) "Intervall-Start" else "START ALLE",
                             fontWeight = FontWeight.Black,
-                            fontSize = 15.sp,
-                            letterSpacing = 0.5.sp,
-                            maxLines = 1
+                            fontSize = 14.sp,
+                            letterSpacing = 0.sp,
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
                 } else {
