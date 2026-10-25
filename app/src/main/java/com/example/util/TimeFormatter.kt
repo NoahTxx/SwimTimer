@@ -59,6 +59,7 @@ object TimeFormatter {
         return idx
     }
 
+    @Suppress("unused")
     fun formatMillisFast(millis: Long): String {
         val buf = CharArray(8)
         writeMillisToBuffer(millis, buf)
@@ -97,6 +98,7 @@ object TimeFormatter {
         }
     }
 
+    @Suppress("unused")
     fun formatDetailed(millis: Long): String = formatMillis(millis, shortFormat = false)
 
     /**
@@ -178,6 +180,7 @@ object TimeFormatter {
         return dateFormatThreadLocal.get()?.format(Date(timestamp)) ?: ""
     }
 
+    @Suppress("unused")
     fun formatDateShort(timestamp: Long): String {
         return dateFormatShortThreadLocal.get()?.format(Date(timestamp)) ?: ""
     }
@@ -186,8 +189,8 @@ object TimeFormatter {
      * Calculates and formats pace per 100m: e.g. 01:14.50/100m
      */
     fun formatPacePer100m(lapTimeMillis: Long, splitDistanceMeters: Int): String {
-        if (lapTimeMillis <= 0 || splitDistanceMeters <= 0) return "--:--"
-        val pace100mMillis = (lapTimeMillis.toDouble() / splitDistanceMeters * 100.0).roundToLong()
+        if ((lapTimeMillis <= 0) || (splitDistanceMeters <= 0)) return "--:--"
+        val pace100mMillis = ((lapTimeMillis.toDouble() / splitDistanceMeters) * 100.0).roundToLong()
         return "${formatMillis(pace100mMillis, shortFormat = false)}/100m"
     }
 }

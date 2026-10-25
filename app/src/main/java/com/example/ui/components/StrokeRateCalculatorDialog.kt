@@ -276,7 +276,7 @@ fun StrokeRateCalculatorDialog(
                         )
                     }
 
-                    if (targetLane != null && calculatedSpm != null && onAttachToLane != null) {
+                    if ((targetLane != null) && (calculatedSpm != null) && (onAttachToLane != null)) {
                         Button(
                             onClick = {
                                 onAttachToLane(targetLane, calculatedSpm!!)

@@ -10,6 +10,7 @@ import com.example.data.model.SessionEntity
 import com.example.data.model.SessionWithLaps
 import com.example.data.model.SwimmerEntity
 import com.example.data.repository.SwimRepository
+import com.example.util.ExportHelper
 import com.example.util.HapticUtil
 import com.example.util.SoundUtil
 import com.example.util.TimeFormatter
@@ -128,7 +129,7 @@ data class StopwatchUiState(
         get() = lanes.any { (it.status == LaneStatus.RUNNING) || (it.status == LaneStatus.COUNTDOWN) }
 
     val hasOpenRun: Boolean
-        get() = lanes.any { it.status == LaneStatus.RUNNING || it.status == LaneStatus.COUNTDOWN || it.status == LaneStatus.PAUSED }
+        get() = lanes.any { (it.status == LaneStatus.RUNNING) || (it.status == LaneStatus.COUNTDOWN) || (it.status == LaneStatus.PAUSED) }
 }
 
 @Immutable
@@ -1654,6 +1655,26 @@ class StopwatchViewModel(
                     repository.insertSwimmer(swimmer.copy(id = 0))
                     addedCount++
                 }
+            }
+        }
+    }
+
+    fun importSessionsFromContent(context: Context, uri: android.net.Uri, onComplete: (Int) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val count = try {
+                val jsonString = context.contentResolver.openInputStream(uri)?.use { stream ->
+                    stream.bufferedReader(Charsets.UTF_8).readText()
+                } ?: ""
+                val importedSessions = ExportHelper.importSessionsFromJson(jsonString)
+                if (importedSessions.isNotEmpty()) {
+                    repository.importSessionsWithLaps(importedSessions)
+                }
+                importedSessions.size
+            } catch (_: Exception) {
+                0
+            }
+            kotlinx.coroutines.withContext(Dispatchers.Main) {
+                onComplete(count)
             }
         }
     }

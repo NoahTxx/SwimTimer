@@ -284,7 +284,7 @@ fun MultiStopwatchScreen(
                     horizontalArrangement = Arrangement.Start,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    var isResetConfirmOpen by remember { mutableStateOf(false) }
+                    var isResetConfirmOpen by remember { mutableStateOf(value = false) }
 
                     FilledTonalButton(
                         onClick = {
@@ -518,7 +518,7 @@ fun MultiStopwatchScreen(
             ) { newPace -> viewModel.setTargetPaceForLane(laneNum, newPace) }
         }
 
-        if (uiState.isAssignSwimmerDialogVisible && uiState.assignSwimmerLane != null) {
+        if (uiState.isAssignSwimmerDialogVisible && (uiState.assignSwimmerLane != null)) {
             val laneNum = uiState.assignSwimmerLane!!
             AssignSwimmerDialog(
                 laneNumber = laneNum,

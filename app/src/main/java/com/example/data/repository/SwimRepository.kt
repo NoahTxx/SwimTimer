@@ -19,6 +19,7 @@ class SwimRepository(private val database: AppDatabase) {
     suspend fun allSessionsWithLapsSync(): List<SessionWithLaps> =
         sessionDao.getAllSessionsWithLapsSync()
 
+    @Suppress("unused")
     fun getSessionWithLaps(sessionId: Long): Flow<SessionWithLaps?> =
         sessionDao.getSessionWithLaps(sessionId)
 
@@ -37,6 +38,7 @@ class SwimRepository(private val database: AppDatabase) {
     suspend fun deleteSwimmer(swimmer: SwimmerEntity) =
         swimmerDao.deleteSwimmer(swimmer)
 
+    @Suppress("unused")
     suspend fun deleteSwimmerById(id: Long) =
         swimmerDao.deleteSwimmerById(id)
 
@@ -50,6 +52,18 @@ class SwimRepository(private val database: AppDatabase) {
             lapRecordDao.insertLaps(lapsWithSessionId)
         }
         sessionId
+    }
+
+    suspend fun importSessionsWithLaps(sessionsWithLaps: List<SessionWithLaps>) = database.withTransaction {
+        sessionsWithLaps.forEach { (session, laps) ->
+            // If id is 0, insert generates a new ID. If id > 0, REPLACE strategy upserts the session.
+            val sessionToInsert = if (session.id > 0) session else session.copy(id = 0)
+            val newSessionId = sessionDao.insertSession(sessionToInsert)
+            val lapsWithNewId = laps.map { it.copy(id = if (session.id > 0) it.id else 0, sessionId = newSessionId) }
+            if (lapsWithNewId.isNotEmpty()) {
+                lapRecordDao.insertLaps(lapsWithNewId)
+            }
+        }
     }
 
     suspend fun deleteSessionById(sessionId: Long) = database.withTransaction {

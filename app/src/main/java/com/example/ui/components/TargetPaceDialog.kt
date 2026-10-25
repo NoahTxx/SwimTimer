@@ -56,7 +56,7 @@ fun TargetPaceDialog(
         mutableStateOf(
             if (currentPaceMillis != null) {
                 String.format(java.util.Locale.US, "%.2f", currentPaceMillis / 1000.0)
-            } else ""
+            } else "",
         )
     }
 
@@ -211,8 +211,8 @@ fun TargetPaceDialog(
                 ) {
                     quickPaces.forEach { pace ->
                         FilterChip(
-                            selected = inputSeconds == String.format(java.util.Locale.US, "%.1f", pace) ||
-                                    inputSeconds == String.format(java.util.Locale.US, "%.2f", pace),
+                            selected = (inputSeconds == String.format(java.util.Locale.US, "%.1f", pace)) ||
+                                    (inputSeconds == String.format(java.util.Locale.US, "%.2f", pace)),
                             onClick = {
                                 inputSeconds = String.format(java.util.Locale.US, "%.2f", pace)
                             },

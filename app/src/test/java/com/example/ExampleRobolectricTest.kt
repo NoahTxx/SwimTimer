@@ -49,7 +49,7 @@ class ExampleRobolectricTest {
   @Test
   fun `test lagen minimum distance enforcement`() {
     fun enforceLagenDistance(stroke: String, dist: Int): Int {
-      return if (stroke == "Lagen" && dist < 100) 100 else dist
+      return if ((stroke == "Lagen") && (dist < 100)) 100 else dist
     }
     assertEquals(100, enforceLagenDistance("Lagen", 25))
     assertEquals(100, enforceLagenDistance("Lagen", 50))
@@ -229,7 +229,7 @@ class ExampleRobolectricTest {
         laneNumber = 1,
         lapIndex = 1,
         splitTimeMillis = 28500L,
-        lapTimeMillis = 28500L
+        lapTimeMillis = 28500L,
       )
 
       val sessionId = repository.saveSessionWithLaps(session, listOf(lap))

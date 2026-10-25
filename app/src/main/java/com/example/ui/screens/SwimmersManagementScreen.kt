@@ -89,10 +89,10 @@ fun SwimmersManagementScreen(
     val allSessions by viewModel.allSessions.collectAsStateWithLifecycle()
 
     var selectedSwimmerId by remember { mutableStateOf<Long?>(null) }
-    var isAddDialogOpen by remember { mutableStateOf(false) }
+    var isAddDialogOpen by remember { mutableStateOf(value = false) }
 
     val importLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.GetContent(),
     ) { uri ->
         uri?.let {
             try {

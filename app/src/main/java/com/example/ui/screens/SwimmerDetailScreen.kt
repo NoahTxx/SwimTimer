@@ -72,7 +72,6 @@ import com.example.ui.StopwatchViewModel
 import com.example.ui.theme.AquaPrimary
 import com.example.ui.theme.DeepOceanBackground
 import com.example.ui.theme.OceanSurface
-import com.example.ui.theme.PaceRed
 import com.example.ui.theme.TextWhite
 import com.example.util.TimeFormatter
 

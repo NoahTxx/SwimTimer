@@ -109,7 +109,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainAppContent(viewModel: StopwatchViewModel) {
     var currentScreen by remember { mutableStateOf(AppScreen.STOPWATCH) }
-    var isPreloadReady by remember { mutableStateOf(false) }
+    var isPreloadReady by remember { mutableStateOf(value = false) }
 
     // Defer background screens preload slightly so cold start is 100% smooth from frame 1
     androidx.compose.runtime.LaunchedEffect(Unit) {
@@ -125,7 +125,7 @@ fun MainAppContent(viewModel: StopwatchViewModel) {
         modifier = Modifier
             .fillMaxSize()
             .background(DeepOceanBackground)
-            .statusBarsPadding()
+            .statusBarsPadding(),
     ) {
         Box(
             modifier = Modifier

@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -22,11 +24,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Pool
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -69,95 +76,177 @@ fun SessionsHistoryScreen(
     val context = LocalContext.current
     val sessions by viewModel.allSessions.collectAsStateWithLifecycle()
 
-    Box(
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let {
+            viewModel.importSessionsFromContent(context, it) { _ -> }
+        }
+    }
+
+    Column(
         modifier = modifier
             .fillMaxSize()
             .background(DeepOceanBackground)
-            .padding(16.dp)
+            .padding(horizontal = 14.dp, vertical = 8.dp)
     ) {
-        if (sessions.isEmpty()) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.History,
-                    contentDescription = null,
-                    tint = Color.DarkGray,
-                    modifier = Modifier.size(64.dp)
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = "Noch keine Einheiten gespeichert",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Color.LightGray
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = "Stoppe Zeiten auf der Hauptseite und tippe auf 'SAVE', um Einheiten dauerhaft abzulegen.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 24.dp)
-                )
-            }
-        } else {
-            var sessionToDelete by remember { mutableStateOf<SessionWithLaps?>(null) }
+        // Top Action Bar for Export/Import
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Historie (${sessions.size})",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = TextWhite
+            )
 
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 80.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                items(
-                    items = sessions,
-                    key = { it.session.id },
-                    contentType = { "SessionHistoryCard" }
-                ) { item ->
-                    val onShare = remember(context, item) { { ExportHelper.shareSession(context, item) } }
-                    val onDeleteRequest = remember(item) { { sessionToDelete = item } }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Export Button
+                FilledTonalButton(
+                    onClick = {
+                        if (sessions.isNotEmpty()) {
+                            val json = ExportHelper.exportSessionsToJson(sessions)
+                            try {
+                                val fileName = "SwimTimer_Historie_Export_${System.currentTimeMillis()}.json"
+                                val file = java.io.File(context.cacheDir, fileName)
+                                java.io.FileOutputStream(file).use { out ->
+                                    out.write(json.toByteArray(Charsets.UTF_8))
+                                }
+                                val uri = androidx.core.content.FileProvider.getUriForFile(
+                                    context,
+                                    "${context.packageName}.fileprovider",
+                                    file
+                                )
+                                val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                    type = "application/json"
+                                    putExtra(android.content.Intent.EXTRA_SUBJECT, "SwimTimer Historie Export (${sessions.size} Einheiten)")
+                                    putExtra(android.content.Intent.EXTRA_TEXT, "Anbei der JSON-Export deiner ${sessions.size} Trainingseinheiten.")
+                                    putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(android.content.Intent.createChooser(shareIntent, "Historie exportieren"))
+                            } catch (_: Exception) {}
+                        }
+                    },
+                    enabled = sessions.isNotEmpty(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = OceanSurface,
+                        contentColor = AquaPrimary
+                    ),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.FileUpload, contentDescription = "Export", modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Export", style = MaterialTheme.typography.labelSmall)
+                }
 
-                    SessionHistoryCard(
-                        sessionWithLaps = item,
-                        onShare = onShare,
-                        onDelete = onDeleteRequest
-                    )
+                // Import Button
+                FilledTonalButton(
+                    onClick = { importLauncher.launch("*/*") },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = OceanSurface,
+                        contentColor = AquaPrimary
+                    ),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.FileDownload, contentDescription = "Import", modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Import", style = MaterialTheme.typography.labelSmall)
                 }
             }
+        }
 
-            if (sessionToDelete != null) {
-                val targetSession = sessionToDelete!!
-                androidx.compose.material3.AlertDialog(
-                    onDismissRequest = { sessionToDelete = null },
-                    title = { Text("Trainingseinheit löschen?", color = TextWhite, fontWeight = FontWeight.Bold) },
-                    text = {
-                        Text(
-                            text = "Möchtest du '${targetSession.session.title}' vom ${TimeFormatter.formatDate(targetSession.session.timestamp)} wirklich unwiderruflich löschen?",
-                            color = Color.LightGray
+        Box(modifier = Modifier.weight(1f)) {
+            if (sessions.isEmpty()) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.History,
+                        contentDescription = null,
+                        tint = Color.DarkGray,
+                        modifier = Modifier.size(64.dp)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Noch keine Einheiten gespeichert",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color.LightGray
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Stoppe Zeiten auf der Hauptseite und tippe auf 'SAVE', um Einheiten dauerhaft abzulegen.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 24.dp)
+                    )
+                }
+            } else {
+                var sessionToDelete by remember { mutableStateOf<SessionWithLaps?>(null) }
+
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 80.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    items(
+                        items = sessions,
+                        key = { it.session.id },
+                        contentType = { "SessionHistoryCard" }
+                    ) { item ->
+                        val onShare = remember(context, item) { { ExportHelper.shareSession(context, item) } }
+                        val onDeleteRequest = remember(item) { { sessionToDelete = item } }
+
+                        SessionHistoryCard(
+                            sessionWithLaps = item,
+                            onShare = onShare,
+                            onDelete = onDeleteRequest
                         )
-                    },
-                    containerColor = Color(0xFF101B2B),
-                    confirmButton = {
-                        androidx.compose.material3.Button(
-                            onClick = {
-                                viewModel.deleteSession(targetSession.session.id)
-                                sessionToDelete = null
-                            },
-                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252))
-                        ) {
-                            Text("Löschen", color = Color.White, fontWeight = FontWeight.Bold)
-                        }
-                    },
-                    dismissButton = {
-                        androidx.compose.material3.Button(
-                            onClick = { sessionToDelete = null },
-                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color.Transparent)
-                        ) {
-                            Text("Abbrechen", color = Color.LightGray)
-                        }
                     }
-                )
+                }
+
+                if (sessionToDelete != null) {
+                    val targetSession = sessionToDelete!!
+                    androidx.compose.material3.AlertDialog(
+                        onDismissRequest = { sessionToDelete = null },
+                        title = { Text("Trainingseinheit löschen?", color = TextWhite, fontWeight = FontWeight.Bold) },
+                        text = {
+                            Text(
+                                text = "Möchtest du '${targetSession.session.title}' vom ${TimeFormatter.formatDate(targetSession.session.timestamp)} wirklich unwiderruflich löschen?",
+                                color = Color.LightGray
+                            )
+                        },
+                        containerColor = Color(0xFF101B2B),
+                        confirmButton = {
+                            androidx.compose.material3.Button(
+                                onClick = {
+                                    viewModel.deleteSession(targetSession.session.id)
+                                    sessionToDelete = null
+                                },
+                                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252))
+                            ) {
+                                Text("Löschen", color = Color.White, fontWeight = FontWeight.Bold)
+                            }
+                        },
+                        dismissButton = {
+                            androidx.compose.material3.Button(
+                                onClick = { sessionToDelete = null },
+                                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color.Transparent)
+                            ) {
+                                Text("Abbrechen", color = Color.LightGray)
+                            }
+                        }
+                    )
+                }
             }
         }
     }

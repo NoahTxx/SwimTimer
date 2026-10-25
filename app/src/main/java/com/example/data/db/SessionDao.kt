@@ -34,20 +34,27 @@ interface SessionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSession(session: SessionEntity): Long
 
+    @Suppress("unused")
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSessions(sessions: List<SessionEntity>): List<Long>
+
     @Delete
     suspend fun deleteSession(session: SessionEntity)
 
     @Query("DELETE FROM sessions WHERE id = :sessionId")
     suspend fun deleteSessionById(sessionId: Long)
 
-    @Query("""
+    @Suppress("unused")
+    @Query(
+        """
         SELECT 
             COUNT(id) AS totalLapsSwum,
             MIN(lapTimeMillis) AS fastestLapMillis,
             AVG(lapTimeMillis) AS averageLapMillis
         FROM lap_records 
         WHERE swimmerId = :swimmerId
-    """)
+        """,
+    )
     fun getSwimmerStatsFlow(swimmerId: Long): Flow<SwimmerStatsSummary>
 }
 
@@ -55,5 +62,5 @@ interface SessionDao {
 data class SwimmerStatsSummary(
     val totalLapsSwum: Int,
     val fastestLapMillis: Long?,
-    val averageLapMillis: Double?
+    val averageLapMillis: Double?,
 )

@@ -13,7 +13,7 @@ import java.io.FileOutputStream
 object ExportHelper {
 
     fun generateTextSummary(sessionWithLaps: SessionWithLaps): String {
-        val s = sessionWithLaps.session
+        val (s, _) = sessionWithLaps
         val sb = StringBuilder()
         sb.append("SWIMTIMER - TRAININGSBERICHT\n")
         sb.append("----------------------------------------\n")
@@ -186,7 +186,7 @@ object ExportHelper {
                     pb400mLagenBreastSplitMillis = optLongNullable("pb400mLagenBreastSplitMillis"),
                     pb400mLagenFreeSplitMillis = optLongNullable("pb400mLagenFreeSplitMillis"),
                     colorHex = obj.optLong("colorHex", 0xFF00E5FF),
-                    notes = obj.optString("notes", "")
+                    notes = obj.optString("notes", ""),
                 )
             )
         }
@@ -222,5 +222,97 @@ object ExportHelper {
             }
             context.startActivity(Intent.createChooser(textIntent, "Athleten exportieren (Text)"))
         }
+    }
+
+    fun exportSessionsToJson(sessions: List<SessionWithLaps>): String {
+        val jsonArray = JSONArray()
+        sessions.forEach { item ->
+            val s = item.session
+            val sessionObj = JSONObject().apply {
+                put("id", s.id)
+                put("timestamp", s.timestamp)
+                put("title", s.title)
+                put("poolLengthMeters", s.poolLengthMeters)
+                put("targetDistanceMeters", s.targetDistanceMeters)
+                put("strokeType", s.strokeType)
+                put("startMode", s.startMode)
+                put("intervalOffsetSeconds", s.intervalOffsetSeconds)
+                put("laneCount", s.laneCount)
+                put("splitDistanceMeters", s.splitDistanceMeters)
+                put("notes", s.notes)
+
+                val lapsArray = JSONArray()
+                item.laps.forEach { lap ->
+                    val lapObj = JSONObject().apply {
+                        put("id", lap.id)
+                        put("sessionId", lap.sessionId)
+                        lap.swimmerId?.let { put("swimmerId", it) }
+                        put("swimmerName", lap.swimmerName)
+                        put("laneNumber", lap.laneNumber)
+                        put("lapIndex", lap.lapIndex)
+                        put("splitTimeMillis", lap.splitTimeMillis)
+                        put("lapTimeMillis", lap.lapTimeMillis)
+                        lap.targetLapMillis?.let { put("targetLapMillis", it) }
+                        lap.deltaTargetMillis?.let { put("deltaTargetMillis", it) }
+                        lap.strokeRateSpm?.let { put("strokeRateSpm", it) }
+                        put("timestamp", lap.timestamp)
+                    }
+                    lapsArray.put(lapObj)
+                }
+                put("laps", lapsArray)
+            }
+            jsonArray.put(sessionObj)
+        }
+        return jsonArray.toString(2)
+    }
+
+    fun importSessionsFromJson(jsonContent: String): List<SessionWithLaps> {
+        val result = mutableListOf<SessionWithLaps>()
+        val array = JSONArray(jsonContent)
+        for (i in 0 until array.length()) {
+            val obj = array.getJSONObject(i)
+            fun optLongNullable(o: JSONObject, key: String): Long? = if (o.has(key) && !o.isNull(key)) o.getLong(key) else null
+            fun optDoubleNullable(o: JSONObject, key: String): Double? = if (o.has(key) && !o.isNull(key)) o.getDouble(key) else null
+
+            val session = com.example.data.model.SessionEntity(
+                id = obj.optLong("id", 0L),
+                timestamp = obj.optLong("timestamp", System.currentTimeMillis()),
+                title = obj.optString("title", "Importiertes Training"),
+                poolLengthMeters = obj.optInt("poolLengthMeters", 50),
+                targetDistanceMeters = obj.optInt("targetDistanceMeters", 100),
+                strokeType = obj.optString("strokeType", "Freistil"),
+                startMode = obj.optString("startMode", "MASS"),
+                intervalOffsetSeconds = obj.optInt("intervalOffsetSeconds", 5),
+                laneCount = obj.optInt("laneCount", 4),
+                splitDistanceMeters = obj.optInt("splitDistanceMeters", 50),
+                notes = obj.optString("notes", "")
+            )
+
+            val lapsList = mutableListOf<com.example.data.model.LapRecordEntity>()
+            val lapsArray = obj.optJSONArray("laps")
+            if (lapsArray != null) {
+                for (j in 0 until lapsArray.length()) {
+                    val lObj = lapsArray.getJSONObject(j)
+                    lapsList.add(
+                        com.example.data.model.LapRecordEntity(
+                            id = lObj.optLong("id", 0L),
+                            sessionId = lObj.optLong("sessionId", session.id),
+                            swimmerId = optLongNullable(lObj, "swimmerId"),
+                            swimmerName = lObj.optString("swimmerName", "Unbekannt"),
+                            laneNumber = lObj.optInt("laneNumber", 1),
+                            lapIndex = lObj.optInt("lapIndex", j + 1),
+                            splitTimeMillis = lObj.optLong("splitTimeMillis", 0L),
+                            lapTimeMillis = lObj.optLong("lapTimeMillis", 0L),
+                            targetLapMillis = optLongNullable(lObj, "targetLapMillis"),
+                            deltaTargetMillis = optLongNullable(lObj, "deltaTargetMillis"),
+                            strokeRateSpm = optDoubleNullable(lObj, "strokeRateSpm"),
+                            timestamp = lObj.optLong("timestamp", System.currentTimeMillis())
+                        )
+                    )
+                }
+            }
+            result.add(SessionWithLaps(session = session, laps = lapsList))
+        }
+        return result
     }
 }

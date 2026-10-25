@@ -424,7 +424,7 @@ private fun LaneProgressAndLaps(
 ) {
     var restSecondsState by remember(status, finishTimeMillis, laneStartTimeRealtime) {
         mutableLongStateOf(
-            if (status == LaneStatus.FINISHED && finishTimeMillis != null && laneStartTimeRealtime != null) {
+            if ((status == LaneStatus.FINISHED) && (finishTimeMillis != null) && (laneStartTimeRealtime != null)) {
                 val now = SystemClock.elapsedRealtime()
                 ((now - laneStartTimeRealtime).coerceAtLeast(0L) - finishTimeMillis).coerceAtLeast(0L) / 1000L
             } else 0L
@@ -432,7 +432,7 @@ private fun LaneProgressAndLaps(
     }
 
     LaunchedEffect(status, finishTimeMillis, laneStartTimeRealtime) {
-        if (status == LaneStatus.FINISHED && finishTimeMillis != null && laneStartTimeRealtime != null) {
+        if ((status == LaneStatus.FINISHED) && (finishTimeMillis != null) && (laneStartTimeRealtime != null)) {
             while (true) {
                 val now = SystemClock.elapsedRealtime()
                 val totalElapsed = (now - laneStartTimeRealtime).coerceAtLeast(0L)

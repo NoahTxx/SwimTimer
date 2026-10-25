@@ -46,6 +46,7 @@ object SoundUtil {
     /**
      * Safely releases native audio resources when app stops or destroys.
      */
+    @Suppress("unused")
     fun release() {
         executor.execute {
             try {
