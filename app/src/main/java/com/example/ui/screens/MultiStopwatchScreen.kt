@@ -29,7 +29,6 @@ import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -75,13 +74,13 @@ import com.example.ui.theme.TextWhite
 @Composable
 fun MultiStopwatchScreen(
     viewModel: StopwatchViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val swimmers by viewModel.allSwimmers.collectAsStateWithLifecycle()
 
-    var isConfigDialogOpen by remember { mutableStateOf(false) }
+    var isConfigDialogOpen by remember { mutableStateOf(value = false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(uiState.lastUndoMessage) {
@@ -258,7 +257,7 @@ fun MultiStopwatchScreen(
             // BOTTOM MASTER CONTROLS BAR
             val anyRunning = uiState.hasOpenRun
             val anyHasTimes = uiState.lanes.any {
-                (it.currentElapsedMillis > 0L || it.laps.isNotEmpty() || it.status == LaneStatus.FINISHED)
+                (it.currentElapsedMillis > 0L) || (it.laps.isNotEmpty()) || (it.status == LaneStatus.FINISHED)
             }
             val anyLapsRecorded = uiState.lanes.any { it.laps.isNotEmpty() }
 
@@ -486,16 +485,15 @@ fun MultiStopwatchScreen(
                 currentDistance = uiState.targetDistanceMeters,
                 currentSplitDistance = uiState.splitDistanceMeters,
                 currentStroke = uiState.strokeType,
-                onDismiss = { isConfigDialogOpen = false },
-                onSave = { mode, interval, pool, dist, splitDist, stroke ->
-                    viewModel.setStartMode(mode)
-                    viewModel.setIntervalOffsetSeconds(interval)
-                    viewModel.setSessionMeta("${dist}m $stroke", stroke, pool, dist, splitDist)
-                }
-            )
+                onDismiss = { isConfigDialogOpen = false }
+            ) { mode, interval, pool, dist, splitDist, stroke ->
+                viewModel.setStartMode(mode)
+                viewModel.setIntervalOffsetSeconds(interval)
+                viewModel.setSessionMeta("${dist}m $stroke", stroke, pool, dist, splitDist)
+            }
         }
 
-        if (uiState.isTargetPaceDialogVisible && uiState.targetPaceLane != null) {
+        if (uiState.isTargetPaceDialogVisible && (uiState.targetPaceLane != null)) {
             val laneNum = uiState.targetPaceLane!!
             val targetLane = uiState.lanes.firstOrNull { it.laneNumber == laneNum }
             val currentPace = targetLane?.targetLapMillis
@@ -508,8 +506,7 @@ fun MultiStopwatchScreen(
                 splitDistanceMeters = uiState.splitDistanceMeters,
                 strokeType = uiState.strokeType,
                 onDismiss = { viewModel.closeTargetPaceDialog() },
-                onSavePace = { newPace -> viewModel.setTargetPaceForLane(laneNum, newPace) }
-            )
+            ) { newPace -> viewModel.setTargetPaceForLane(laneNum, newPace) }
         }
 
         if (uiState.isAssignSwimmerDialogVisible && uiState.assignSwimmerLane != null) {

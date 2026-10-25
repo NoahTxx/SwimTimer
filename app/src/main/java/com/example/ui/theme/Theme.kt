@@ -1,8 +1,6 @@
 package com.example.ui.theme
 
 import android.app.Activity
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -36,7 +34,7 @@ private val PoolsideDarkColorScheme = darkColorScheme(
     error = PaceRed,
     onError = Color.White,
     errorContainer = PaceRedContainer,
-    onErrorContainer = PaceRed
+    onErrorContainer = PaceRed,
 )
 
 private val PoolsideLightColorScheme = lightColorScheme(
@@ -54,7 +52,7 @@ private val PoolsideLightColorScheme = lightColorScheme(
     onSurfaceVariant = Color(0xFF3F484B),
     outline = Color(0xFF70797C),
     error = Color(0xFFBA1A1A),
-    onError = Color.White
+    onError = Color.White,
 )
 
 @Composable

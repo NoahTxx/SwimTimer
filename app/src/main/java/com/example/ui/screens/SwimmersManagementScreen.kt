@@ -3,7 +3,6 @@ package com.example.ui.screens
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,7 +14,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -69,7 +67,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.data.model.SwimmerEntity
 import com.example.ui.StopwatchViewModel
 import com.example.ui.theme.AquaPrimary
 import com.example.ui.theme.DeepOceanBackground
@@ -82,8 +79,8 @@ import com.example.util.TimeFormatter
 @Composable
 fun SwimmersManagementScreen(
     viewModel: StopwatchViewModel,
+    modifier: Modifier = Modifier,
     isActiveTab: Boolean = true,
-    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val allSwimmers by viewModel.allSwimmers.collectAsStateWithLifecycle()

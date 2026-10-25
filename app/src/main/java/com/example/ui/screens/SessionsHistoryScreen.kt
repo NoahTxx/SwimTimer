@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -65,7 +64,7 @@ private val LAGEN_SHORT_NAMES = listOf("Schmett", "Rücken", "Brust", "Freistil"
 @Composable
 fun SessionsHistoryScreen(
     viewModel: StopwatchViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val sessions by viewModel.allSessions.collectAsStateWithLifecycle()
@@ -170,7 +169,7 @@ private fun SessionHistoryCard(
     onShare: () -> Unit,
     onDelete: () -> Unit
 ) {
-    var isExpanded by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    var isExpanded by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(value = false) }
     val s = sessionWithLaps.session
     val laps = sessionWithLaps.laps
     val groupedByLane = remember(laps) { laps.groupBy { it.laneNumber } }

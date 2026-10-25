@@ -60,6 +60,7 @@ import com.example.ui.theme.AquaPrimary
 import com.example.ui.theme.DeepOceanBackground
 import com.example.ui.theme.OceanSurface
 import com.example.ui.theme.SwimTimerTheme
+import kotlin.time.Duration.Companion.milliseconds
 
 enum class AppScreen {
     STOPWATCH,
@@ -112,7 +113,7 @@ fun MainAppContent(viewModel: StopwatchViewModel) {
 
     // Defer background screens preload slightly so cold start is 100% smooth from frame 1
     androidx.compose.runtime.LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(200L)
+        kotlinx.coroutines.delay(200.milliseconds)
         isPreloadReady = true
     }
 

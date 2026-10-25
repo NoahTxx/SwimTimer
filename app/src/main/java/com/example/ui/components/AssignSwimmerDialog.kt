@@ -17,9 +17,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PersonAdd
-import androidx.compose.material3.Divider
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -90,7 +87,7 @@ fun AssignSwimmerDialog(
                         modifier = Modifier.size(36.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Text("$laneNumber", color = Color.White, fontWeight = FontWeight.Bold)
+                            Text(laneNumber.toString(), color = Color.White, fontWeight = FontWeight.Bold)
                         }
                     }
                     Spacer(modifier = Modifier.width(12.dp))

@@ -42,7 +42,7 @@ class SwimRepository(private val database: AppDatabase) {
 
     suspend fun saveSessionWithLaps(
         session: SessionEntity,
-        laps: List<LapRecordEntity>
+        laps: List<LapRecordEntity>,
     ): Long = database.withTransaction {
         val sessionId = sessionDao.insertSession(session)
         val lapsWithSessionId = laps.map { it.copy(sessionId = sessionId) }

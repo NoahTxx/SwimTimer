@@ -12,14 +12,14 @@ val Typography = Typography(
         fontWeight = FontWeight.Bold,
         fontSize = 44.sp,
         lineHeight = 48.sp,
-        letterSpacing = (-0.5).sp
+        letterSpacing = (-0.5).sp,
     ),
     displayMedium = TextStyle(
         fontFamily = FontFamily.Monospace,
         fontWeight = FontWeight.Bold,
         fontSize = 32.sp,
         lineHeight = 36.sp,
-        letterSpacing = 0.sp
+        letterSpacing = 0.sp,
     ),
     displaySmall = TextStyle(
         fontFamily = FontFamily.Monospace,

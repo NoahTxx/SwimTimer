@@ -8,7 +8,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,7 +31,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -89,6 +87,7 @@ import com.example.ui.theme.PaceRed
 import com.example.ui.theme.TextWhite
 import com.example.ui.theme.PaceNeutral
 import com.example.util.TimeFormatter
+import kotlin.time.Duration.Companion.milliseconds
 
 private val LAGEN_STROKE_NAMES = listOf("1. Schmett", "2. Rücken", "3. Brust", "4. Freistil")
 private val LAGEN_SHORT_NAMES = listOf("Schmett", "Rücken", "Brust", "Freistil")
@@ -105,9 +104,9 @@ fun LaneTimerCard(
     onStartSingleLaneClick: (() -> Unit)? = null,
     onPauseClick: (() -> Unit)? = null,
     onResumeClick: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
-    var isExpanded by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    var isExpanded by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(value = false) }
 
     val laneAccentColor = remember(lane.laneNumber) {
         LaneColors.getOrElse((lane.laneNumber - 1) % LaneColors.size) { AquaPrimary }
@@ -226,7 +225,7 @@ private fun LaneHeader(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
-                        text = "$laneNumber",
+                        text = laneNumber.toString(),
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Black,
                             fontSize = 17.sp
@@ -374,7 +373,7 @@ private fun DigitalTimerDisplay(
             .testTag("timer_text_lane_$laneNumber"),
         contentAlignment = Alignment.Center
     ) {
-        if (status == LaneStatus.RUNNING && laneStartTimeRealtime != null) {
+        if ((status == LaneStatus.RUNNING) && (laneStartTimeRealtime != null)) {
             RunningTime(
                 startRealtime = laneStartTimeRealtime,
                 style = textStyle,
@@ -432,7 +431,7 @@ private fun LaneProgressAndLaps(
                 val totalElapsed = (now - laneStartTimeRealtime).coerceAtLeast(0L)
                 val restMillis = (totalElapsed - finishTimeMillis).coerceAtLeast(0L)
                 restSecondsState = restMillis / 1000L
-                kotlinx.coroutines.delay(200L)
+                kotlinx.coroutines.delay(200.milliseconds)
             }
         }
     }
@@ -757,7 +756,7 @@ private fun LaneControls(
             var enableRestart by remember(isFinished) { mutableStateOf(!isFinished) }
             LaunchedEffect(isFinished) {
                 if (isFinished) {
-                    kotlinx.coroutines.delay(1500)
+                    kotlinx.coroutines.delay(1500.milliseconds)
                     enableRestart = true
                 }
             }

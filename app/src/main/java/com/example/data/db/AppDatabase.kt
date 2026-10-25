@@ -14,10 +14,10 @@ import com.example.data.model.SwimmerEntity
     entities = [
         SwimmerEntity::class,
         SessionEntity::class,
-        LapRecordEntity::class
+        LapRecordEntity::class,
     ],
     version = 6,
-    exportSchema = false
+    exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun swimmerDao(): SwimmerDao
@@ -78,7 +78,7 @@ abstract class AppDatabase : RoomDatabase() {
                     "swim_timer_database"
                 )
                     .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
-                    .fallbackToDestructiveMigrationOnDowngrade()
+                    .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
                     .build()
                 INSTANCE = instance
                 instance

@@ -18,7 +18,7 @@ object TimeFormatter {
         val seconds = ((safeMillis % 60_000L) / 1_000L).toInt()
         val hundredths = ((safeMillis % 1_000L) / 10L).toInt()
 
-        if (shortFormat && minutes == 0) {
+        if (shortFormat && (minutes == 0)) {
             return buildString(6) {
                 if (seconds < 10) append('0')
                 append(seconds)
@@ -62,7 +62,7 @@ object TimeFormatter {
      * Formats milliseconds for text input fields (e.g. "24.80" or "01:04.50")
      */
     fun formatForInput(millis: Long?): String {
-        if (millis == null || millis <= 0L) return ""
+        if ((millis == null) || (millis <= 0L)) return ""
         return formatMillis(millis, shortFormat = millis < 60_000L)
     }
 

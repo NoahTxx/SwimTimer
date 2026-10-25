@@ -50,7 +50,7 @@ fun TargetPaceDialog(
     splitDistanceMeters: Int = 50,
     strokeType: String = "Freistil",
     onDismiss: () -> Unit,
-    onSavePace: (Long?) -> Unit
+    onSavePace: (Long?) -> Unit,
 ) {
     var inputSeconds by remember {
         mutableStateOf(
@@ -122,12 +122,11 @@ fun TargetPaceDialog(
                 Spacer(modifier = Modifier.height(14.dp))
 
                 // Athlete-specific training zones
-                if (referencePbMillis != null && assignedSwimmer != null) {
+                if (referencePbMillis != null) {
                     val pbSec = referencePbMillis / 1000.0
                     val ga1Sec = pbSec * 1.20
                     val ga2Sec = pbSec * 1.10
                     val wsaSec = pbSec * 1.04
-                    val sprintSec = pbSec
 
                     Text(
                         text = "Trainingszonen (${assignedSwimmer.name}):",
@@ -184,9 +183,9 @@ fun TargetPaceDialog(
                         )
                         // Sprint Chip
                         FilterChip(
-                            selected = inputSeconds == String.format(java.util.Locale.US, "%.2f", sprintSec),
-                            onClick = { inputSeconds = String.format(java.util.Locale.US, "%.2f", sprintSec) },
-                            label = { Text("PB (%.1fs)".format(sprintSec)) },
+                            selected = inputSeconds == String.format(java.util.Locale.US, "%.2f", pbSec),
+                            onClick = { inputSeconds = String.format(java.util.Locale.US, "%.2f", pbSec) },
+                            label = { Text("PB (%.1fs)".format(pbSec)) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = AquaPrimary,
                                 selectedLabelColor = Color.Black

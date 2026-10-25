@@ -9,7 +9,7 @@ data class SessionWithLaps(
     @Embedded val session: SessionEntity,
     @Relation(
         parentColumn = "id",
-        entityColumn = "sessionId"
+        entityColumn = "sessionId",
     )
-    val laps: List<LapRecordEntity>
+    val laps: List<LapRecordEntity>,
 )

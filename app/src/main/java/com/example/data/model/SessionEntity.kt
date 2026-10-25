@@ -17,5 +17,5 @@ data class SessionEntity(
     val intervalOffsetSeconds: Int = 5,
     val laneCount: Int = 4,
     val splitDistanceMeters: Int = 50,
-    val notes: String = ""
+    val notes: String = "",
 )

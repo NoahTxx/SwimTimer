@@ -1,6 +1,5 @@
 package com.example.ui.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -50,7 +49,7 @@ fun IntervalConfigDialog(
     currentSplitDistance: Int = 50,
     currentStroke: String,
     onDismiss: () -> Unit,
-    onSave: (mode: StartMode, intervalSec: Int, poolLength: Int, distance: Int, splitDistance: Int, stroke: String) -> Unit
+    onSave: (mode: StartMode, intervalSec: Int, poolLength: Int, distance: Int, splitDistance: Int, stroke: String) -> Unit,
 ) {
     var mode by remember { mutableStateOf(currentStartMode) }
     var intervalSec by remember { mutableIntStateOf(currentIntervalSec) }
@@ -312,7 +311,7 @@ fun IntervalConfigDialog(
                     }
                 }
                 val splitInfoText = when {
-                    stroke == "Lagen" && splitDistance == 25 -> "25m Splits aktiv: Erfasst 1. Schmett, 2. Rücken, 3. Brust, 4. Freistil separat als Bestzeiten!"
+                    (stroke == "Lagen") && (splitDistance == 25) -> "25m Splits aktiv: Erfasst 1. Schmett, 2. Rücken, 3. Brust, 4. Freistil separat als Bestzeiten!"
                     splitDistance < distance -> "Splits alle ${splitDistance}m • $expectedLaps Laps bis Ziel (${distance}m)"
                     else -> "Nur Endzeit wird gestoppt (1 Lap)"
                 }

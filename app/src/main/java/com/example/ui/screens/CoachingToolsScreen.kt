@@ -8,7 +8,6 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -77,7 +76,7 @@ enum class CoachingToolSection(val label: String, val icon: androidx.compose.ui.
 @Composable
 fun CoachingToolsScreen(
     viewModel: StopwatchViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     var selectedSection by remember { mutableStateOf(CoachingToolSection.PACE) }
 
@@ -141,16 +140,14 @@ fun CoachingToolsScreen(
 
         // Section Content
         when (selectedSection) {
-            CoachingToolSection.PACE -> PaceCalculatorView(
-                onApplyToStopwatch = { avgMillis, stroke, distance, splitDistance ->
-                    viewModel.setTargetPaceForAllLanes(
-                        paceMillis = avgMillis,
-                        stroke = stroke,
-                        distance = distance,
-                        splitDistance = splitDistance
-                    )
-                }
-            )
+            CoachingToolSection.PACE -> PaceCalculatorView { avgMillis, stroke, distance, splitDistance ->
+                viewModel.setTargetPaceForAllLanes(
+                    paceMillis = avgMillis,
+                    stroke = stroke,
+                    distance = distance,
+                    splitDistance = splitDistance
+                )
+            }
             CoachingToolSection.STROKE_RATE -> StrokeRateTapView()
             CoachingToolSection.CONVERTER -> PoolLengthConverterView()
         }
@@ -160,7 +157,6 @@ fun CoachingToolsScreen(
 /**
  * 1. PACE & SPLIT CALCULATOR
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PaceCalculatorView(
     onApplyToStopwatch: ((Long, String, Int, Int) -> Unit)? = null
@@ -219,7 +215,7 @@ private fun PaceCalculatorView(
                     }
                 }
                 "Lagen-Physiologie" -> {
-                    if (stroke == "Lagen" && count >= 4) {
+                    if ((stroke == "Lagen") && (count >= 4)) {
                         val legCount = count / 4
                         val flyPct = 0.24
                         val backPct = 0.26
@@ -560,7 +556,7 @@ private fun PaceCalculatorView(
 
                 if (onApplyToStopwatch != null) {
                     Spacer(modifier = Modifier.height(10.dp))
-                    var appliedFeedback by remember(distance, splitDistance, targetMillis, stroke) { mutableStateOf(false) }
+                    var appliedFeedback by remember(distance, splitDistance, targetMillis, stroke) { mutableStateOf(value = false) }
 
                     Button(
                         onClick = {

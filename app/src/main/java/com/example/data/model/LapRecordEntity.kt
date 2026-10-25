@@ -10,7 +10,7 @@ import androidx.room.PrimaryKey
     tableName = "lap_records",
     indices = [
         Index("sessionId"),
-        Index("swimmerId")
+        Index("swimmerId"),
     ]
 )
 data class LapRecordEntity(
@@ -25,5 +25,5 @@ data class LapRecordEntity(
     val targetLapMillis: Long? = null,
     val deltaTargetMillis: Long? = null,
     val strokeRateSpm: Double? = null,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
 )

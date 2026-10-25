@@ -29,7 +29,6 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Pool
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -59,7 +58,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
@@ -74,7 +72,6 @@ import com.example.ui.StopwatchViewModel
 import com.example.ui.theme.AquaPrimary
 import com.example.ui.theme.DeepOceanBackground
 import com.example.ui.theme.OceanSurface
-import com.example.ui.theme.PaceGreen
 import com.example.ui.theme.PaceRed
 import com.example.ui.theme.TextWhite
 import com.example.util.TimeFormatter
@@ -83,16 +80,16 @@ import com.example.util.TimeFormatter
 fun SwimmerDetailScreen(
     swimmer: SwimmerEntity,
     allSessions: List<SessionWithLaps>,
+    modifier: Modifier = Modifier,
     isActiveTab: Boolean = true,
     onBack: () -> Unit,
     onUpdateSwimmer: (SwimmerEntity) -> Unit,
     onDeleteSwimmer: (SwimmerEntity) -> Unit,
-    modifier: Modifier = Modifier
 ) {
     BackHandler(enabled = isActiveTab) { onBack() }
 
-    var isEditDialogOpen by remember { mutableStateOf(false) }
-    var isDeleteConfirmOpen by remember { mutableStateOf(false) }
+    var isEditDialogOpen by remember { mutableStateOf(value = false) }
+    var isDeleteConfirmOpen by remember { mutableStateOf(value = false) }
 
     // Calculate Dynamic PBs from both manual entry and session history
     val dynamicPbs = remember(swimmer, allSessions) {
@@ -125,7 +122,7 @@ fun SwimmerDetailScreen(
                 val matchedStroke = strokeOptions.find { StopwatchViewModel.isSameStroke(it, s.strokeType) } ?: s.strokeType
                 val key = matchedStroke to s.targetDistanceMeters
                 val currentPb = pbs[key]
-                if (currentPb == null || finishTime < currentPb) {
+                if ((currentPb == null) || (finishTime < currentPb)) {
                     pbs[key] = finishTime
                 }
             }
@@ -529,12 +526,11 @@ fun SwimmerDetailScreen(
         if (isEditDialogOpen) {
             EditSwimmerDialog(
                 swimmer = swimmer,
-                onDismiss = { isEditDialogOpen = false },
-                onSave = { updated ->
-                    onUpdateSwimmer(updated)
-                    isEditDialogOpen = false
-                }
-            )
+                onDismiss = { isEditDialogOpen = false }
+            ) { updated ->
+                onUpdateSwimmer(updated)
+                isEditDialogOpen = false
+            }
         }
 
         // Delete Confirm Dialog

@@ -42,5 +42,5 @@ val LaneColors = listOf(
     Color(0xFFFFD600), // Lane 12: Amber
     Color(0xFF7C4DFF), // Lane 13: Electric Violet
     Color(0xFFFF6E40), // Lane 14: Sunset Coral
-    Color(0xFF1DE9B6)  // Lane 15: Bright Teal
+    Color(0xFF1DE9B6), // Lane 15: Bright Teal
 )

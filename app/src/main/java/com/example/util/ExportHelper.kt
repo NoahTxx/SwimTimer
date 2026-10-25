@@ -99,7 +99,7 @@ object ExportHelper {
             val uri = FileProvider.getUriForFile(
                 context,
                 "${context.packageName}.fileprovider",
-                file
+                file,
             )
 
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
@@ -110,7 +110,7 @@ object ExportHelper {
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             context.startActivity(Intent.createChooser(shareIntent, "Training exportieren & teilen"))
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             // Fallback to text sharing if file writing fails
             val textIntent = Intent(Intent.ACTION_SEND).apply {
                 type = "text/plain"
@@ -214,7 +214,7 @@ object ExportHelper {
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             context.startActivity(Intent.createChooser(shareIntent, "Athleten exportieren"))
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             val textIntent = Intent(Intent.ACTION_SEND).apply {
                 type = "text/plain"
                 putExtra(Intent.EXTRA_SUBJECT, "SwimTimer Athleten Export")

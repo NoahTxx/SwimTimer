@@ -43,7 +43,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -57,7 +56,7 @@ import java.util.Locale
 fun StrokeRateCalculatorDialog(
     targetLane: Int?,
     onDismiss: () -> Unit,
-    onAttachToLane: ((laneNumber: Int, spm: Double) -> Unit)? = null
+    onAttachToLane: ((laneNumber: Int, spm: Double) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     var baseCycles by remember { mutableIntStateOf(3) } // Standard is 3 strokes
@@ -84,7 +83,7 @@ fun StrokeRateCalculatorDialog(
             elapsedSeconds = null
         } else {
             currentTapCount++
-            if (currentTapCount >= baseCycles + 1) { // 0 -> 1 -> 2 -> 3 (e.g. 3 cycles)
+            if (currentTapCount >= (baseCycles + 1)) { // 0 -> 1 -> 2 -> 3 (e.g. 3 cycles)
                 val totalElapsed = (now - startTimestamp) / 1000.0
                 if (totalElapsed > 0.2) {
                     val spm = (baseCycles.toDouble() / totalElapsed) * 60.0

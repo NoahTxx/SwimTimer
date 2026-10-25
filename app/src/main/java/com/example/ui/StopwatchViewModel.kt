@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 import java.util.LinkedList
 
 enum class LaneStatus {
@@ -51,7 +52,7 @@ data class LapItem(
     val lapTimeMillis: Long,
     val targetLapMillis: Long? = null,
     val deltaTargetMillis: Long? = null,
-    val strokeRateSpm: Double? = null
+    val strokeRateSpm: Double? = null,
 )
 
 @Immutable
@@ -122,7 +123,7 @@ data class StopwatchUiState(
     val isPaceCalculatorVisible: Boolean = false
 ) {
     val hasTickingLanes: Boolean
-        get() = lanes.any { it.status == LaneStatus.RUNNING || it.status == LaneStatus.COUNTDOWN }
+        get() = lanes.any { (it.status == LaneStatus.RUNNING) || (it.status == LaneStatus.COUNTDOWN) }
 
     val hasOpenRun: Boolean
         get() = lanes.any { it.status == LaneStatus.RUNNING || it.status == LaneStatus.COUNTDOWN || it.status == LaneStatus.PAUSED }
@@ -286,9 +287,9 @@ class StopwatchViewModel(
                     break
                 }
                 if (hasCountdown) {
-                    delay(10L) // High precision for countdown beep timing
+                    delay(10.milliseconds) // High precision for countdown beep timing
                 } else {
-                    delay(200L) // Only needed for general status updates if no countdowns
+                    delay(200.milliseconds) // Only needed for general status updates if no countdowns
                 }
             }
             tickerJob = null
@@ -1551,9 +1552,9 @@ class StopwatchViewModel(
     }
 
     fun importSwimmers(swimmers: List<SwimmerEntity>) {
-        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+        viewModelScope.launch(Dispatchers.IO) {
             val existing = repository.allSwimmers.firstOrNull() ?: emptyList()
-            val existingNames = existing.map { it.name }.toSet()
+            val existingNames = existing.asSequence().map { it.name }.toSet()
             
             var addedCount = 0
             swimmers.forEach { swimmer ->
@@ -1652,19 +1653,19 @@ class StopwatchViewModel(
 
             // Non-Lagen:
             if (s.strokeType != "Lagen" && isSameStroke(s.strokeType, swimmer.favoriteStroke)) {
-                getCumulativeSplitAt(25)?.let { t -> if (best25 == null || t < best25!!) best25 = t }
-                getCumulativeSplitAt(50)?.let { t -> if (best50 == null || t < best50!!) best50 = t }
-                getCumulativeSplitAt(100)?.let { t -> if (best100 == null || t < best100!!) best100 = t }
+                getCumulativeSplitAt(25)?.let { t -> best25.let { b -> if (b == null || t < b) best25 = t } }
+                getCumulativeSplitAt(50)?.let { t -> best50.let { b -> if (b == null || t < b) best50 = t } }
+                getCumulativeSplitAt(100)?.let { t -> best100.let { b -> if (b == null || t < b) best100 = t } }
             }
 
             // Lagen:
             if (s.strokeType == "Lagen") {
                 if (s.targetDistanceMeters == 100 && finishTime != null && finishTime > 0) {
-                    if (best100Lagen == null || finishTime < best100Lagen!!) best100Lagen = finishTime
+                    best100Lagen.let { b -> if (b == null || finishTime < b) best100Lagen = finishTime }
                 } else if (s.targetDistanceMeters == 200 && finishTime != null && finishTime > 0) {
-                    if (best200Lagen == null || finishTime < best200Lagen!!) best200Lagen = finishTime
+                    best200Lagen.let { b -> if (b == null || finishTime < b) best200Lagen = finishTime }
                 } else if (s.targetDistanceMeters == 400 && finishTime != null && finishTime > 0) {
-                    if (best400Lagen == null || finishTime < best400Lagen!!) best400Lagen = finishTime
+                    best400Lagen.let { b -> if (b == null || finishTime < b) best400Lagen = finishTime }
                 }
 
                 val legDist = (s.targetDistanceMeters / 4).coerceAtLeast(1)

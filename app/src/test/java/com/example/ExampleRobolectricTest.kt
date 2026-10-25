@@ -13,6 +13,8 @@ import org.robolectric.annotation.Config
 @Config(sdk = [36])
 class ExampleRobolectricTest {
 
+  private fun isNewPb(newTime: Long, pb: Long?): Boolean = (pb == null) || (newTime < pb)
+
   @Test
   fun `read string from context`() {
     val context = ApplicationProvider.getApplicationContext<Context>()
@@ -98,7 +100,7 @@ class ExampleRobolectricTest {
     val kraulSplit200Lagen = 26_950L // 26.95s in 200m Lagen leg 4
 
     // Logic under test: If 200m Lagen leg 4 is faster than 50m PB, update it
-    if (pb50mKraul == null || kraulSplit200Lagen < pb50mKraul) {
+    if (isNewPb(kraulSplit200Lagen, pb50mKraul)) {
       pb50mKraul = kraulSplit200Lagen
     }
     assertEquals(26_950L, pb50mKraul)
@@ -137,24 +139,22 @@ class ExampleRobolectricTest {
     var pb100mFree: Long? = 56_500L
     var pb400mLagen: Long? = 310_000L
     var pb400Fly: Long? = 66_000L
-    var pb400Back: Long? = 78_000L
-    var pb400Breast: Long? = 88_000L
     var pb400Free: Long? = 57_000L
 
     // Swims new 400m Lagen session:
     // Leg 1: 64.20s (faster than 66.00s pb400Fly)
     val sessionLeg1 = 64_200L
-    if (pb400Fly == null || sessionLeg1 < pb400Fly) {
+    if (isNewPb(sessionLeg1, pb400Fly)) {
       pb400Fly = sessionLeg1
     }
     assertEquals(64_200L, pb400Fly)
 
     // Leg 4: 55.80s (faster than 57.00s pb400Free AND faster than 56.50s pb100mFree!)
     val sessionLeg4 = 55_800L
-    if (pb400Free == null || sessionLeg4 < pb400Free) {
+    if (isNewPb(sessionLeg4, pb400Free)) {
       pb400Free = sessionLeg4
     }
-    if (pb100mFree == null || sessionLeg4 < pb100mFree) {
+    if (isNewPb(sessionLeg4, pb100mFree)) {
       pb100mFree = sessionLeg4
     }
     assertEquals(55_800L, pb400Free)
@@ -162,7 +162,7 @@ class ExampleRobolectricTest {
 
     // Total time: 64.2 + 76.5 + 86.0 + 55.8 = 282.5s (faster than 310.00s pb400mLagen)
     val totalSessionTime = 282_500L
-    if (pb400mLagen == null || totalSessionTime < pb400mLagen) {
+    if (isNewPb(totalSessionTime, pb400mLagen)) {
       pb400mLagen = totalSessionTime
     }
     assertEquals(282_500L, pb400mLagen)
@@ -220,7 +220,7 @@ class ExampleRobolectricTest {
         title = "Test Session",
         poolLengthMeters = 50,
         targetDistanceMeters = 50,
-        strokeType = "Freistil"
+        strokeType = "Freistil",
       )
       val lap = com.example.data.model.LapRecordEntity(
         sessionId = 0,
@@ -248,7 +248,7 @@ class ExampleRobolectricTest {
     var currentLanes = 4
 
     // Add up to 15
-    for (i in 5..20) {
+    repeat(16) {
       if (currentLanes < maxLimit) {
         currentLanes++
       }
@@ -256,7 +256,7 @@ class ExampleRobolectricTest {
     assertEquals(15, currentLanes)
 
     // Remove down to 1
-    for (i in 1..20) {
+    repeat(20) {
       if (currentLanes > 1) {
         currentLanes--
       }

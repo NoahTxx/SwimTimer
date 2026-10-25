@@ -1,6 +1,5 @@
 package com.example.ui.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -22,7 +21,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
@@ -53,7 +51,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.ui.theme.AquaPrimary
-import com.example.ui.theme.OceanSurface
 import com.example.ui.theme.PaceGreen
 import com.example.ui.theme.TextWhite
 import com.example.util.TimeFormatter
@@ -80,10 +77,10 @@ fun SwimPaceCalculatorDialog(
     initialStroke: String = "Freistil",
     initialSplitDistance: Int = 25,
     onDismiss: () -> Unit,
-    onApplyTargetPaceToAllLanes: (averageLapMillis: Long) -> Unit
+    onApplyTargetPaceToAllLanes: (averageLapMillis: Long) -> Unit,
 ) {
     var stroke by remember { mutableStateOf(initialStroke) }
-    var distance by remember { mutableIntStateOf(if (initialStroke == "Lagen" && initialDistance < 100) 100 else initialDistance) }
+    var distance by remember { mutableIntStateOf(if ((initialStroke == "Lagen") && (initialDistance < 100)) 100 else initialDistance) }
     var splitDistance by remember { mutableIntStateOf(initialSplitDistance) }
     var targetTimeInput by remember {
         mutableStateOf(
@@ -140,7 +137,7 @@ fun SwimPaceCalculatorDialog(
     val calculatedSplits by remember(distance, splitDistance, stroke, strategy, parsedTargetMillis) {
         derivedStateOf {
             val totalMillis = parsedTargetMillis
-            if (totalMillis <= 0) return@derivedStateOf emptyList<CalculatedSplit>()
+            if (totalMillis <= 0) return@derivedStateOf emptyList()
 
             val numLaps = (distance / splitDistance).coerceAtLeast(1)
             val isLagen = stroke == "Lagen"
@@ -192,7 +189,6 @@ fun SwimPaceCalculatorDialog(
                     }
                     PacingStrategy.NEGATIVE -> {
                         // 2nd half 3% faster than 1st half
-                        val halfLaps = numLaps / 2.0
                         val baseLap = totalMillis.toDouble() / numLaps
                         val delta = 1500L / numLaps.coerceAtLeast(2) // ~1.5s delta
                         var accumulated = 0L

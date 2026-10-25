@@ -52,7 +52,8 @@ android {
     debug {
       // Do not remove or modify this signingConfig assignment. It is necessary for Android apps in
       // AI Studio.
-      signingConfig = signingConfigs.getByName("debugConfig")
+      val customDebugStore = file("${rootDir}/debug.keystore")
+      signingConfig = if (customDebugStore.exists()) signingConfigs.getByName("debugConfig") else signingConfigs.getByName("debug")
     }
   }
   compileOptions {
