@@ -603,14 +603,26 @@ private fun LaneLapsHistory(
                             )
                         }
 
-                        Text(
-                            text = TimeFormatter.formatMillis(lap.lapTimeMillis),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextWhite,
-                            fontFamily = FontFamily.Monospace,
-                            maxLines = 1
-                        )
+                        Column(
+                            horizontalAlignment = Alignment.End
+                        ) {
+                            Text(
+                                text = "Runde: ${TimeFormatter.formatMillis(lap.lapTimeMillis)}",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextWhite,
+                                fontFamily = FontFamily.Monospace,
+                                maxLines = 1
+                            )
+                            Text(
+                                text = "Gesamt: ${TimeFormatter.formatMillis(lap.splitTimeMillis)}",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = AquaPrimary,
+                                fontFamily = FontFamily.Monospace,
+                                maxLines = 1
+                            )
+                        }
                     }
                 }
             }

@@ -398,7 +398,7 @@ private fun SessionHistoryCard(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text("Lap", style = MaterialTheme.typography.labelSmall, color = Color.Gray, modifier = Modifier.width(36.dp), maxLines = 1)
-                            Text("Split", style = MaterialTheme.typography.labelSmall, color = Color.Gray, modifier = Modifier.width(70.dp), maxLines = 1)
+                            Text("Gesamt", style = MaterialTheme.typography.labelSmall, color = Color.Gray, modifier = Modifier.width(70.dp), maxLines = 1)
                             Text("Runde", style = MaterialTheme.typography.labelSmall, color = Color.Gray, modifier = Modifier.width(60.dp), maxLines = 1)
                             Text("Pace/SPM", style = MaterialTheme.typography.labelSmall, color = Color.Gray, maxLines = 1)
                         }
