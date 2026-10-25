@@ -71,6 +71,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.runtime.rememberUpdatedState
+
 import com.example.ui.LaneState
 import com.example.ui.LaneStatus
 import com.example.ui.LapItem
@@ -558,14 +564,10 @@ private fun LaneControls(
                     .weight(1.6f)
                     .height(60.dp)
                     .testTag("lap_button_lane_$laneNumber")
-                    .pointerInput(Unit) {
-                        awaitEachGesture {
-                            val down = awaitFirstDown(requireUnconsumed = false)
-                            val t = SystemClock.elapsedRealtime() - (SystemClock.uptimeMillis() - down.uptimeMillis)
-                            onLapClick(t)
-                            waitForUpOrCancellation()
-                        }
-                    }
+                    .preciseTimingTap(
+                        label = "Zwischenzeit auf Bahn $laneNumber",
+                        onAcceptedTap = onLapClick
+                    )
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -624,14 +626,10 @@ private fun LaneControls(
                     .weight(1.2f)
                     .height(60.dp)
                     .testTag("finish_button_lane_$laneNumber")
-                    .pointerInput(Unit) {
-                        awaitEachGesture {
-                            val down = awaitFirstDown(requireUnconsumed = false)
-                            val t = SystemClock.elapsedRealtime() - (SystemClock.uptimeMillis() - down.uptimeMillis)
-                            onFinishClick(t)
-                            waitForUpOrCancellation()
-                        }
-                    }
+                    .preciseTimingTap(
+                        label = "Ziel auf Bahn $laneNumber",
+                        onAcceptedTap = onFinishClick
+                    )
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -706,14 +704,10 @@ private fun LaneControls(
                 modifier = Modifier
                     .weight(1.2f)
                     .height(60.dp)
-                    .pointerInput(Unit) {
-                        awaitEachGesture {
-                            val down = awaitFirstDown(requireUnconsumed = false)
-                            val t = SystemClock.elapsedRealtime() - (SystemClock.uptimeMillis() - down.uptimeMillis)
-                            onFinishClick(t)
-                            waitForUpOrCancellation()
-                        }
-                    }
+                    .preciseTimingTap(
+                        label = "Ziel auf Bahn $laneNumber",
+                        onAcceptedTap = onFinishClick
+                    )
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -791,15 +785,14 @@ private fun LaneControls(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (isFinished) "RE-START / NEUES INTERVALL" else "EINZELSTART BAHN $laneNumber",
+                        text = if (isFinished) "NEU STARTEN" else "START (BAHN $laneNumber)",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Black,
-                            fontSize = 13.sp,
-                            lineHeight = 15.sp
+                            fontSize = 15.sp
                         ),
                         color = Color.Black,
-                        maxLines = 2,
-                        textAlign = TextAlign.Center
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
             }
@@ -957,4 +950,36 @@ private fun LaneLapsHistory(
             }
         }
     }
+}
+
+@Composable
+fun Modifier.preciseTimingTap(
+    label: String,
+    onAcceptedTap: (Long) -> Unit
+): Modifier {
+    val latestOnTap by rememberUpdatedState(onAcceptedTap)
+
+    return this
+        .semantics {
+            role = Role.Button
+            onClick(label = label) {
+                latestOnTap(SystemClock.elapsedRealtime())
+                true
+            }
+        }
+        .pointerInput(Unit) {
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = true)
+
+                val capturedAt = SystemClock.elapsedRealtime() -
+                    (SystemClock.uptimeMillis() - down.uptimeMillis)
+
+                val up = waitForUpOrCancellation()
+
+                if (up != null) {
+                    up.consume()
+                    latestOnTap(capturedAt)
+                }
+            }
+        }
 }

@@ -2,65 +2,58 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
+    android:viewportWidth="768"
+    android:viewportHeight="768">
+    <group
+        android:translateX="128"
+        android:translateY="128">
 
-    <!-- Top Crown Base Stem -->
-    <path
-        android:fillColor="#00E5FF"
-        android:pathData="M51,28 h6 v6 h-6 z" />
+        <!-- Top button -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M 236,58 L 276,58 A 10,10 0 0,1 286,68 L 286,86 A 10,10 0 0,1 276,96 L 236,96 A 10,10 0 0,1 226,86 L 226,68 A 10,10 0 0,1 236,58 Z" />
 
-    <!-- Top Crown Button -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M46,24 h16 v4 h-16 z" />
+        <!-- Side button -->
+        <group
+            android:pivotX="398"
+            android:pivotY="130"
+            android:rotation="45">
+            <path
+                android:fillColor="#FFFFFF"
+                android:pathData="M 383,116 L 413,116 A 9,9 0 0,1 422,125 L 422,135 A 9,9 0 0,1 413,144 L 383,144 A 9,9 0 0,1 374,135 L 374,125 A 9,9 0 0,1 383,116 Z" />
+        </group>
 
-    <!-- Top-Right Lap Pusher (angled) -->
-    <path
-        android:fillColor="#00E5FF"
-        android:pathData="M70,29.5 L73.5,26 L76.5,29 L73,32.5 Z" />
+        <!-- Stopwatch case -->
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="28"
+            android:pathData="M 256, 118 A 172, 172 0 1, 0 256, 462 A 172, 172 0 1, 0 256, 118 Z" />
 
-    <!-- Stopwatch Outer Casing Ring -->
-    <path
-        android:fillColor="#00E5FF"
-        android:pathData="M54,34 C66.7,34 77,44.3 77,57 C77,69.7 66.7,80 54,80 C41.3,80 31,69.7 31,57 C31,44.3 41.3,34 54,34 Z M54,38.5 C43.8,38.5 35.5,46.8 35.5,57 C35.5,67.2 43.8,75.5 54,75.5 C64.2,75.5 72.5,67.2 72.5,57 C72.5,46.8 64.2,38.5 54,38.5 Z" />
+        <!-- Water waves -->
+        <group>
+            <clip-path android:pathData="M 256, 144 A 146, 146 0 1, 0 256, 436 A 146, 146 0 1, 0 256, 144 Z" />
+            <path
+                android:fillColor="#22C7E8"
+                android:pathData="M100 330 q39 -38 78 0 t78 0 t78 0 t78 0 V460 H100Z" />
+        </group>
 
-    <!-- Dial Tick Marks (12, 3, 6, 9) -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M52.8,40.5 h2.4 v3.5 h-2.4 z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M67,55.8 v2.4 h3.5 v-2.4 z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M52.8,70.5 h2.4 v3.5 h-2.4 z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M37.5,55.8 v2.4 h3.5 v-2.4 z" />
+        <!-- Tick -->
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="12"
+            android:strokeLineCap="round"
+            android:pathData="M 256,150 L 256,174" />
 
-    <!-- Primary Water Wave Accent (Cyan) -->
-    <path
-        android:fillColor="#00E5FF"
-        android:pathData="M36,63 C41,59 46,59 51,63 C56,67 61,67 66,63 C69.5,60.2 71.5,61.2 72.5,63 C71.5,65 67.5,67.5 63.5,67.5 C58.5,67.5 53.5,63.5 48.5,63.5 C43.5,63.5 38.5,67.5 36,65 Z" />
+        <!-- Hand -->
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="22"
+            android:strokeLineCap="round"
+            android:pathData="M 256,290 L 322,224" />
 
-    <!-- Secondary Water Wave Accent (Mint Green) -->
-    <path
-        android:fillColor="#00E676"
-        android:pathData="M39,68 C43,65 47,65 51,68 C55,71 59,71 63,68 C66,66 68,67 69,69 C67.5,70.5 64.5,72 61.5,72 C57.5,72 53.5,69 49.5,69 C45.5,69 41.5,72 38.5,70 Z" />
-
-    <!-- Timer Hand / Needle (Pointing to 1:30) -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M52.8,58.2 L66.8,44.2 L68.8,46.2 L54.8,60.2 Z" />
-
-    <!-- Center Pivot Dot Outer Ring -->
-    <path
-        android:fillColor="#00E5FF"
-        android:pathData="M54,52.8 C56.32,52.8 58.2,54.68 58.2,57 C58.2,59.32 56.32,61.2 54,61.2 C51.68,61.2 49.8,59.32 49.8,57 C49.8,54.68 51.68,52.8 54,52.8 Z" />
-
-    <!-- Center Pivot Core Dot -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M54,55 C55.1,55 56,55.9 56,57 C56,58.1 55.1,59 54,59 C52.9,59 52,58.1 52,57 C52,55.9 52.9,55 54,55 Z" />
+        <!-- Center circle -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M 256, 272 A 18, 18 0 1, 0 256, 308 A 18, 18 0 1, 0 256, 272 Z" />
+    </group>
 </vector>

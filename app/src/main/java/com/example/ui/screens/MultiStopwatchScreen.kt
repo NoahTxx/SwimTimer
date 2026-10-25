@@ -119,7 +119,7 @@ fun MultiStopwatchScreen(
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1B2E46)),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable(enabled = !uiState.isAnyRunning) { isConfigDialogOpen = true }
+                        .clickable(enabled = !uiState.hasOpenRun) { isConfigDialogOpen = true }
                         .testTag("session_info_pill")
                 ) {
                     Row(
@@ -254,7 +254,7 @@ fun MultiStopwatchScreen(
             }
 
             // BOTTOM MASTER CONTROLS BAR
-            val anyRunning = uiState.isAnyRunning
+            val anyRunning = uiState.hasOpenRun
             val anyHasTimes = uiState.lanes.any {
                 (it.currentElapsedMillis > 0L || it.laps.isNotEmpty() || it.status == LaneStatus.FINISHED)
             }
