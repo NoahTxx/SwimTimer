@@ -13,22 +13,31 @@ object TimeFormatter {
      * If under 1 minute and shortFormat is true: SS.cc
      */
     fun formatMillis(millis: Long, shortFormat: Boolean = false): String {
-        if (millis < 0) return "00.00"
-        val totalSeconds = millis / 1000
-        val m = totalSeconds / 60
-        val s = totalSeconds % 60
-        val h = (millis % 1000) / 10
+        val safeMillis = millis.coerceAtLeast(0L)
+        val minutes = (safeMillis / 60_000L).toInt()
+        val seconds = ((safeMillis % 60_000L) / 1_000L).toInt()
+        val hundredths = ((safeMillis % 1_000L) / 10L).toInt()
 
-        val sb = java.lang.StringBuilder(9)
-        if (m > 0 || !shortFormat) {
-            if (m < 10) sb.append('0')
-            sb.append(m).append(':')
+        if (shortFormat && minutes == 0) {
+            return buildString(6) {
+                if (seconds < 10) append('0')
+                append(seconds)
+                append('.')
+                if (hundredths < 10) append('0')
+                append(hundredths)
+            }
         }
-        if (s < 10) sb.append('0')
-        sb.append(s).append('.')
-        if (h < 10) sb.append('0')
-        sb.append(h)
-        return sb.toString()
+
+        return buildString(9) {
+            if (minutes < 10) append('0')
+            append(minutes)
+            append(':')
+            if (seconds < 10) append('0')
+            append(seconds)
+            append('.')
+            if (hundredths < 10) append('0')
+            append(hundredths)
+        }
     }
 
     fun formatDetailed(millis: Long): String = formatMillis(millis, shortFormat = false)
@@ -40,7 +49,13 @@ object TimeFormatter {
         if (totalSeconds <= 0) return "00:00"
         val m = totalSeconds / 60
         val s = totalSeconds % 60
-        return "%02d:%02d".format(Locale.GERMANY, m, s)
+        return buildString(5) {
+            if (m < 10) append('0')
+            append(m)
+            append(':')
+            if (s < 10) append('0')
+            append(s)
+        }
     }
 
     /**
@@ -85,11 +100,14 @@ object TimeFormatter {
         val s = absMillis / 1000
         val h = (absMillis % 1000) / 10
         
-        val sb = java.lang.StringBuilder(8)
-        sb.append(sign).append(s).append('.')
-        if (h < 10) sb.append('0')
-        sb.append(h).append('s')
-        return sb.toString()
+        return buildString(8) {
+            append(sign)
+            append(s)
+            append('.')
+            if (h < 10) append('0')
+            append(h)
+            append('s')
+        }
     }
 
     private val dateFormatThreadLocal = object : ThreadLocal<SimpleDateFormat>() {

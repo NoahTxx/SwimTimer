@@ -23,6 +23,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.LinkedList
@@ -124,6 +128,18 @@ data class StopwatchUiState(
         get() = lanes.any { it.status == LaneStatus.RUNNING || it.status == LaneStatus.COUNTDOWN || it.status == LaneStatus.PAUSED }
 }
 
+@Immutable
+data class SwimmerCardUiModel(
+    val id: Long,
+    val name: String,
+    val groupOrClub: String,
+    val pb25mText: String,
+    val pb50mText: String,
+    val pb100mText: String,
+    val pb100mImText: String,
+    val originalEntity: SwimmerEntity
+)
+
 class StopwatchViewModel(
     private val repository: SwimRepository,
     context: Context? = null,
@@ -137,6 +153,33 @@ class StopwatchViewModel(
 
     val allSwimmers: StateFlow<List<SwimmerEntity>> = repository.allSwimmers
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val swimmersSearchQuery = MutableStateFlow("")
+
+    val swimmerUiList: StateFlow<List<SwimmerCardUiModel>> = combine(
+        allSwimmers,
+        swimmersSearchQuery
+    ) { swimmers, query ->
+        val filtered = if (query.isBlank()) {
+            swimmers
+        } else {
+            swimmers.filter { it.name.contains(query, ignoreCase = true) }
+        }
+        filtered.map { swimmer ->
+            SwimmerCardUiModel(
+                id = swimmer.id,
+                name = swimmer.name,
+                groupOrClub = swimmer.favoriteStroke,
+                pb25mText = swimmer.pb25mMillis?.let { TimeFormatter.formatMillis(it, shortFormat = true) } ?: "",
+                pb50mText = swimmer.pb50mMillis?.let { TimeFormatter.formatMillis(it, shortFormat = true) } ?: "",
+                pb100mText = swimmer.pb100mMillis?.let { TimeFormatter.formatMillis(it) } ?: "",
+                pb100mImText = swimmer.pb100mLagenMillis?.let { TimeFormatter.formatMillis(it) } ?: "",
+                originalEntity = swimmer
+            )
+        }
+    }
+    .flowOn(Dispatchers.Default)
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val allSessions: StateFlow<List<SessionWithLaps>> = repository.allSessionsWithLaps
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -177,16 +220,18 @@ class StopwatchViewModel(
         
         validateDistances(dist, split)
 
-        _uiState.value = _uiState.value.copy(
-            poolLengthMeters = pool,
-            targetDistanceMeters = dist,
-            splitDistanceMeters = split,
-            strokeType = stroke,
-            startMode = startModeVal,
-            intervalOffsetSeconds = interval,
-            laneCount = count,
-            sessionTitle = "${dist}m $stroke"
-        )
+        _uiState.update { currentState ->
+            currentState.copy(
+                poolLengthMeters = pool,
+                targetDistanceMeters = dist,
+                splitDistanceMeters = split,
+                strokeType = stroke,
+                startMode = startModeVal,
+                intervalOffsetSeconds = interval,
+                laneCount = count,
+                sessionTitle = "${dist}m $stroke"
+            )
+        }
         initializeLanes(count)
     }
 
@@ -205,26 +250,28 @@ class StopwatchViewModel(
 
     fun initializeLanes(count: Int) {
         val clamped = count.coerceIn(1, 15)
-        val currentDist = _uiState.value.targetDistanceMeters
-        val currentSplit = _uiState.value.splitDistanceMeters
-        val currentStroke = _uiState.value.strokeType
-        
-        validateDistances(currentDist, currentSplit)
-        
-        val initialLanes = (1..clamped).map { laneNum ->
-            LaneState(
-                laneNumber = laneNum,
-                swimmerName = "Bahn $laneNum",
-                targetDistanceMeters = currentDist,
-                splitDistanceMeters = currentSplit,
-                strokeType = currentStroke
+        _uiState.update { currentState ->
+            val currentDist = currentState.targetDistanceMeters
+            val currentSplit = currentState.splitDistanceMeters
+            val currentStroke = currentState.strokeType
+            
+            validateDistances(currentDist, currentSplit)
+            
+            val initialLanes = (1..clamped).map { laneNum ->
+                LaneState(
+                    laneNumber = laneNum,
+                    swimmerName = "Bahn $laneNum",
+                    targetDistanceMeters = currentDist,
+                    splitDistanceMeters = currentSplit,
+                    strokeType = currentStroke
+                )
+            }
+            currentState.copy(
+                laneCount = clamped,
+                lanes = initialLanes,
+                isCurrentRunSaved = false
             )
         }
-        _uiState.value = _uiState.value.copy(
-            laneCount = clamped,
-            lanes = initialLanes,
-            isCurrentRunSaved = false
-        )
         savePreferences()
     }
 
@@ -260,48 +307,48 @@ class StopwatchViewModel(
         }
     }
 
-    private fun computeExactLaneElapsed(lane: LaneState, now: Long): Long {
-        val masterStart = _uiState.value.masterStartTimeRealtime ?: return lane.currentElapsedMillis
+    private fun computeExactLaneElapsed(lane: LaneState, now: Long, masterStartTimeRealtime: Long?): Long {
+        val masterStart = masterStartTimeRealtime ?: return lane.currentElapsedMillis
         val start = lane.laneStartTimeRealtime ?: (masterStart + lane.intervalOffsetMillis)
         return (now - start).coerceAtLeast(0L)
     }
 
     private fun updateTick() {
         val now = clock.nowMillis()
-        val masterStart = _uiState.value.masterStartTimeRealtime ?: return
+        _uiState.update { currentState ->
+            val masterStart = currentState.masterStartTimeRealtime ?: return@update currentState
 
-        val updatedLanes = _uiState.value.lanes.map { lane ->
-            when (lane.status) {
-                LaneStatus.COUNTDOWN -> {
-                    val laneStartTarget = masterStart + lane.intervalOffsetMillis
-                    if (now >= laneStartTarget) {
-                        SoundUtil.playStartSignal()
-                        lane.copy(
-                            status = LaneStatus.RUNNING,
-                            laneStartTimeRealtime = laneStartTarget,
-                            countdownRemainingSeconds = 0
-                        )
-                    } else {
-                        val remainingSec = (((laneStartTarget - now) / 1000) + 1).toInt()
-                        if (remainingSec != lane.countdownRemainingSeconds && remainingSec <= 3) {
-                            SoundUtil.playCountdownBeep()
+            val updatedLanes = currentState.lanes.map { lane ->
+                when (lane.status) {
+                    LaneStatus.COUNTDOWN -> {
+                        val laneStartTarget = masterStart + lane.intervalOffsetMillis
+                        if (now >= laneStartTarget) {
+                            SoundUtil.playStartSignal()
+                            lane.copy(
+                                status = LaneStatus.RUNNING,
+                                laneStartTimeRealtime = laneStartTarget,
+                                countdownRemainingSeconds = 0
+                            )
+                        } else {
+                            val remainingSec = (((laneStartTarget - now) / 1000) + 1).toInt()
+                            if (remainingSec != lane.countdownRemainingSeconds && remainingSec <= 3) {
+                                SoundUtil.playCountdownBeep()
+                            }
+                            lane.copy(countdownRemainingSeconds = remainingSec)
                         }
-                        lane.copy(countdownRemainingSeconds = remainingSec)
                     }
+                    LaneStatus.RUNNING -> lane
+                    LaneStatus.FINISHED -> lane
+                    LaneStatus.PAUSED -> lane
+                    LaneStatus.IDLE -> lane
                 }
-                LaneStatus.RUNNING -> {
-                    lane
-                }
-                LaneStatus.FINISHED -> lane
-                LaneStatus.PAUSED -> lane
-                LaneStatus.IDLE -> lane
             }
-        }
 
-        if (_uiState.value.lanes != updatedLanes) {
-            _uiState.value = _uiState.value.copy(
-                lanes = updatedLanes
-            )
+            if (currentState.lanes != updatedLanes) {
+                currentState.copy(lanes = updatedLanes)
+            } else {
+                currentState
+            }
         }
     }
 
@@ -310,44 +357,46 @@ class StopwatchViewModel(
     fun onStartAll(context: Context? = null) {
         context?.let { HapticUtil.vibrateHeavy(it) }
         SoundUtil.playStartSignal()
-
         val now = clock.nowMillis()
-        val currentLanes = _uiState.value.lanes
-        val mode = _uiState.value.startMode
-        val intervalSec = _uiState.value.intervalOffsetSeconds
 
-        pushUndo(UndoAction.BulkStart(currentLanes, _uiState.value.masterStartTimeRealtime))
+        pushUndo(UndoAction.BulkStart(_uiState.value.lanes, _uiState.value.masterStartTimeRealtime))
 
-        val newLanes = currentLanes.mapIndexed { index, lane ->
-            if (mode == StartMode.INTERVAL && index > 0) {
-                val offsetMillis = index * intervalSec * 1000L
-                lane.copy(
-                    status = LaneStatus.COUNTDOWN,
-                    laneStartTimeRealtime = null,
-                    finishTimeMillis = null,
-                    intervalOffsetMillis = offsetMillis,
-                    countdownRemainingSeconds = index * intervalSec,
-                    currentElapsedMillis = 0L,
-                    laps = emptyList()
-                )
-            } else {
-                lane.copy(
-                    status = LaneStatus.RUNNING,
-                    laneStartTimeRealtime = now,
-                    finishTimeMillis = null,
-                    intervalOffsetMillis = 0L,
-                    currentElapsedMillis = 0L,
-                    laps = emptyList(),
-                    countdownRemainingSeconds = 0
-                )
+        _uiState.update { currentState ->
+            val currentLanes = currentState.lanes
+            val mode = currentState.startMode
+            val intervalSec = currentState.intervalOffsetSeconds
+
+            val newLanes = currentLanes.mapIndexed { index, lane ->
+                if (mode == StartMode.INTERVAL && index > 0) {
+                    val offsetMillis = index * intervalSec * 1000L
+                    lane.copy(
+                        status = LaneStatus.COUNTDOWN,
+                        laneStartTimeRealtime = null,
+                        finishTimeMillis = null,
+                        intervalOffsetMillis = offsetMillis,
+                        countdownRemainingSeconds = index * intervalSec,
+                        currentElapsedMillis = 0L,
+                        laps = emptyList()
+                    )
+                } else {
+                    lane.copy(
+                        status = LaneStatus.RUNNING,
+                        laneStartTimeRealtime = now,
+                        finishTimeMillis = null,
+                        intervalOffsetMillis = 0L,
+                        currentElapsedMillis = 0L,
+                        laps = emptyList(),
+                        countdownRemainingSeconds = 0
+                    )
+                }
             }
-        }
 
-        _uiState.value = _uiState.value.copy(
-            masterStartTimeRealtime = now,
-            lanes = newLanes,
-            isCurrentRunSaved = false
-        )
+            currentState.copy(
+                masterStartTimeRealtime = now,
+                lanes = newLanes,
+                isCurrentRunSaved = false
+            )
+        }
         startTicker()
     }
 
@@ -355,32 +404,32 @@ class StopwatchViewModel(
         context?.let { HapticUtil.vibrateHeavy(it) }
         SoundUtil.playStartSignal()
         val now = clock.nowMillis()
-        val lanes = _uiState.value.lanes.toMutableList()
-        val index = lanes.indexOfFirst { it.laneNumber == laneNumber }
-        if (index == -1) return
-
+        
         pushUndo(UndoAction.BulkStop(_uiState.value.lanes))
 
-        val lane = lanes[index]
-        
-        // Single start completely resets laps for this individual lane and detaches it from the master start.
-        lanes[index] = lane.copy(
-            status = LaneStatus.RUNNING,
-            laneStartTimeRealtime = now,
-            finishTimeMillis = null,
-            currentElapsedMillis = 0L,
-            laps = emptyList(),
-            intervalOffsetMillis = 0L,
-            countdownRemainingSeconds = 0
-        )
+        _uiState.update { currentState ->
+            val lanes = currentState.lanes.toMutableList()
+            val index = lanes.indexOfFirst { it.laneNumber == laneNumber }
+            if (index == -1) return@update currentState
 
-        _uiState.value = _uiState.value.copy(
-            lanes = lanes,
-            isCurrentRunSaved = false
-        )
-        // Set a masterStartTimeRealtime if none exists so the ticker has a baseline
-        if (_uiState.value.masterStartTimeRealtime == null) {
-            _uiState.value = _uiState.value.copy(masterStartTimeRealtime = now)
+            val lane = lanes[index]
+            
+            // Single start completely resets laps for this individual lane and detaches it from the master start.
+            lanes[index] = lane.copy(
+                status = LaneStatus.RUNNING,
+                laneStartTimeRealtime = now,
+                finishTimeMillis = null,
+                currentElapsedMillis = 0L,
+                laps = emptyList(),
+                intervalOffsetMillis = 0L,
+                countdownRemainingSeconds = 0
+            )
+
+            currentState.copy(
+                lanes = lanes,
+                isCurrentRunSaved = false,
+                masterStartTimeRealtime = currentState.masterStartTimeRealtime ?: now
+            )
         }
         startTicker()
     }
@@ -388,243 +437,147 @@ class StopwatchViewModel(
     fun onStopAll(context: Context? = null) {
         context?.let { HapticUtil.vibrateHeavy(it) }
         val now = clock.nowMillis()
-        val currentLanes = _uiState.value.lanes
-        pushUndo(UndoAction.BulkStop(currentLanes))
+        pushUndo(UndoAction.BulkStop(_uiState.value.lanes))
 
-        val newLanes = currentLanes.map { lane ->
-            when (lane.status) {
-                LaneStatus.COUNTDOWN -> {
-                    // Lane hasn't started swimming yet -> reset cleanly to IDLE instead of 00:00.00 FINISHED
-                    lane.copy(
-                        status = LaneStatus.IDLE,
-                        laneStartTimeRealtime = null,
-                        finishTimeMillis = null,
-                        currentElapsedMillis = 0L,
-                        countdownRemainingSeconds = 0
-                    )
-                }
-                LaneStatus.RUNNING -> {
-                    val exactFinalTime = computeExactLaneElapsed(lane, now)
-                    val previousSplit = lane.laps.lastOrNull()?.splitTimeMillis ?: 0L
-                    val lapTime = (exactFinalTime - previousSplit).coerceAtLeast(0L)
-                    val totalSplitsNeeded = (lane.targetDistanceMeters / lane.splitDistanceMeters).coerceAtLeast(1)
-
-                    // Only append a final lap if not already at required split count and >150ms since last split
-                    val finishLap = if (exactFinalTime > 0L && lane.laps.size < totalSplitsNeeded && lapTime >= 150L) {
-                        val deltaTarget = lane.targetLapMillis?.let { lapTime - it }
-                        LapItem(
-                            lapIndex = lane.laps.size + 1,
-                            splitTimeMillis = exactFinalTime,
-                            lapTimeMillis = lapTime,
-                            targetLapMillis = lane.targetLapMillis,
-                            deltaTargetMillis = deltaTarget
+        _uiState.update { currentState ->
+            val currentLanes = currentState.lanes
+            val newLanes = currentLanes.map { lane ->
+                when (lane.status) {
+                    LaneStatus.COUNTDOWN -> {
+                        // Lane hasn't started swimming yet -> reset cleanly to IDLE instead of 00:00.00 FINISHED
+                        lane.copy(
+                            status = LaneStatus.IDLE,
+                            laneStartTimeRealtime = null,
+                            finishTimeMillis = null,
+                            currentElapsedMillis = 0L,
+                            countdownRemainingSeconds = 0
                         )
-                    } else null
+                    }
+                    LaneStatus.RUNNING -> {
+                        val exactFinalTime = computeExactLaneElapsed(lane, now, currentState.masterStartTimeRealtime)
+                        val previousSplit = lane.laps.lastOrNull()?.splitTimeMillis ?: 0L
+                        val lapTime = (exactFinalTime - previousSplit).coerceAtLeast(0L)
+                        val totalSplitsNeeded = (lane.targetDistanceMeters / lane.splitDistanceMeters).coerceAtLeast(1)
 
-                    val updatedLaps = if (finishLap != null) lane.laps + finishLap else lane.laps
+                        // Only append a final lap if not already at required split count and >150ms since last split
+                        val finishLap = if (exactFinalTime > 0L && lane.laps.size < totalSplitsNeeded && lapTime >= 150L) {
+                            val deltaTarget = lane.targetLapMillis?.let { lapTime - it }
+                            LapItem(
+                                lapIndex = lane.laps.size + 1,
+                                splitTimeMillis = exactFinalTime,
+                                lapTimeMillis = lapTime,
+                                targetLapMillis = lane.targetLapMillis,
+                                deltaTargetMillis = deltaTarget
+                            )
+                        } else null
 
-                    lane.copy(
-                        status = LaneStatus.FINISHED,
-                        finishTimeMillis = exactFinalTime,
-                        currentElapsedMillis = exactFinalTime,
-                        laps = updatedLaps
-                    )
+                        val updatedLaps = if (finishLap != null) lane.laps + finishLap else lane.laps
+
+                        lane.copy(
+                            status = LaneStatus.FINISHED,
+                            finishTimeMillis = exactFinalTime,
+                            currentElapsedMillis = exactFinalTime,
+                            laps = updatedLaps
+                        )
+                    }
+                    LaneStatus.PAUSED -> {
+                        val finalTime = lane.currentElapsedMillis
+                        lane.copy(
+                            status = LaneStatus.FINISHED,
+                            finishTimeMillis = finalTime
+                        )
+                    }
+                    else -> lane
                 }
-                LaneStatus.PAUSED -> {
-                    val finalTime = lane.currentElapsedMillis
-                    lane.copy(
-                        status = LaneStatus.FINISHED,
-                        finishTimeMillis = finalTime
-                    )
-                }
-                else -> lane
             }
-        }
 
-        _uiState.value = _uiState.value.copy(
-            lanes = newLanes,
-            isCurrentRunSaved = false
-        )
+            currentState.copy(
+                lanes = newLanes,
+                isCurrentRunSaved = false
+            )
+        }
         stopTickerIfAllIdle()
     }
 
     fun onPauseLane(laneNumber: Int, context: Context? = null) {
         context?.let { HapticUtil.vibrateClick(it) }
         val now = clock.nowMillis()
-        val lanes = _uiState.value.lanes.toMutableList()
-        val index = lanes.indexOfFirst { it.laneNumber == laneNumber }
-        if (index == -1) return
+        var anyRunning = false
+        _uiState.update { currentState ->
+            val lanes = currentState.lanes.toMutableList()
+            val index = lanes.indexOfFirst { it.laneNumber == laneNumber }
+            if (index == -1) return@update currentState
 
-        val lane = lanes[index]
-        if (lane.status != LaneStatus.RUNNING) return
+            val lane = lanes[index]
+            if (lane.status != LaneStatus.RUNNING) return@update currentState
 
-        val elapsed = computeExactLaneElapsed(lane, now)
+            val elapsed = computeExactLaneElapsed(lane, now, currentState.masterStartTimeRealtime)
 
-        lanes[index] = lane.copy(
-            status = LaneStatus.PAUSED,
-            currentElapsedMillis = elapsed
-        )
+            lanes[index] = lane.copy(
+                status = LaneStatus.PAUSED,
+                currentElapsedMillis = elapsed
+            )
 
-        val anyRunning = lanes.any { it.status == LaneStatus.RUNNING || it.status == LaneStatus.COUNTDOWN || it.status == LaneStatus.PAUSED }
-        _uiState.value = _uiState.value.copy(
-            lanes = lanes
-        )
+            anyRunning = lanes.any { it.status == LaneStatus.RUNNING || it.status == LaneStatus.COUNTDOWN || it.status == LaneStatus.PAUSED }
+            currentState.copy(lanes = lanes)
+        }
         if (!anyRunning) stopTickerIfAllIdle()
     }
 
     fun onResumeLane(laneNumber: Int, context: Context? = null) {
         context?.let { HapticUtil.vibrateClick(it) }
         val now = clock.nowMillis()
-        val lanes = _uiState.value.lanes.toMutableList()
-        val index = lanes.indexOfFirst { it.laneNumber == laneNumber }
-        if (index == -1) return
+        
+        _uiState.update { currentState ->
+            val lanes = currentState.lanes.toMutableList()
+            val index = lanes.indexOfFirst { it.laneNumber == laneNumber }
+            if (index == -1) return@update currentState
 
-        val lane = lanes[index]
-        if (lane.status != LaneStatus.PAUSED) return
+            val lane = lanes[index]
+            if (lane.status != LaneStatus.PAUSED) return@update currentState
 
-        lanes[index] = lane.copy(
-            status = LaneStatus.RUNNING,
-            laneStartTimeRealtime = now - lane.currentElapsedMillis
-        )
+            lanes[index] = lane.copy(
+                status = LaneStatus.RUNNING,
+                laneStartTimeRealtime = now - lane.currentElapsedMillis
+            )
 
-        _uiState.value = _uiState.value.copy(
-            lanes = lanes
-        )
+            currentState.copy(lanes = lanes)
+        }
         startTicker()
     }
 
     fun onLapLane(laneNumber: Int, exactRealtime: Long = clock.nowMillis(), context: Context? = null) {
         val now = exactRealtime
-        val lanes = _uiState.value.lanes.toMutableList()
-        val index = lanes.indexOfFirst { it.laneNumber == laneNumber }
-        if (index == -1) return
 
-        val lane = lanes[index]
-        if (lane.status != LaneStatus.RUNNING) return
+        var vibrateHeavy = false
+        var vibrateClick = false
+        var pushedUndo: UndoAction? = null
 
-        val splitTime = computeExactLaneElapsed(lane, now)
-        val previousSplit = lane.laps.lastOrNull()?.splitTimeMillis ?: 0L
-        val lapTime = (splitTime - previousSplit).coerceAtLeast(0L)
+        _uiState.update { currentState ->
+            val lanes = currentState.lanes.toMutableList()
+            val index = lanes.indexOfFirst { it.laneNumber == laneNumber }
+            if (index == -1) return@update currentState
 
-        // Debounce accidental double-tap within 200ms
-        if (lapTime < 200L) return
+            val lane = lanes[index]
+            if (lane.status != LaneStatus.RUNNING) return@update currentState
 
-        val deltaTarget = lane.targetLapMillis?.let { lapTime - it }
-        val newLapIndex = lane.laps.size + 1
-        val totalSplitsNeeded = (lane.targetDistanceMeters / lane.splitDistanceMeters).coerceAtLeast(1)
-        val isFinalLap = newLapIndex >= totalSplitsNeeded
-
-        if (isFinalLap) {
-            context?.let { HapticUtil.vibrateHeavy(it) }
-        } else {
-            context?.let { HapticUtil.vibrateClick(it) }
-        }
-
-        val newLap = LapItem(
-            lapIndex = newLapIndex,
-            splitTimeMillis = splitTime,
-            lapTimeMillis = lapTime,
-            targetLapMillis = lane.targetLapMillis,
-            deltaTargetMillis = deltaTarget
-        )
-
-        pushUndo(
-            UndoAction.LapAdded(
-                laneNumber = laneNumber,
-                previousStatus = lane.status,
-                previousFinishTime = lane.finishTimeMillis,
-                removedLap = newLap
-            )
-        )
-
-        lanes[index] = if (isFinalLap) {
-            lane.copy(
-                status = LaneStatus.FINISHED,
-                finishTimeMillis = splitTime,
-                currentElapsedMillis = splitTime,
-                laps = lane.laps + newLap
-            )
-        } else {
-            lane.copy(
-                currentElapsedMillis = splitTime,
-                laps = lane.laps + newLap
-            )
-        }
-
-        _uiState.value = _uiState.value.copy(
-            lanes = lanes,
-            selectedFocusedLane = laneNumber,
-            isCurrentRunSaved = false
-        )
-    }
-
-    fun onFinishLane(laneNumber: Int, exactRealtime: Long = clock.nowMillis(), context: Context? = null) {
-        context?.let { HapticUtil.vibrateHeavy(it) }
-        val now = exactRealtime
-        val lanes = _uiState.value.lanes.toMutableList()
-        val index = lanes.indexOfFirst { it.laneNumber == laneNumber }
-        if (index == -1) return
-
-        val lane = lanes[index]
-        if (lane.status != LaneStatus.RUNNING) return
-
-        val finalTime = computeExactLaneElapsed(lane, now)
-        val previousSplit = lane.laps.lastOrNull()?.splitTimeMillis ?: 0L
-        val lapTime = (finalTime - previousSplit).coerceAtLeast(0L)
-        val totalSplitsNeeded = (lane.targetDistanceMeters / lane.splitDistanceMeters).coerceAtLeast(1)
-
-        // Only create a new lap if we haven't already recorded all splits (and at least 150ms passed)
-        val finishLap = if (finalTime > 0L && lane.laps.size < totalSplitsNeeded && lapTime >= 150L) {
-            val deltaTarget = lane.targetLapMillis?.let { lapTime - it }
-            LapItem(
-                lapIndex = lane.laps.size + 1,
-                splitTimeMillis = finalTime,
-                lapTimeMillis = lapTime,
-                targetLapMillis = lane.targetLapMillis,
-                deltaTargetMillis = deltaTarget
-            )
-        } else null
-
-        val updatedLaps = if (finishLap != null) lane.laps + finishLap else lane.laps
-
-        pushUndo(UndoAction.LaneFinished(laneNumber, lane.status, finishLap))
-
-        lanes[index] = lane.copy(
-            status = LaneStatus.FINISHED,
-            finishTimeMillis = finalTime,
-            currentElapsedMillis = finalTime,
-            laps = updatedLaps
-        )
-
-        _uiState.value = _uiState.value.copy(
-            lanes = lanes,
-            selectedFocusedLane = laneNumber,
-            isCurrentRunSaved = false
-        )
-    }
-
-    fun onLapAllRunning(context: Context? = null) {
-        val now = clock.nowMillis()
-        val currentLanes = _uiState.value.lanes
-        val runningLanes = currentLanes.filter { it.status == LaneStatus.RUNNING }
-        if (runningLanes.isEmpty()) return
-        
-        context?.let { HapticUtil.vibrateClick(it) }
-        pushUndo(UndoAction.BulkStop(currentLanes)) // Snapshot before bulk action
-
-        val newLanes = currentLanes.map { lane ->
-            if (lane.status != LaneStatus.RUNNING) return@map lane
-
-            val splitTime = computeExactLaneElapsed(lane, now)
+            val splitTime = computeExactLaneElapsed(lane, now, currentState.masterStartTimeRealtime)
             val previousSplit = lane.laps.lastOrNull()?.splitTimeMillis ?: 0L
             val lapTime = (splitTime - previousSplit).coerceAtLeast(0L)
 
-            if (lapTime < 200L) return@map lane
+            // Debounce accidental double-tap within 200ms
+            if (lapTime < 200L) return@update currentState
 
             val deltaTarget = lane.targetLapMillis?.let { lapTime - it }
             val newLapIndex = lane.laps.size + 1
             val totalSplitsNeeded = (lane.targetDistanceMeters / lane.splitDistanceMeters).coerceAtLeast(1)
             val isFinalLap = newLapIndex >= totalSplitsNeeded
+
+            if (isFinalLap) {
+                vibrateHeavy = true
+            } else {
+                vibrateClick = true
+            }
 
             val newLap = LapItem(
                 lapIndex = newLapIndex,
@@ -634,7 +587,14 @@ class StopwatchViewModel(
                 deltaTargetMillis = deltaTarget
             )
 
-            if (isFinalLap) {
+            pushedUndo = UndoAction.LapAdded(
+                laneNumber = laneNumber,
+                previousStatus = lane.status,
+                previousFinishTime = lane.finishTimeMillis,
+                removedLap = newLap
+            )
+
+            lanes[index] = if (isFinalLap) {
                 lane.copy(
                     status = LaneStatus.FINISHED,
                     finishTimeMillis = splitTime,
@@ -647,12 +607,126 @@ class StopwatchViewModel(
                     laps = lane.laps + newLap
                 )
             }
+
+            currentState.copy(
+                lanes = lanes,
+                selectedFocusedLane = laneNumber,
+                isCurrentRunSaved = false
+            )
         }
 
-        _uiState.value = _uiState.value.copy(
-            lanes = newLanes,
-            isCurrentRunSaved = false
-        )
+        context?.let {
+            if (vibrateHeavy) HapticUtil.vibrateHeavy(it)
+            else if (vibrateClick) HapticUtil.vibrateClick(it)
+        }
+        pushedUndo?.let { pushUndo(it) }
+    }
+
+    fun onFinishLane(laneNumber: Int, exactRealtime: Long = clock.nowMillis(), context: Context? = null) {
+        context?.let { HapticUtil.vibrateHeavy(it) }
+        val now = exactRealtime
+        
+        var pushedUndo: UndoAction? = null
+
+        _uiState.update { currentState ->
+            val lanes = currentState.lanes.toMutableList()
+            val index = lanes.indexOfFirst { it.laneNumber == laneNumber }
+            if (index == -1) return@update currentState
+
+            val lane = lanes[index]
+            if (lane.status != LaneStatus.RUNNING) return@update currentState
+
+            val finalTime = computeExactLaneElapsed(lane, now, currentState.masterStartTimeRealtime)
+            val previousSplit = lane.laps.lastOrNull()?.splitTimeMillis ?: 0L
+            val lapTime = (finalTime - previousSplit).coerceAtLeast(0L)
+            val totalSplitsNeeded = (lane.targetDistanceMeters / lane.splitDistanceMeters).coerceAtLeast(1)
+
+            // Only create a new lap if we haven't already recorded all splits (and at least 150ms passed)
+            val finishLap = if (finalTime > 0L && lane.laps.size < totalSplitsNeeded && lapTime >= 150L) {
+                val deltaTarget = lane.targetLapMillis?.let { lapTime - it }
+                LapItem(
+                    lapIndex = lane.laps.size + 1,
+                    splitTimeMillis = finalTime,
+                    lapTimeMillis = lapTime,
+                    targetLapMillis = lane.targetLapMillis,
+                    deltaTargetMillis = deltaTarget
+                )
+            } else null
+
+            val updatedLaps = if (finishLap != null) lane.laps + finishLap else lane.laps
+
+            pushedUndo = UndoAction.LaneFinished(laneNumber, lane.status, finishLap)
+
+            lanes[index] = lane.copy(
+                status = LaneStatus.FINISHED,
+                finishTimeMillis = finalTime,
+                currentElapsedMillis = finalTime,
+                laps = updatedLaps
+            )
+
+            currentState.copy(
+                lanes = lanes,
+                selectedFocusedLane = laneNumber,
+                isCurrentRunSaved = false
+            )
+        }
+        
+        pushedUndo?.let { pushUndo(it) }
+    }
+
+    fun onLapAllRunning(context: Context? = null) {
+        val now = clock.nowMillis()
+        context?.let { HapticUtil.vibrateClick(it) }
+        
+        pushUndo(UndoAction.BulkStop(_uiState.value.lanes)) // Snapshot before bulk action
+
+        _uiState.update { currentState ->
+            val currentLanes = currentState.lanes
+            val runningLanes = currentLanes.filter { it.status == LaneStatus.RUNNING }
+            if (runningLanes.isEmpty()) return@update currentState
+
+            val newLanes = currentLanes.map { lane ->
+                if (lane.status != LaneStatus.RUNNING) return@map lane
+
+                val splitTime = computeExactLaneElapsed(lane, now, currentState.masterStartTimeRealtime)
+                val previousSplit = lane.laps.lastOrNull()?.splitTimeMillis ?: 0L
+                val lapTime = (splitTime - previousSplit).coerceAtLeast(0L)
+
+                if (lapTime < 200L) return@map lane
+
+                val deltaTarget = lane.targetLapMillis?.let { lapTime - it }
+                val newLapIndex = lane.laps.size + 1
+                val totalSplitsNeeded = (lane.targetDistanceMeters / lane.splitDistanceMeters).coerceAtLeast(1)
+                val isFinalLap = newLapIndex >= totalSplitsNeeded
+
+                val newLap = LapItem(
+                    lapIndex = newLapIndex,
+                    splitTimeMillis = splitTime,
+                    lapTimeMillis = lapTime,
+                    targetLapMillis = lane.targetLapMillis,
+                    deltaTargetMillis = deltaTarget
+                )
+
+                if (isFinalLap) {
+                    lane.copy(
+                        status = LaneStatus.FINISHED,
+                        finishTimeMillis = splitTime,
+                        currentElapsedMillis = splitTime,
+                        laps = lane.laps + newLap
+                    )
+                } else {
+                    lane.copy(
+                        currentElapsedMillis = splitTime,
+                        laps = lane.laps + newLap
+                    )
+                }
+            }
+
+            currentState.copy(
+                lanes = newLanes,
+                isCurrentRunSaved = false
+            )
+        }
     }
 
     fun onResetAll(context: Context? = null) {
@@ -661,24 +735,26 @@ class StopwatchViewModel(
         tickerJob = null
         undoStack.clear()
 
-        val resetLanes = _uiState.value.lanes.map {
-            it.copy(
-                status = LaneStatus.IDLE,
-                laneStartTimeRealtime = null,
-                finishTimeMillis = null,
-                currentElapsedMillis = 0L,
-                laps = emptyList(),
-                countdownRemainingSeconds = 0
+        _uiState.update { currentState ->
+            val resetLanes = currentState.lanes.map {
+                it.copy(
+                    status = LaneStatus.IDLE,
+                    laneStartTimeRealtime = null,
+                    finishTimeMillis = null,
+                    currentElapsedMillis = 0L,
+                    laps = emptyList(),
+                    countdownRemainingSeconds = 0
+                )
+            }
+
+            currentState.copy(
+                masterStartTimeRealtime = null,
+                lanes = resetLanes,
+                canUndo = false,
+                lastUndoMessage = null,
+                isCurrentRunSaved = false
             )
         }
-
-        _uiState.value = _uiState.value.copy(
-            masterStartTimeRealtime = null,
-            lanes = resetLanes,
-            canUndo = false,
-            lastUndoMessage = null,
-            isCurrentRunSaved = false
-        )
     }
 
     // --- Undo Logic ---
@@ -686,7 +762,7 @@ class StopwatchViewModel(
     private fun pushUndo(action: UndoAction) {
         undoStack.push(action)
         if (undoStack.size > 20) undoStack.removeLast()
-        _uiState.value = _uiState.value.copy(canUndo = true)
+        _uiState.update { it.copy(canUndo = true) }
     }
 
     fun performUndo(context: Context? = null) {
@@ -695,76 +771,89 @@ class StopwatchViewModel(
 
         when (val action = undoStack.pop()) {
             is UndoAction.LapAdded -> {
-                val lanes = _uiState.value.lanes.toMutableList()
-                val idx = lanes.indexOfFirst { it.laneNumber == action.laneNumber }
-                if (idx != -1) {
-                    val currentLaps = lanes[idx].laps.toMutableList()
-                    if (currentLaps.isNotEmpty()) {
-                        currentLaps.removeAt(currentLaps.lastIndex)
-                        lanes[idx] = lanes[idx].copy(
-                            status = action.previousStatus,
-                            finishTimeMillis = action.previousFinishTime,
-                            laps = currentLaps
-                        )
-                        val anyRunning = lanes.any { it.status == LaneStatus.RUNNING || it.status == LaneStatus.COUNTDOWN || it.status == LaneStatus.PAUSED }
-                        _uiState.value = _uiState.value.copy(
-                            lanes = lanes,
-                            isCurrentRunSaved = false,
-                            lastUndoMessage = "Lap ${action.removedLap.lapIndex} auf Bahn ${action.laneNumber} rückgängig gemacht"
-                        )
-                        if (anyRunning) startTicker()
+                var anyRunning = false
+                _uiState.update { currentState ->
+                    val lanes = currentState.lanes.toMutableList()
+                    val idx = lanes.indexOfFirst { it.laneNumber == action.laneNumber }
+                    if (idx != -1) {
+                        val currentLaps = lanes[idx].laps.toMutableList()
+                        if (currentLaps.isNotEmpty()) {
+                            currentLaps.removeAt(currentLaps.lastIndex)
+                            lanes[idx] = lanes[idx].copy(
+                                status = action.previousStatus,
+                                finishTimeMillis = action.previousFinishTime,
+                                laps = currentLaps
+                            )
+                            anyRunning = lanes.any { it.status == LaneStatus.RUNNING || it.status == LaneStatus.COUNTDOWN || it.status == LaneStatus.PAUSED }
+                            return@update currentState.copy(
+                                lanes = lanes,
+                                isCurrentRunSaved = false,
+                                lastUndoMessage = "Lap ${action.removedLap.lapIndex} auf Bahn ${action.laneNumber} rückgängig gemacht"
+                            )
+                        }
                     }
+                    currentState
                 }
+                if (anyRunning) startTicker()
             }
             is UndoAction.LaneFinished -> {
-                val lanes = _uiState.value.lanes.toMutableList()
-                val idx = lanes.indexOfFirst { it.laneNumber == action.laneNumber }
-                if (idx != -1) {
-                    val restoredLaps = if (action.removedFinishLap != null && lanes[idx].laps.isNotEmpty()) {
-                        lanes[idx].laps.dropLast(1)
-                    } else lanes[idx].laps
-                    lanes[idx] = lanes[idx].copy(
-                        status = action.previousStatus,
-                        finishTimeMillis = null,
-                        laps = restoredLaps
-                    )
-                    _uiState.value = _uiState.value.copy(
-                        lanes = lanes,
-                        isCurrentRunSaved = false,
-                        lastUndoMessage = "Zielstopp für Bahn ${action.laneNumber} rückgängig gemacht"
-                    )
-                    startTicker()
+                _uiState.update { currentState ->
+                    val lanes = currentState.lanes.toMutableList()
+                    val idx = lanes.indexOfFirst { it.laneNumber == action.laneNumber }
+                    if (idx != -1) {
+                        val restoredLaps = if (action.removedFinishLap != null && lanes[idx].laps.isNotEmpty()) {
+                            lanes[idx].laps.dropLast(1)
+                        } else lanes[idx].laps
+                        lanes[idx] = lanes[idx].copy(
+                            status = action.previousStatus,
+                            finishTimeMillis = null,
+                            laps = restoredLaps
+                        )
+                        return@update currentState.copy(
+                            lanes = lanes,
+                            isCurrentRunSaved = false,
+                            lastUndoMessage = "Zielstopp für Bahn ${action.laneNumber} rückgängig gemacht"
+                        )
+                    }
+                    currentState
                 }
+                startTicker()
             }
             is UndoAction.BulkStart -> {
-                _uiState.value = _uiState.value.copy(
-                    lanes = action.previousLanes,
-                    masterStartTimeRealtime = action.previousMasterStart,
-                    isCurrentRunSaved = false,
-                    lastUndoMessage = "Start rückgängig gemacht"
-                )
+                _uiState.update { currentState ->
+                    currentState.copy(
+                        lanes = action.previousLanes,
+                        masterStartTimeRealtime = action.previousMasterStart,
+                        isCurrentRunSaved = false,
+                        lastUndoMessage = "Start rückgängig gemacht"
+                    )
+                }
                 stopTickerIfAllIdle()
             }
             is UndoAction.BulkStop -> {
-                _uiState.value = _uiState.value.copy(
-                    lanes = action.previousLanes,
-                    isCurrentRunSaved = false,
-                    lastUndoMessage = "Stopp rückgängig gemacht"
-                )
+                _uiState.update { currentState ->
+                    currentState.copy(
+                        lanes = action.previousLanes,
+                        isCurrentRunSaved = false,
+                        lastUndoMessage = "Stopp rückgängig gemacht"
+                    )
+                }
                 startTicker()
             }
             is UndoAction.LaneRemoved -> {
-                val lanes = _uiState.value.lanes.toMutableList()
-                val insertIdx = action.index.coerceIn(0, lanes.size)
-                lanes.add(insertIdx, action.lane)
-                _uiState.value = _uiState.value.copy(
-                    lanes = lanes,
-                    laneCount = lanes.size,
-                    lastUndoMessage = "Bahn ${action.lane.laneNumber} wiederhergestellt"
-                )
+                _uiState.update { currentState ->
+                    val lanes = currentState.lanes.toMutableList()
+                    val insertIdx = action.index.coerceIn(0, lanes.size)
+                    lanes.add(insertIdx, action.lane)
+                    currentState.copy(
+                        lanes = lanes,
+                        laneCount = lanes.size,
+                        lastUndoMessage = "Bahn ${action.lane.laneNumber} wiederhergestellt"
+                    )
+                }
             }
         }
-        _uiState.value = _uiState.value.copy(canUndo = undoStack.isNotEmpty())
+        _uiState.update { it.copy(canUndo = undoStack.isNotEmpty()) }
     }
 
     // --- Configuration & Settings ---
@@ -776,14 +865,14 @@ class StopwatchViewModel(
     fun addLane(context: Context? = null) {
         val currentLanes = _uiState.value.lanes
         if (currentLanes.size >= 15) {
-            _uiState.value = _uiState.value.copy(
+            _uiState.update { it.copy(
                 lastUndoMessage = "Limit: Maximal 15 Bahnen möglich"
-            )
+            ) }
             return
         }
         context?.let { HapticUtil.vibrateClick(it) }
         undoStack.clear()
-        _uiState.value = _uiState.value.copy(canUndo = false)
+        _uiState.update { it.copy(canUndo = false) }
         
         val nextLaneNumber = (currentLanes.maxOfOrNull { it.laneNumber } ?: 0) + 1
         val newLane = LaneState(
@@ -794,20 +883,20 @@ class StopwatchViewModel(
             strokeType = _uiState.value.strokeType
         )
         val updated = currentLanes + newLane
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { it.copy(
             lanes = updated,
             laneCount = updated.size,
             lastUndoMessage = "Bahn $nextLaneNumber hinzugefügt"
-        )
+        ) }
         savePreferences()
     }
 
     fun removeLane(laneNumber: Int, context: Context? = null) {
         val currentLanes = _uiState.value.lanes
         if (currentLanes.size <= 1) {
-            _uiState.value = _uiState.value.copy(
+            _uiState.update { it.copy(
                 lastUndoMessage = "Mindestens 1 Bahn muss aktiv bleiben"
-            )
+            ) }
             return
         }
         context?.let { HapticUtil.vibrateClick(it) }
@@ -817,37 +906,37 @@ class StopwatchViewModel(
         pushUndo(UndoAction.LaneRemoved(removedLane, index))
 
         val updated = currentLanes.filter { it.laneNumber != laneNumber }
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { it.copy(
             lanes = updated,
             laneCount = updated.size,
             lastUndoMessage = "Bahn $laneNumber entfernt"
-        )
+        ) }
         savePreferences()
     }
 
     fun removeLastLane(context: Context? = null) {
         val currentLanes = _uiState.value.lanes
         if (currentLanes.size <= 1) {
-            _uiState.value = _uiState.value.copy(
+            _uiState.update { it.copy(
                 lastUndoMessage = "Mindestens 1 Bahn muss aktiv bleiben!"
-            )
+            ) }
             return
         }
         removeLane(currentLanes.last().laneNumber, context)
     }
 
     fun setStartMode(mode: StartMode) {
-        _uiState.value = _uiState.value.copy(startMode = mode)
+        _uiState.update { it.copy(startMode = mode) }
         savePreferences()
     }
 
     fun setIntervalOffsetSeconds(seconds: Int) {
-        _uiState.value = _uiState.value.copy(intervalOffsetSeconds = seconds.coerceIn(1, 60))
+        _uiState.update { it.copy(intervalOffsetSeconds = seconds.coerceIn(1, 60)) }
         savePreferences()
     }
 
     fun setSelectedFocusedLane(laneNumber: Int) {
-        _uiState.value = _uiState.value.copy(selectedFocusedLane = laneNumber)
+        _uiState.update { it.copy(selectedFocusedLane = laneNumber) }
     }
 
     fun setSplitDistance(splitMeters: Int) {
@@ -856,10 +945,10 @@ class StopwatchViewModel(
         val updatedLanes = _uiState.value.lanes.map {
             it.copy(splitDistanceMeters = splitMeters)
         }
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { it.copy(
             splitDistanceMeters = splitMeters,
             lanes = updatedLanes
-        )
+        ) }
         savePreferences()
     }
 
@@ -871,11 +960,11 @@ class StopwatchViewModel(
         val updatedLanes = _uiState.value.lanes.map {
             it.copy(targetDistanceMeters = enforcedDistance, splitDistanceMeters = enforcedSplit)
         }
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { it.copy(
             targetDistanceMeters = enforcedDistance,
             splitDistanceMeters = enforcedSplit,
             lanes = updatedLanes
-        )
+        ) }
         savePreferences()
     }
 
@@ -888,12 +977,12 @@ class StopwatchViewModel(
         val updatedLanes = _uiState.value.lanes.map {
             it.copy(strokeType = stroke, targetDistanceMeters = enforcedDist, splitDistanceMeters = enforcedSplit)
         }
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { it.copy(
             strokeType = stroke,
             targetDistanceMeters = enforcedDist,
             splitDistanceMeters = enforcedSplit,
             lanes = updatedLanes
-        )
+        ) }
         savePreferences()
     }
 
@@ -909,14 +998,14 @@ class StopwatchViewModel(
                 strokeType = stroke
             )
         }
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { it.copy(
             sessionTitle = cleanTitle,
             strokeType = stroke,
             poolLengthMeters = poolLength,
             targetDistanceMeters = enforcedDistance,
             splitDistanceMeters = enforcedSplit,
             lanes = updatedLanes
-        )
+        ) }
         savePreferences()
     }
 
@@ -924,10 +1013,10 @@ class StopwatchViewModel(
         val lanes = _uiState.value.lanes.map {
             if (it.laneNumber == laneNumber) it.copy(targetLapMillis = paceMillis) else it
         }
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { it.copy(
             lanes = lanes,
             isTargetPaceDialogVisible = false
-        )
+        ) }
     }
 
     fun setTargetPaceForAllLanes(
@@ -950,43 +1039,43 @@ class StopwatchViewModel(
                 splitDistanceMeters = newSplit
             )
         }
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { it.copy(
             strokeType = newStroke,
             targetDistanceMeters = newDist,
             splitDistanceMeters = newSplit,
             lanes = lanes,
             isPaceCalculatorVisible = false
-        )
+        ) }
     }
 
     fun openPaceCalculator() {
-        _uiState.value = _uiState.value.copy(isPaceCalculatorVisible = true)
+        _uiState.update { it.copy(isPaceCalculatorVisible = true) }
     }
 
     fun closePaceCalculator() {
-        _uiState.value = _uiState.value.copy(isPaceCalculatorVisible = false)
+        _uiState.update { it.copy(isPaceCalculatorVisible = false) }
     }
 
     fun openTargetPaceDialog(laneNumber: Int) {
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { it.copy(
             isTargetPaceDialogVisible = true,
             targetPaceLane = laneNumber
-        )
+        ) }
     }
 
     fun closeTargetPaceDialog() {
-        _uiState.value = _uiState.value.copy(isTargetPaceDialogVisible = false)
+        _uiState.update { it.copy(isTargetPaceDialogVisible = false) }
     }
 
     fun openAssignSwimmerDialog(laneNumber: Int) {
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { it.copy(
             isAssignSwimmerDialogVisible = true,
             assignSwimmerLane = laneNumber
-        )
+        ) }
     }
 
     fun closeAssignSwimmerDialog() {
-        _uiState.value = _uiState.value.copy(isAssignSwimmerDialogVisible = false)
+        _uiState.update { it.copy(isAssignSwimmerDialogVisible = false) }
     }
 
     fun assignSwimmerToLane(laneNumber: Int, swimmer: SwimmerEntity?) {
@@ -998,23 +1087,23 @@ class StopwatchViewModel(
                 )
             } else it
         }
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { it.copy(
             lanes = lanes,
             isAssignSwimmerDialogVisible = false
-        )
+        ) }
     }
 
     // --- Stroke Rate Calculator ---
 
     fun openStrokeRateDialog(targetLane: Int? = null) {
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { it.copy(
             isStrokeRateDialogVisible = true,
             strokeRateTargetLane = targetLane
-        )
+        ) }
     }
 
     fun closeStrokeRateDialog() {
-        _uiState.value = _uiState.value.copy(isStrokeRateDialogVisible = false)
+        _uiState.update { it.copy(isStrokeRateDialogVisible = false) }
     }
 
     fun attachStrokeRateToLane(laneNumber: Int, spm: Double) {
@@ -1026,10 +1115,10 @@ class StopwatchViewModel(
                 val lastLap = laps.last()
                 laps[laps.lastIndex] = lastLap.copy(strokeRateSpm = spm)
                 lanes[idx] = lanes[idx].copy(laps = laps)
-                _uiState.value = _uiState.value.copy(
+                _uiState.update { it.copy(
                     lanes = lanes,
                     isCurrentRunSaved = false
-                )
+                ) }
             }
         }
     }
@@ -1038,7 +1127,7 @@ class StopwatchViewModel(
 
     fun saveCurrentSession(context: Context? = null) {
         if (_uiState.value.isCurrentRunSaved) return
-        _uiState.value = _uiState.value.copy(isCurrentRunSaved = true) // Set early to prevent double tap
+        _uiState.update { it.copy(isCurrentRunSaved = true) } // Set early to prevent double tap
 
         viewModelScope.launch {
             val state = _uiState.value
@@ -1394,19 +1483,19 @@ class StopwatchViewModel(
             }
 
             context?.let { HapticUtil.vibrateHeavy(it) }
-            _uiState.value = _uiState.value.copy(
+            _uiState.update { it.copy(
                 isSessionSavedSuccess = true,
                 isCurrentRunSaved = true,
                 saveNotificationMessage = successMsg
-            )
+            ) }
         }
     }
 
     fun clearSavedSuccess() {
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { it.copy(
             isSessionSavedSuccess = false,
             saveNotificationMessage = null
-        )
+        ) }
     }
 
     // --- Swimmer CRUD ---
@@ -1485,7 +1574,7 @@ class StopwatchViewModel(
                     lane.copy(swimmerName = swimmer.name)
                 } else lane
             }
-            _uiState.value = _uiState.value.copy(lanes = updatedLanes)
+            _uiState.update { it.copy(lanes = updatedLanes) }
         }
     }
 
@@ -1498,7 +1587,7 @@ class StopwatchViewModel(
                     lane.copy(swimmerId = null, swimmerName = "Bahn ${lane.laneNumber}")
                 } else lane
             }
-            _uiState.value = _uiState.value.copy(lanes = updatedLanes)
+            _uiState.update { it.copy(lanes = updatedLanes) }
         }
     }
 

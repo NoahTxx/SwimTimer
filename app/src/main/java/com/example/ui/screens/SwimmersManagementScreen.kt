@@ -25,6 +25,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Add
@@ -83,7 +86,9 @@ fun SwimmersManagementScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val swimmers by viewModel.allSwimmers.collectAsStateWithLifecycle()
+    val allSwimmers by viewModel.allSwimmers.collectAsStateWithLifecycle()
+    val swimmers by viewModel.swimmerUiList.collectAsStateWithLifecycle()
+    val searchQuery by viewModel.swimmersSearchQuery.collectAsStateWithLifecycle()
     val allSessions by viewModel.allSessions.collectAsStateWithLifecycle()
 
     var selectedSwimmerId by remember { mutableStateOf<Long?>(null) }
@@ -105,7 +110,7 @@ fun SwimmersManagementScreen(
         }
     }
 
-    val activeSwimmer = swimmers.firstOrNull { it.id == selectedSwimmerId }
+    val activeSwimmer = allSwimmers.firstOrNull { it.id == selectedSwimmerId }
 
     // If an athlete is selected, show their personal history / detail screen
     if (activeSwimmer != null) {
@@ -164,11 +169,11 @@ fun SwimmersManagementScreen(
                     // Export Button
                     FilledTonalIconButton(
                         onClick = {
-                            if (swimmers.isNotEmpty()) {
-                                ExportHelper.shareSwimmersExport(context, swimmers)
+                            if (allSwimmers.isNotEmpty()) {
+                                ExportHelper.shareSwimmersExport(context, allSwimmers)
                             }
                         },
-                        enabled = swimmers.isNotEmpty(),
+                        enabled = allSwimmers.isNotEmpty(),
                         shape = CircleShape,
                         colors = IconButtonDefaults.filledTonalIconButtonColors(
                             containerColor = OceanSurface,
@@ -203,6 +208,41 @@ fun SwimmersManagementScreen(
                     }
                 }
             }
+
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { viewModel.swimmersSearchQuery.value = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                placeholder = { Text("Schwimmer suchen...") },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = AquaPrimary,
+                    unfocusedBorderColor = OceanSurface,
+                    focusedContainerColor = DeepOceanBackground,
+                    unfocusedContainerColor = DeepOceanBackground
+                ),
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "Suchen",
+                        tint = Color.LightGray
+                    )
+                },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { viewModel.swimmersSearchQuery.value = "" }) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Suche löschen",
+                                tint = Color.LightGray
+                            )
+                        }
+                    }
+                }
+            )
 
             if (swimmers.isEmpty()) {
                 Column(
@@ -293,7 +333,7 @@ fun SwimmersManagementScreen(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SwimmerCard(
-    swimmer: SwimmerEntity,
+    swimmer: com.example.ui.SwimmerCardUiModel,
     onClick: () -> Unit
 ) {
     Card(
@@ -317,7 +357,7 @@ private fun SwimmerCard(
             ) {
                 Surface(
                     shape = CircleShape,
-                    color = Color(swimmer.colorHex),
+                    color = Color(swimmer.originalEntity.colorHex),
                     modifier = Modifier.size(44.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
@@ -339,7 +379,7 @@ private fun SwimmerCard(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = "Hauptlage: ${swimmer.favoriteStroke}",
+                        text = "Hauptlage: ${swimmer.groupOrClub}",
                         style = MaterialTheme.typography.bodySmall,
                         color = AquaPrimary,
                         maxLines = 1
@@ -349,36 +389,36 @@ private fun SwimmerCard(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
-                        if (swimmer.pb25mMillis != null) {
+                        if (swimmer.pb25mText.isNotEmpty()) {
                             Text(
-                                text = "25m: ${TimeFormatter.formatMillis(swimmer.pb25mMillis, shortFormat = true)}",
+                                text = "25m: ${swimmer.pb25mText}",
                                 style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
                                 color = AquaPrimary,
                                 maxLines = 1,
                                 softWrap = false
                             )
                         }
-                        if (swimmer.pb50mMillis != null) {
+                        if (swimmer.pb50mText.isNotEmpty()) {
                             Text(
-                                text = "50m: ${TimeFormatter.formatMillis(swimmer.pb50mMillis, shortFormat = true)}",
+                                text = "50m: ${swimmer.pb50mText}",
                                 style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
                                 color = Color.LightGray,
                                 maxLines = 1,
                                 softWrap = false
                             )
                         }
-                        if (swimmer.pb100mMillis != null) {
+                        if (swimmer.pb100mText.isNotEmpty()) {
                             Text(
-                                text = "100m: ${TimeFormatter.formatMillis(swimmer.pb100mMillis)}",
+                                text = "100m: ${swimmer.pb100mText}",
                                 style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
                                 color = Color(0xFFFFD600),
                                 maxLines = 1,
                                 softWrap = false
                             )
                         }
-                        if (swimmer.pb100mLagenMillis != null) {
+                        if (swimmer.pb100mImText.isNotEmpty()) {
                             Text(
-                                text = "Lagen: ${TimeFormatter.formatMillis(swimmer.pb100mLagenMillis)}",
+                                text = "Lagen: ${swimmer.pb100mImText}",
                                 style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
                                 color = Color(0xFFFF8A80),
                                 maxLines = 1,
@@ -399,9 +439,7 @@ private fun SwimmerCard(
                     color = Color.Gray,
                     maxLines = 1
                 )
-                val pb50Formatted = swimmer.pb50mMillis?.let {
-                    TimeFormatter.formatMillis(it, shortFormat = true)
-                } ?: "--:--"
+                val pb50Formatted = swimmer.pb50mText.ifEmpty { "--:--" }
                 Text(
                     text = pb50Formatted,
                     style = MaterialTheme.typography.titleMedium.copy(

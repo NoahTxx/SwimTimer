@@ -98,6 +98,8 @@ fun MultiStopwatchScreen(
         }
     }
 
+    KeepScreenOnEffect(enabled = uiState.hasOpenRun)
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -540,6 +542,17 @@ fun MultiStopwatchScreen(
                     viewModel.setTargetPaceForAllLanes(avgMillis)
                 }
             )
+        }
+    }
+}
+
+@Composable
+private fun KeepScreenOnEffect(enabled: Boolean) {
+    val view = androidx.compose.ui.platform.LocalView.current
+    androidx.compose.runtime.DisposableEffect(view, enabled) {
+        view.keepScreenOn = enabled
+        onDispose {
+            view.keepScreenOn = false
         }
     }
 }
