@@ -9,8 +9,8 @@ object SoundUtil {
     @Volatile
     private var toneGenerator: ToneGenerator? = null
 
-    init {
-        executor.execute {
+    private fun getOrCreateGenerator(): ToneGenerator? {
+        if (toneGenerator == null) {
             toneGenerator = try {
                 // Use STREAM_ALARM to ensure the start signal is loud and audible even if media is muted
                 ToneGenerator(AudioManager.STREAM_ALARM, 100)
@@ -18,27 +18,40 @@ object SoundUtil {
                 null
             }
         }
+        return toneGenerator
     }
 
     /**
-     * Official swimming electronic start horn/whistle tone (loud 300ms beep)
+     * Official swimming electronic start horn/whistle tone (loud 350ms beep)
      */
     fun playStartSignal() {
         executor.execute {
             try {
-                toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, 350)
+                getOrCreateGenerator()?.startTone(ToneGenerator.TONE_PROP_BEEP, 350)
             } catch (_: Exception) {}
         }
     }
 
     /**
-     * Countdown preparatory beep (100ms)
+     * Countdown preparatory beep (120ms)
      */
     fun playCountdownBeep() {
         executor.execute {
             try {
-                toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP2, 120)
+                getOrCreateGenerator()?.startTone(ToneGenerator.TONE_PROP_BEEP2, 120)
             } catch (_: Exception) {}
+        }
+    }
+
+    /**
+     * Safely releases native audio resources when app stops or destroys.
+     */
+    fun release() {
+        executor.execute {
+            try {
+                toneGenerator?.release()
+            } catch (_: Exception) {}
+            toneGenerator = null
         }
     }
 }

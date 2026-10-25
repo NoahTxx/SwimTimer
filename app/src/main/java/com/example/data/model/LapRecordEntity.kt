@@ -11,6 +11,8 @@ import androidx.room.PrimaryKey
     indices = [
         Index("sessionId"),
         Index("swimmerId"),
+        Index(value = ["swimmerId", "sessionId"]),
+        Index(value = ["swimmerId", "lapTimeMillis"]),
     ]
 )
 data class LapRecordEntity(

@@ -70,7 +70,9 @@ data class LaneState(
     val countdownRemainingSeconds: Int = 0,
     val targetDistanceMeters: Int = 100,
     val splitDistanceMeters: Int = 50,
-    val strokeType: String = "Freistil"
+    val strokeType: String = "Freistil",
+    val spmTapStartRealtime: Long? = null,
+    val currentSpm: Double? = null
 )
 
 sealed interface UndoAction {
@@ -435,6 +437,96 @@ class StopwatchViewModel(
         startTicker()
     }
 
+    private var waveAudioJob: Job? = null
+
+    /**
+     * Startet alle besetzten (oder alle) Bahnen gestaffelt im festen Abstand
+     * (z. B. staggerIntervalMillis = 5_000L für +5s Wellen-Start).
+     */
+    fun startStaggeredWave(staggerIntervalMillis: Long = 5_000L, context: Context? = null) {
+        context?.let { HapticUtil.vibrateHeavy(it) }
+        SoundUtil.playStartSignal()
+        val baseStartRealtime = clock.nowMillis()
+        var waveIndex = 0
+
+        pushUndo(UndoAction.BulkStart(_uiState.value.lanes, _uiState.value.masterStartTimeRealtime))
+
+        _uiState.update { state ->
+            val updatedLanes = state.lanes.map { lane ->
+                val scheduledStartRealtime = baseStartRealtime + (waveIndex * staggerIntervalMillis)
+                waveIndex++
+                lane.copy(
+                    status = LaneStatus.RUNNING,
+                    laneStartTimeRealtime = scheduledStartRealtime,
+                    finishTimeMillis = null,
+                    currentElapsedMillis = 0L,
+                    laps = emptyList(),
+                    intervalOffsetMillis = 0L,
+                    countdownRemainingSeconds = 0,
+                    spmTapStartRealtime = null,
+                    currentSpm = null
+                )
+            }
+            state.copy(
+                masterStartTimeRealtime = baseStartRealtime,
+                lanes = updatedLanes,
+                isCurrentRunSaved = false
+            )
+        }
+        startTicker()
+        scheduleWaveAudioSignals(waveCount = waveIndex, staggerIntervalMillis = staggerIntervalMillis)
+    }
+
+    private fun scheduleWaveAudioSignals(waveCount: Int, staggerIntervalMillis: Long) {
+        waveAudioJob?.cancel()
+        if (waveCount <= 1 || staggerIntervalMillis <= 0L) return
+
+        waveAudioJob = viewModelScope.launch(Dispatchers.Default) {
+            val baseTime = clock.nowMillis()
+            for (wave in 1 until waveCount) {
+                val targetTime = baseTime + wave * staggerIntervalMillis
+                val beepTime = targetTime - 1_000L
+                val delayToBeep = beepTime - clock.nowMillis()
+                if (delayToBeep > 0) {
+                    delay(delayToBeep.milliseconds)
+                    SoundUtil.playCountdownBeep()
+                }
+                val delayToStart = targetTime - clock.nowMillis()
+                if (delayToStart > 0) {
+                    delay(delayToStart.milliseconds)
+                    SoundUtil.playStartSignal()
+                }
+            }
+        }
+    }
+
+    /**
+     * Live-3-Zyklen-SPM-Messung direkt auf der LaneTimerCard während der Laufzeit:
+     * 1. Tap = Startet 3-Zyklen-Messung
+     * 2. Tap = Berechnet SPM = (3 * 60_000) / deltaMs und speichert den Wert auf der Bahn
+     */
+    fun onTapStrokeRate(laneNumber: Int) {
+        val now = clock.nowMillis()
+        _uiState.update { state ->
+            val lanes = state.lanes.map { lane ->
+                if (lane.laneNumber != laneNumber) return@map lane
+                val tapStart = lane.spmTapStartRealtime
+                if (tapStart == null) {
+                    lane.copy(spmTapStartRealtime = now)
+                } else {
+                    val deltaMs = (now - tapStart).coerceAtLeast(500L)
+                    val calculatedSpm = (3f * 60_000f) / deltaMs.toFloat()
+                    val roundedSpm = kotlin.math.round(calculatedSpm * 10f) / 10.0
+                    lane.copy(
+                        spmTapStartRealtime = null,
+                        currentSpm = roundedSpm
+                    )
+                }
+            }
+            state.copy(lanes = lanes)
+        }
+    }
+
     fun onStopAll(context: Context? = null) {
         context?.let { HapticUtil.vibrateHeavy(it) }
         val now = clock.nowMillis()
@@ -566,8 +658,8 @@ class StopwatchViewModel(
             val previousSplit = lane.laps.lastOrNull()?.splitTimeMillis ?: 0L
             val lapTime = (splitTime - previousSplit).coerceAtLeast(0L)
 
-            // Debounce accidental double-tap within 200ms
-            if (lapTime < 200L) return@update currentState
+            // Debounce accidental double-tap / water drop under 1.5 seconds
+            if (lapTime < MIN_LAP_DURATION_MS) return@update currentState
 
             val deltaTarget = lane.targetLapMillis?.let { lapTime - it }
             val newLapIndex = lane.laps.size + 1
@@ -1736,6 +1828,8 @@ class StopwatchViewModel(
     }
 
     companion object {
+        const val MIN_LAP_DURATION_MS = 1_500L
+
         fun isSameStroke(strokeA: String?, strokeB: String?): Boolean {
             if (strokeA == null || strokeB == null) return false
             val a = strokeA.trim().lowercase()

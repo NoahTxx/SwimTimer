@@ -104,6 +104,7 @@ fun LaneTimerCard(
     onStartSingleLaneClick: (() -> Unit)? = null,
     onPauseClick: (() -> Unit)? = null,
     onResumeClick: (() -> Unit)? = null,
+    onStrokeRateTap: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     var isExpanded by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(value = false) }
@@ -178,7 +179,10 @@ fun LaneTimerCard(
                 onFinishClick = onFinishClick,
                 onPauseClick = onPauseClick,
                 onResumeClick = onResumeClick,
-                onStartSingleLaneClick = onStartSingleLaneClick
+                onStartSingleLaneClick = onStartSingleLaneClick,
+                onStrokeRateTap = onStrokeRateTap,
+                currentSpm = lane.currentSpm,
+                spmTapStartRealtime = lane.spmTapStartRealtime
             )
 
             LaneLapsHistory(
@@ -332,20 +336,23 @@ private fun LaneHeader(
 
 @Composable
 fun RunningTime(startRealtime: Long, style: TextStyle, color: Color, modifier: Modifier = Modifier) {
-    val measurer = rememberTextMeasurer()
+    val measurer = rememberTextMeasurer(cacheSize = 64)
     val now = remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
     LaunchedEffect(startRealtime) {
         while (true) withFrameMillis { now.longValue = SystemClock.elapsedRealtime() }
     }
-    // feste Größe -> Relayout-Grenze, kein Hochpropagieren
-    val box = remember(style) { measurer.measure("00:00.00", style).size }
+    val charBuffer = remember { CharArray(9) }
+    val box = remember(style) { measurer.measure("-00:00.00", style).size }
     val density = LocalDensity.current
     Spacer(
         modifier
             .size(with(density) { DpSize(box.width.toDp(), box.height.toDp()) })
             .drawBehind {
-                val text = TimeFormatter.formatMillis(now.longValue - startRealtime)
-                drawText(measurer, text, style = style.copy(color = color))
+                val elapsed = now.longValue - startRealtime
+                val len = TimeFormatter.writeSignedMillisToBuffer(elapsed, charBuffer)
+                val text = String(charBuffer, 0, len)
+                val textColor = if (elapsed < 0L) Color(0xFFFFD600) else color
+                drawText(measurer, text, style = style.copy(color = textColor))
             }
     )
 }
@@ -548,13 +555,49 @@ private fun LaneControls(
     onFinishClick: (Long) -> Unit,
     onPauseClick: (() -> Unit)?,
     onResumeClick: (() -> Unit)?,
-    onStartSingleLaneClick: (() -> Unit)?
+    onStartSingleLaneClick: (() -> Unit)?,
+    onStrokeRateTap: (() -> Unit)? = null,
+    currentSpm: Double? = null,
+    spmTapStartRealtime: Long? = null
 ) {
     if (status == LaneStatus.RUNNING) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            // SPM Live Tap Button
+            if (onStrokeRateTap != null) {
+                val isTapping = spmTapStartRealtime != null
+                Surface(
+                    onClick = onStrokeRateTap,
+                    shape = RoundedCornerShape(14.dp),
+                    color = if (isTapping) Color(0xFFFFD600) else Color(0xFF1E3A5F),
+                    modifier = Modifier
+                        .weight(1.1f)
+                        .height(60.dp)
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        Text(
+                            text = when {
+                                isTapping -> "3 Züge"
+                                currentSpm != null -> "${currentSpm.toInt()} SPM"
+                                else -> "SPM"
+                            },
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            ),
+                            color = if (isTapping) Color.Black else TextWhite,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
+                }
+            }
+
             // LAP / SPLIT Button
             Surface(
                 shape = RoundedCornerShape(14.dp),

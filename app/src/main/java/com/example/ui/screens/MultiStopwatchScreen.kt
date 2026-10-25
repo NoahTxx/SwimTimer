@@ -215,7 +215,8 @@ fun MultiStopwatchScreen(
                         onRemoveLaneClick = { viewModel.removeLane(laneNum, context) },
                         onStartSingleLaneClick = { viewModel.onStartSingleLane(laneNum, context) },
                         onPauseClick = { viewModel.onPauseLane(laneNum, context) },
-                        onResumeClick = { viewModel.onResumeLane(laneNum, context) }
+                        onResumeClick = { viewModel.onResumeLane(laneNum, context) },
+                        onStrokeRateTap = { viewModel.onTapStrokeRate(laneNum) }
                     )
                 }
 
@@ -256,10 +257,18 @@ fun MultiStopwatchScreen(
 
             // BOTTOM MASTER CONTROLS BAR
             val anyRunning = uiState.hasOpenRun
-            val anyHasTimes = uiState.lanes.any {
-                (it.currentElapsedMillis > 0L) || (it.laps.isNotEmpty()) || (it.status == LaneStatus.FINISHED)
+            val anyHasTimes by remember(uiState.lanes) {
+                androidx.compose.runtime.derivedStateOf {
+                    uiState.lanes.any {
+                        (it.currentElapsedMillis > 0L) || (it.laps.isNotEmpty()) || (it.status == LaneStatus.FINISHED)
+                    }
+                }
             }
-            val anyLapsRecorded = uiState.lanes.any { it.laps.isNotEmpty() }
+            val anyLapsRecorded by remember(uiState.lanes) {
+                androidx.compose.runtime.derivedStateOf {
+                    uiState.lanes.any { it.laps.isNotEmpty() }
+                }
+            }
 
             Row(
                 modifier = Modifier

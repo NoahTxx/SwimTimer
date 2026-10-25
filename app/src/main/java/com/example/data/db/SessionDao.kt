@@ -39,4 +39,21 @@ interface SessionDao {
 
     @Query("DELETE FROM sessions WHERE id = :sessionId")
     suspend fun deleteSessionById(sessionId: Long)
+
+    @Query("""
+        SELECT 
+            COUNT(id) AS totalLapsSwum,
+            MIN(lapTimeMillis) AS fastestLapMillis,
+            AVG(lapTimeMillis) AS averageLapMillis
+        FROM lap_records 
+        WHERE swimmerId = :swimmerId
+    """)
+    fun getSwimmerStatsFlow(swimmerId: Long): Flow<SwimmerStatsSummary>
 }
+
+@androidx.compose.runtime.Immutable
+data class SwimmerStatsSummary(
+    val totalLapsSwum: Int,
+    val fastestLapMillis: Long?,
+    val averageLapMillis: Double?
+)

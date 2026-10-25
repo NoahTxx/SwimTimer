@@ -9,6 +9,63 @@ import kotlin.math.roundToLong
 object TimeFormatter {
 
     /**
+     * Schreibt MM:SS.cc direkt in ein bestehendes CharArray(8), um bei 120 FPS
+     * 0 Bytes Garbage-Collection-Allokationen im Render-Loop zu erzeugen.
+     * Gibt die Anzahl geschriebener Zeichen zurück (8).
+     */
+    fun writeMillisToBuffer(millis: Long, buffer: CharArray): Int {
+        val safeMillis = millis.coerceAtLeast(0L)
+        val totalSeconds = (safeMillis / 1_000L).toInt()
+        val minutes = (totalSeconds / 60).coerceAtMost(99)
+        val seconds = totalSeconds % 60
+        val hundredths = ((safeMillis % 1_000L) / 10L).toInt()
+
+        buffer[0] = ('0'.code + (minutes / 10)).toChar()
+        buffer[1] = ('0'.code + (minutes % 10)).toChar()
+        buffer[2] = ':'
+        buffer[3] = ('0'.code + (seconds / 10)).toChar()
+        buffer[4] = ('0'.code + (seconds % 10)).toChar()
+        buffer[5] = '.'
+        buffer[6] = ('0'.code + (hundredths / 10)).toChar()
+        buffer[7] = ('0'.code + (hundredths % 10)).toChar()
+        return 8
+    }
+
+    /**
+     * Schreibt MM:SS.cc oder -MM:SS.cc direkt in ein bestehendes CharArray(9),
+     * um negative Werte beim gestaffelten Wellen-Start als "-00:04.85" darzustellen.
+     * Gibt die Anzahl geschriebener Zeichen zurück (8 oder 9).
+     */
+    fun writeSignedMillisToBuffer(signedMillis: Long, buffer: CharArray): Int {
+        val isCountdown = signedMillis < 0L
+        val absMillis = abs(signedMillis)
+        val totalSeconds = (absMillis / 1_000L).toInt()
+        val minutes = (totalSeconds / 60).coerceAtMost(99)
+        val seconds = totalSeconds % 60
+        val hundredths = ((absMillis % 1_000L) / 10L).toInt()
+
+        var idx = 0
+        if (isCountdown) {
+            buffer[idx++] = '-'
+        }
+        buffer[idx++] = ('0'.code + (minutes / 10)).toChar()
+        buffer[idx++] = ('0'.code + (minutes % 10)).toChar()
+        buffer[idx++] = ':'
+        buffer[idx++] = ('0'.code + (seconds / 10)).toChar()
+        buffer[idx++] = ('0'.code + (seconds % 10)).toChar()
+        buffer[idx++] = '.'
+        buffer[idx++] = ('0'.code + (hundredths / 10)).toChar()
+        buffer[idx++] = ('0'.code + (hundredths % 10)).toChar()
+        return idx
+    }
+
+    fun formatMillisFast(millis: Long): String {
+        val buf = CharArray(8)
+        writeMillisToBuffer(millis, buf)
+        return String(buf)
+    }
+
+    /**
      * Formats milliseconds into standard swimming digital format: MM:SS.cc
      * If under 1 minute and shortFormat is true: SS.cc
      */
