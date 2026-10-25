@@ -72,8 +72,8 @@ object ExportHelper {
         val sb = StringBuilder()
         sb.append("\uFEFF") // UTF-8 BOM
         sb.append("SessionID;Datum;Titel;Disziplin;Beckenlaenge_m;Zielstrecke_m;Startmodus;Intervall_s\n")
-        sb.append("${s.id};${TimeFormatter.formatDate(s.timestamp)};${escapeCsv(s.title)};${escapeCsv(s.strokeType)};${s.poolLengthMeters};${s.targetDistanceMeters};${s.startMode};${s.intervalOffsetSeconds}\n\n")
-
+        sb.append("${s.id};${TimeFormatter.formatDate(s.timestamp)};${escapeCsv(s.title)};${escapeCsv(s.strokeType)};${s.poolLengthMeters};${s.targetDistanceMeters};${s.startMode};${s.intervalOffsetSeconds}\n")
+        sb.append("\n")
         sb.append("Bahn;Schwimmer;Lap_Nr;Lage;Split_Zeit_ms;Split_Formatiert;Runden_Zeit_ms;Runde_Formatiert;Soll_Zeit_ms;Delta_Soll_ms;Schlagfrequenz_SPM\n")
         sessionWithLaps.laps.sortedWith(compareBy({ it.laneNumber }, { it.lapIndex })).forEach { lap ->
             val strokeName = if (isLagen) {
@@ -161,14 +161,17 @@ object ExportHelper {
         for (i in 0 until array.length()) {
             val obj = array.getJSONObject(i)
             fun optLongNullable(key: String): Long? = if (obj.has(key) && !obj.isNull(key)) obj.getLong(key) else null
-            fun optStringNullable(key: String): String? = if (obj.has(key) && !obj.isNull(key) && obj.getString(key).isNotBlank()) obj.getString(key) else null
+            fun optStringNullable(key: String): String? = if (obj.has(key) && !obj.isNull(key) && obj.getString(key).isNotBlank()) obj.getString(key).trim() else null
+
+            val safeName = obj.optString("name", "Unbekannt").trim()
+            val safeGroupName = optStringNullable("groupName")?.trim()
 
             list.add(
                 SwimmerEntity(
                     id = 0,
-                    name = obj.optString("name", "Unbekannt"),
-                    ageGroup = obj.optString("ageGroup", "Offen"),
-                    favoriteStroke = obj.optString("favoriteStroke", "Freistil"),
+                    name = safeName.ifBlank { "Unbekannt" },
+                    ageGroup = obj.optString("ageGroup", "Offen").trim().ifBlank { "Offen" },
+                    favoriteStroke = obj.optString("favoriteStroke", "Freistil").trim().ifBlank { "Freistil" },
                     pb25mMillis = optLongNullable("pb25mMillis"),
                     pb50mMillis = optLongNullable("pb50mMillis"),
                     pb100mMillis = optLongNullable("pb100mMillis"),
@@ -188,8 +191,8 @@ object ExportHelper {
                     pb400mLagenBreastSplitMillis = optLongNullable("pb400mLagenBreastSplitMillis"),
                     pb400mLagenFreeSplitMillis = optLongNullable("pb400mLagenFreeSplitMillis"),
                     colorHex = obj.optLong("colorHex", 0xFF00E5FF),
-                    notes = obj.optString("notes", ""),
-                    groupName = optStringNullable("groupName")
+                    notes = obj.optString("notes", "").trim(),
+                    groupName = safeGroupName
                 )
             )
         }
@@ -280,15 +283,15 @@ object ExportHelper {
             val session = com.example.data.model.SessionEntity(
                 id = obj.optLong("id", 0L),
                 timestamp = obj.optLong("timestamp", System.currentTimeMillis()),
-                title = obj.optString("title", "Importiertes Training"),
+                title = obj.optString("title", "Importiertes Training").trim().ifBlank { "Importiertes Training" },
                 poolLengthMeters = obj.optInt("poolLengthMeters", 50),
                 targetDistanceMeters = obj.optInt("targetDistanceMeters", 100),
-                strokeType = obj.optString("strokeType", "Freistil"),
-                startMode = obj.optString("startMode", "MASS"),
+                strokeType = obj.optString("strokeType", "Freistil").trim().ifBlank { "Freistil" },
+                startMode = obj.optString("startMode", "MASS").trim().ifBlank { "MASS" },
                 intervalOffsetSeconds = obj.optInt("intervalOffsetSeconds", 5),
                 laneCount = obj.optInt("laneCount", 4),
                 splitDistanceMeters = obj.optInt("splitDistanceMeters", 50),
-                notes = obj.optString("notes", "")
+                notes = obj.optString("notes", "").trim()
             )
 
             val lapsList = mutableListOf<com.example.data.model.LapRecordEntity>()
@@ -301,11 +304,11 @@ object ExportHelper {
                             id = lObj.optLong("id", 0L),
                             sessionId = lObj.optLong("sessionId", session.id),
                             swimmerId = optLongNullable(lObj, "swimmerId"),
-                            swimmerName = lObj.optString("swimmerName", "Unbekannt"),
+                            swimmerName = lObj.optString("swimmerName", "Unbekannt").trim().ifBlank { "Unbekannt" },
                             laneNumber = lObj.optInt("laneNumber", 1),
                             lapIndex = lObj.optInt("lapIndex", j + 1),
-                            splitTimeMillis = lObj.optLong("splitTimeMillis", 0L),
-                            lapTimeMillis = lObj.optLong("lapTimeMillis", 0L),
+                            splitTimeMillis = lObj.optLong("splitTimeMillis", 0L).coerceAtLeast(0L),
+                            lapTimeMillis = lObj.optLong("lapTimeMillis", 0L).coerceAtLeast(0L),
                             targetLapMillis = optLongNullable(lObj, "targetLapMillis"),
                             deltaTargetMillis = optLongNullable(lObj, "deltaTargetMillis"),
                             strokeRateSpm = optDoubleNullable(lObj, "strokeRateSpm"),
@@ -319,3 +322,4 @@ object ExportHelper {
         return result
     }
 }
+
