@@ -5,7 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -69,7 +68,6 @@ private val TEAM_COLORS = listOf(
     Color(0xFF7C4DFF),
 )
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun RelayRandomizerComponent(
     dbSwimmers: List<SwimmerEntity>,
@@ -318,7 +316,11 @@ fun RelayRandomizerComponent(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
-                itemsIndexed(generatedTeams, key = { index, _ -> index }) { index, teamMembers ->
+                itemsIndexed(
+                    items = generatedTeams,
+                    key = { index, _ -> index },
+                    contentType = { _, _ -> "TeamCard" }
+                ) { index, teamMembers ->
                     val teamColor = TEAM_COLORS.getOrElse(index % TEAM_COLORS.size) { AquaPrimary }
                     Card(
                         shape = RoundedCornerShape(16.dp),

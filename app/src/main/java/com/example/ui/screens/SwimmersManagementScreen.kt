@@ -31,7 +31,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Share
@@ -79,6 +78,12 @@ import com.example.ui.theme.PaceGreen
 import com.example.ui.theme.TextWhite
 import com.example.util.TimeFormatter
 
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileUpload
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+
 @Composable
 fun SwimmersManagementScreen(
     viewModel: StopwatchViewModel,
@@ -86,6 +91,7 @@ fun SwimmersManagementScreen(
     isActiveTab: Boolean = true,
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val allSwimmers by viewModel.allSwimmers.collectAsStateWithLifecycle()
     val swimmers by viewModel.swimmerUiList.collectAsStateWithLifecycle()
     val searchQuery by viewModel.swimmersSearchQuery.collectAsStateWithLifecycle()
@@ -107,15 +113,17 @@ fun SwimmersManagementScreen(
         contract = ActivityResultContracts.GetContent(),
     ) { uri ->
         uri?.let {
-            try {
-                context.contentResolver.openInputStream(it)?.use { stream ->
-                    val json = stream.bufferedReader().readText()
-                    val imported = ExportHelper.importSwimmersFromJson(json)
-                    if (imported.isNotEmpty()) {
-                        viewModel.importSwimmers(imported)
+            coroutineScope.launch(Dispatchers.IO) {
+                try {
+                    context.contentResolver.openInputStream(it)?.use { stream ->
+                        val json = stream.bufferedReader().readText()
+                        val imported = ExportHelper.importSwimmersFromJson(json)
+                        if (imported.isNotEmpty()) {
+                            viewModel.importSwimmers(imported)
+                        }
                     }
-                }
-            } catch (_: Exception) {}
+                } catch (_: Exception) {}
+            }
         }
     }
 
@@ -174,11 +182,13 @@ fun SwimmersManagementScreen(
                     FilledTonalIconButton(
                         onClick = {
                             if (allSwimmers.isNotEmpty()) {
-                                ExportHelper.shareSwimmersExport(context, allSwimmers)
+                                coroutineScope.launch(Dispatchers.IO) {
+                                    ExportHelper.shareSwimmersExport(context, allSwimmers)
+                                }
                             }
                         },
                         enabled = allSwimmers.isNotEmpty(),
-                        shape = CircleShape,
+                        shape = RoundedCornerShape(12.dp),
                         colors = IconButtonDefaults.filledTonalIconButtonColors(
                             containerColor = OceanSurface,
                             contentColor = AquaPrimary
@@ -186,7 +196,7 @@ fun SwimmersManagementScreen(
                         modifier = Modifier.size(38.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Share,
+                            imageVector = Icons.Default.FileUpload,
                             contentDescription = "Athleten exportieren",
                             modifier = Modifier.size(18.dp)
                         )
@@ -197,7 +207,7 @@ fun SwimmersManagementScreen(
                         onClick = {
                             importLauncher.launch("*/*")
                         },
-                        shape = CircleShape,
+                        shape = RoundedCornerShape(12.dp),
                         colors = IconButtonDefaults.filledTonalIconButtonColors(
                             containerColor = OceanSurface,
                             contentColor = AquaPrimary
@@ -205,7 +215,7 @@ fun SwimmersManagementScreen(
                         modifier = Modifier.size(38.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Download,
+                            imageVector = Icons.Default.FileDownload,
                             contentDescription = "Athleten importieren",
                             modifier = Modifier.size(18.dp)
                         )

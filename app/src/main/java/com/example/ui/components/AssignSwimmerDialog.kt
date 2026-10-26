@@ -174,7 +174,11 @@ fun AssignSwimmerDialog(
                     LazyColumn(
                         modifier = Modifier.height(260.dp)
                     ) {
-                        items(filteredSwimmers, key = { swimmer -> swimmer.id }) { swimmer ->
+                        items(
+                            items = filteredSwimmers,
+                            key = { swimmer -> swimmer.id },
+                            contentType = { "SwimmerDialogItem" }
+                        ) { swimmer ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()

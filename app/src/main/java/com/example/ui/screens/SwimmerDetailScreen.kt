@@ -209,7 +209,7 @@ fun SwimmerDetailScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 // Swimmer Hero Card
-                item(key = "hero_card") {
+                item(key = "hero_card", contentType = "HeroCard") {
                     Card(
                         shape = RoundedCornerShape(20.dp),
                         colors = CardDefaults.cardColors(containerColor = OceanSurface),
@@ -471,7 +471,7 @@ fun SwimmerDetailScreen(
                 }
 
                 // History Title Header
-                item(key = "history_header") {
+                item(key = "history_header", contentType = "HistoryHeader") {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -505,7 +505,7 @@ fun SwimmerDetailScreen(
 
                 // Sessions List
                 if (swimmerSessions.isEmpty()) {
-                    item(key = "empty_history") {
+                    item(key = "empty_history", contentType = "EmptyHistory") {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()

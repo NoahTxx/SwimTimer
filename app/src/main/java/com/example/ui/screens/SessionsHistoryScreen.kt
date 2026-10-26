@@ -66,7 +66,11 @@ import com.example.ui.theme.TextWhite
 import com.example.util.ExportHelper
 import com.example.util.TimeFormatter
 
-private val LAGEN_SHORT_NAMES = listOf("Schmett", "Rücken", "Brust", "Freistil")
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 @Composable
 fun SessionsHistoryScreen(
@@ -74,6 +78,7 @@ fun SessionsHistoryScreen(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val sessions by viewModel.allSessions.collectAsStateWithLifecycle()
 
     val importLauncher = rememberLauncherForActivityResult(
@@ -107,54 +112,49 @@ fun SessionsHistoryScreen(
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
             )
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 // Export Button
-                androidx.compose.material3.FilledTonalIconButton(
+                FilledTonalIconButton(
                     onClick = {
                         if (sessions.isNotEmpty()) {
-                            val json = ExportHelper.exportSessionsToJson(sessions)
-                            try {
-                                val fileName = "SwimTimer_Historie_Export_${System.currentTimeMillis()}.json"
-                                val file = java.io.File(context.cacheDir, fileName)
-                                java.io.FileOutputStream(file).use { out ->
-                                    out.write(json.toByteArray(Charsets.UTF_8))
-                                }
-                                val uri = androidx.core.content.FileProvider.getUriForFile(
-                                    context,
-                                    "${context.packageName}.fileprovider",
-                                    file
-                                )
-                                val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                                    type = "application/json"
-                                    putExtra(android.content.Intent.EXTRA_SUBJECT, "SwimTimer Historie Export (${sessions.size} Einheiten)")
-                                    putExtra(android.content.Intent.EXTRA_TEXT, "Anbei der JSON-Export deiner ${sessions.size} Trainingseinheiten.")
-                                    putExtra(android.content.Intent.EXTRA_STREAM, uri)
-                                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                }
-                                context.startActivity(android.content.Intent.createChooser(shareIntent, "Historie exportieren"))
-                            } catch (_: Exception) {}
+                            coroutineScope.launch(Dispatchers.IO) {
+                                ExportHelper.shareSessionsExport(context, sessions)
+                            }
                         }
                     },
                     enabled = sessions.isNotEmpty(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = androidx.compose.material3.IconButtonDefaults.filledTonalIconButtonColors(
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(
                         containerColor = OceanSurface,
                         contentColor = AquaPrimary
-                    )
+                    ),
+                    modifier = Modifier.size(38.dp)
                 ) {
-                    Icon(imageVector = Icons.Default.FileUpload, contentDescription = "Export")
+                    Icon(
+                        imageVector = Icons.Default.FileUpload,
+                        contentDescription = "Historie exportieren",
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
 
                 // Import Button
-                androidx.compose.material3.FilledTonalIconButton(
+                FilledTonalIconButton(
                     onClick = { importLauncher.launch("*/*") },
                     shape = RoundedCornerShape(12.dp),
-                    colors = androidx.compose.material3.IconButtonDefaults.filledTonalIconButtonColors(
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(
                         containerColor = OceanSurface,
                         contentColor = AquaPrimary
-                    )
+                    ),
+                    modifier = Modifier.size(38.dp)
                 ) {
-                    Icon(imageVector = Icons.Default.FileDownload, contentDescription = "Import")
+                    Icon(
+                        imageVector = Icons.Default.FileDownload,
+                        contentDescription = "Historie importieren",
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
             }
         }
@@ -416,7 +416,7 @@ private fun SessionHistoryCard(
                         laneLaps.forEach { lap ->
                             val lapLagenStroke = if (isLagen) {
                                 val legIdx = (((lap.lapIndex - 1) * s.splitDistanceMeters) / lagenLegLength).coerceIn(0, 3)
-                                LAGEN_SHORT_NAMES[legIdx]
+                                ExportHelper.LAGEN_SHORT_NAMES[legIdx]
                             } else null
 
                             Row(

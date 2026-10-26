@@ -294,7 +294,11 @@ fun IntervalSplitLoggerComponent(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             contentPadding = PaddingValues(bottom = 24.dp)
         ) {
-            itemsIndexed(repSplits, key = { _, item -> item.repIndex }) { index, item ->
+            itemsIndexed(
+                items = repSplits,
+                key = { _, item -> item.repIndex },
+                contentType = { _, _ -> "RepetitionSplitCard" }
+            ) { index, item ->
                 Card(
                     shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(containerColor = OceanSurface),

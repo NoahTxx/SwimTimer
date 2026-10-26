@@ -12,6 +12,9 @@ import java.io.FileOutputStream
 
 object ExportHelper {
 
+    val LAGEN_SHORT_NAMES = listOf("Schmett", "Rücken", "Brust", "Freistil")
+    val LAGEN_LEG_NAMES = listOf("1. Schmett", "2. Rücken", "3. Brust", "4. Freistil")
+
     fun generateTextSummary(sessionWithLaps: SessionWithLaps): String {
         val s = sessionWithLaps.session
         val sb = StringBuilder()
@@ -28,7 +31,6 @@ object ExportHelper {
 
         val isLagen = s.strokeType.equals("Lagen", ignoreCase = true)
         val legDist = (s.targetDistanceMeters / 4).coerceAtLeast(1)
-        val strokeNames = listOf("1. Schmett", "2. Rücken", "3. Brust", "4. Freistil")
 
         val grouped = sessionWithLaps.laps.groupBy { it.laneNumber }
         grouped.keys.sorted().forEach { lane ->
@@ -39,7 +41,7 @@ object ExportHelper {
             laps.forEach { lap ->
                 val strokeTag = if (isLagen) {
                     val legIdx = (((lap.lapIndex - 1) * s.splitDistanceMeters) / legDist).coerceIn(0, 3)
-                    " (${strokeNames[legIdx]})"
+                    " (${LAGEN_LEG_NAMES[legIdx]})"
                 } else ""
                 val paceDelta = if (lap.deltaTargetMillis != null) {
                     " [Pace: ${TimeFormatter.formatDelta(lap.deltaTargetMillis)}]"
@@ -59,7 +61,6 @@ object ExportHelper {
         val s = sessionWithLaps.session
         val isLagen = s.strokeType.equals("Lagen", ignoreCase = true)
         val legDist = (s.targetDistanceMeters / 4).coerceAtLeast(1)
-        val strokeNames = listOf("1. Schmett", "2. Rücken", "3. Brust", "4. Freistil")
 
         fun escapeCsv(value: String): String {
             return if (value.contains("\"") || value.contains(";") || value.contains("\n")) {
@@ -78,7 +79,7 @@ object ExportHelper {
         sessionWithLaps.laps.sortedWith(compareBy({ it.laneNumber }, { it.lapIndex })).forEach { lap ->
             val strokeName = if (isLagen) {
                 val legIdx = (((lap.lapIndex - 1) * s.splitDistanceMeters) / legDist).coerceIn(0, 3)
-                strokeNames[legIdx]
+                LAGEN_LEG_NAMES[legIdx]
             } else s.strokeType
             sb.append("${lap.laneNumber};${escapeCsv(lap.swimmerName)};${lap.lapIndex};${escapeCsv(strokeName)};${lap.splitTimeMillis};${TimeFormatter.formatMillis(lap.splitTimeMillis)};${lap.lapTimeMillis};${TimeFormatter.formatMillis(lap.lapTimeMillis)};${lap.targetLapMillis ?: ""};${lap.deltaTargetMillis ?: ""};${lap.strokeRateSpm ?: ""}\n")
         }
@@ -227,6 +228,38 @@ object ExportHelper {
                 putExtra(Intent.EXTRA_TEXT, json)
             }
             context.startActivity(Intent.createChooser(textIntent, "Athleten exportieren (Text)"))
+        }
+    }
+
+    fun shareSessionsExport(context: Context, sessions: List<SessionWithLaps>) {
+        if (sessions.isEmpty()) return
+        val json = exportSessionsToJson(sessions)
+        try {
+            val fileName = "SwimTimer_Historie_Export_${System.currentTimeMillis()}.json"
+            val file = File(context.cacheDir, fileName)
+            FileOutputStream(file).use { out ->
+                out.write(json.toByteArray(Charsets.UTF_8))
+            }
+            val uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file
+            )
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "application/json"
+                putExtra(Intent.EXTRA_SUBJECT, "SwimTimer Historie Export (${sessions.size} Einheiten)")
+                putExtra(Intent.EXTRA_TEXT, "Anbei der JSON-Export deiner ${sessions.size} Trainingseinheiten.")
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(shareIntent, "Historie exportieren"))
+        } catch (_: Exception) {
+            val textIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_SUBJECT, "SwimTimer Historie Export")
+                putExtra(Intent.EXTRA_TEXT, json)
+            }
+            context.startActivity(Intent.createChooser(textIntent, "Historie exportieren (Text)"))
         }
     }
 
