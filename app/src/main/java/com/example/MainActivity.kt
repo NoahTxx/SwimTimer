@@ -35,7 +35,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -110,12 +110,29 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+private fun Modifier.visibleIf(isVisible: Boolean): Modifier = this.layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints)
+    if (isVisible) {
+        layout(placeable.width, placeable.height) {
+            placeable.placeRelative(0, 0)
+        }
+    } else {
+        layout(0, 0) {}
+    }
+}
+
 @Composable
 fun MainAppContent(viewModel: StopwatchViewModel) {
     var currentScreen by remember { mutableStateOf(AppScreen.STOPWATCH) }
+    var precomposeOtherTabs by remember { mutableStateOf(false) }
 
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(250.milliseconds)
+        precomposeOtherTabs = true
+    }
 
     androidx.compose.runtime.LaunchedEffect(currentScreen) {
         focusManager.clearFocus()
@@ -143,13 +160,23 @@ fun MainAppContent(viewModel: StopwatchViewModel) {
                 .weight(1f)
                 .fillMaxWidth(),
         ) {
-            val stateHolder = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
-            stateHolder.SaveableStateProvider(currentScreen) {
-                when (currentScreen) {
-                    AppScreen.STOPWATCH -> MultiStopwatchScreen(viewModel = viewModel)
-                    AppScreen.HISTORY -> SessionsHistoryScreen(viewModel = viewModel)
-                    AppScreen.SWIMMERS -> SwimmersManagementScreen(viewModel = viewModel, isActiveTab = true)
-                    AppScreen.TOOLS -> CoachingToolsScreen(viewModel = viewModel)
+            AppScreen.entries.forEach { screen ->
+                val isActive = currentScreen == screen
+                val shouldRender = isActive || precomposeOtherTabs
+
+                if (shouldRender) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .visibleIf(isActive)
+                    ) {
+                        when (screen) {
+                            AppScreen.STOPWATCH -> MultiStopwatchScreen(viewModel = viewModel)
+                            AppScreen.HISTORY -> SessionsHistoryScreen(viewModel = viewModel)
+                            AppScreen.SWIMMERS -> SwimmersManagementScreen(viewModel = viewModel, isActiveTab = isActive)
+                            AppScreen.TOOLS -> CoachingToolsScreen(viewModel = viewModel)
+                        }
+                    }
                 }
             }
         }

@@ -207,17 +207,27 @@ fun MultiStopwatchScreen(
                     contentType = { "LaneTimerCard" }
                 ) { lane ->
                     val laneNum = lane.laneNumber
+                    val onLapClick = remember(laneNum, context) { { exactTime: Long -> viewModel.onLapLane(laneNum, exactTime, context) } }
+                    val onFinishClick = remember(laneNum, context) { { exactTime: Long -> viewModel.onFinishLane(laneNum, exactTime, context) } }
+                    val onAssignSwimmerClick = remember(laneNum) { { viewModel.openAssignSwimmerDialog(laneNum) } }
+                    val onTargetPaceClick = remember(laneNum) { { viewModel.openTargetPaceDialog(laneNum) } }
+                    val onRemoveLaneClick = remember(laneNum, context) { { viewModel.removeLane(laneNum, context) } }
+                    val onStartSingleLaneClick = remember(laneNum, context) { { viewModel.onStartSingleLane(laneNum, context) } }
+                    val onPauseClick = remember(laneNum, context) { { viewModel.onPauseLane(laneNum, context) } }
+                    val onResumeClick = remember(laneNum, context) { { viewModel.onResumeLane(laneNum, context) } }
+                    val onStrokeRateTap = remember(laneNum) { { viewModel.onTapStrokeRate(laneNum) } }
+
                     LaneTimerCard(
                         lane = lane,
-                        onLapClick = { exactTime -> viewModel.onLapLane(laneNum, exactTime, context) },
-                        onFinishClick = { exactTime -> viewModel.onFinishLane(laneNum, exactTime, context) },
-                        onAssignSwimmerClick = { viewModel.openAssignSwimmerDialog(laneNum) },
-                        onTargetPaceClick = { viewModel.openTargetPaceDialog(laneNum) },
-                        onRemoveLaneClick = { viewModel.removeLane(laneNum, context) },
-                        onStartSingleLaneClick = { viewModel.onStartSingleLane(laneNum, context) },
-                        onPauseClick = { viewModel.onPauseLane(laneNum, context) },
-                        onResumeClick = { viewModel.onResumeLane(laneNum, context) },
-                        onStrokeRateTap = { viewModel.onTapStrokeRate(laneNum) }
+                        onLapClick = onLapClick,
+                        onFinishClick = onFinishClick,
+                        onAssignSwimmerClick = onAssignSwimmerClick,
+                        onTargetPaceClick = onTargetPaceClick,
+                        onRemoveLaneClick = onRemoveLaneClick,
+                        onStartSingleLaneClick = onStartSingleLaneClick,
+                        onPauseClick = onPauseClick,
+                        onResumeClick = onResumeClick,
+                        onStrokeRateTap = onStrokeRateTap
                     )
                 }
 

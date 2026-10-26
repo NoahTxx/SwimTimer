@@ -2,7 +2,6 @@ package com.example.ui.components
 
 import android.os.SystemClock
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -91,16 +90,15 @@ fun LaneTimerCard(
         LaneColors.getOrElse((lane.laneNumber - 1) % LaneColors.size) { AquaPrimary }
     }
 
-    val cardBorderColor by animateColorAsState(
-        targetValue = when (lane.status) {
+    val cardBorderColor = remember(lane.status, laneAccentColor) {
+        when (lane.status) {
             LaneStatus.RUNNING -> laneAccentColor
             LaneStatus.PAUSED -> Color(0xFFF57C00)
             LaneStatus.COUNTDOWN -> Color(0xFFFFD600)
             LaneStatus.FINISHED -> Color(0xFF78909C)
             LaneStatus.IDLE -> OceanBorder
-        },
-        label = "border_color"
-    )
+        }
+    }
 
     Card(
         modifier = modifier

@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
@@ -32,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -125,10 +127,30 @@ fun CoachingToolsScreen(
         }
 
         // Active Tool Section View
-        when (selectedSection) {
-            CoachingToolSection.DRILLS -> DrillQuickfinderComponent()
-            CoachingToolSection.RELAY -> RelayRandomizerComponent(dbSwimmers = swimmers, availableGroups = availableGroups)
-            CoachingToolSection.LOGGER -> IntervalSplitLoggerComponent()
+        Box(modifier = Modifier.fillMaxSize()) {
+            CoachingToolSection.entries.forEach { section ->
+                val isSelected = selectedSection == section
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .layout { measurable, constraints ->
+                            val placeable = measurable.measure(constraints)
+                            if (isSelected) {
+                                layout(placeable.width, placeable.height) {
+                                    placeable.placeRelative(0, 0)
+                                }
+                            } else {
+                                layout(0, 0) {}
+                            }
+                        }
+                ) {
+                    when (section) {
+                        CoachingToolSection.DRILLS -> DrillQuickfinderComponent()
+                        CoachingToolSection.RELAY -> RelayRandomizerComponent(dbSwimmers = swimmers, availableGroups = availableGroups)
+                        CoachingToolSection.LOGGER -> IntervalSplitLoggerComponent()
+                    }
+                }
+            }
         }
     }
 }
