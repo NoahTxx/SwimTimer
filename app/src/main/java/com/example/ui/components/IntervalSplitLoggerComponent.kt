@@ -50,11 +50,14 @@ import com.example.ui.theme.PaceRed
 import com.example.ui.theme.TextWhite
 import com.example.util.TimeFormatter
 
+import androidx.compose.runtime.Immutable
+
+@Immutable
 data class RepetitionSplit(
     val repIndex: Int,
     val targetMillis: Long?,
-    var actualMillis: Long? = null,
-    var inputText: String = ""
+    val actualMillis: Long? = null,
+    val inputText: String = ""
 )
 
 @Composable
@@ -291,7 +294,7 @@ fun IntervalSplitLoggerComponent(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             contentPadding = PaddingValues(bottom = 24.dp)
         ) {
-            itemsIndexed(repSplits) { index, item ->
+            itemsIndexed(repSplits, key = { _, item -> item.repIndex }) { index, item ->
                 Card(
                     shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(containerColor = OceanSurface),

@@ -157,7 +157,7 @@ fun DrillQuickfinderComponent(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             modifier = Modifier.padding(bottom = 6.dp)
         ) {
-            items(STROKE_FILTERS) { filter ->
+            items(STROKE_FILTERS, key = { it }) { filter ->
                 val isSelected = selectedStrokeFilter == filter
                 FilterChip(
                     selected = isSelected,
@@ -182,7 +182,7 @@ fun DrillQuickfinderComponent(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             modifier = Modifier.padding(bottom = 6.dp)
         ) {
-            items(FOCUS_AREA_FILTERS) { focus ->
+            items(FOCUS_AREA_FILTERS, key = { it }) { focus ->
                 val isSelected = selectedFocusAreaFilter == focus
                 FilterChip(
                     selected = isSelected,
@@ -207,7 +207,7 @@ fun DrillQuickfinderComponent(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier.padding(bottom = 8.dp)
             ) {
-                items(availableSpecificFocuses) { specific ->
+                items(availableSpecificFocuses, key = { it }) { specific ->
                     val isSelected = selectedSpecificFocusFilter == specific
                     FilterChip(
                         selected = isSelected,

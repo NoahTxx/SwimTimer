@@ -73,12 +73,21 @@ private val TEAM_COLORS = listOf(
 @Composable
 fun RelayRandomizerComponent(
     dbSwimmers: List<SwimmerEntity>,
+    availableGroups: List<String> = emptyList(),
     modifier: Modifier = Modifier
 ) {
     val focusManager = LocalFocusManager.current
 
-    val availableGroups = remember(dbSwimmers) {
-        dbSwimmers.mapNotNull { it.groupName?.trim() }.filter { it.isNotEmpty() }.distinct().sorted()
+    val groupsToDisplay = remember(availableGroups, dbSwimmers) {
+        if (availableGroups.isNotEmpty()) {
+            availableGroups
+        } else {
+            dbSwimmers.mapNotNull { it.groupName?.trim() }.filter { it.isNotBlank() }.distinctBy { it.lowercase() }.sortedWith(String.CASE_INSENSITIVE_ORDER)
+        }
+    }
+
+    val groupCounts = remember(dbSwimmers) {
+        dbSwimmers.mapNotNull { it.groupName?.trim() }.filter { it.isNotBlank() }.groupingBy { it.lowercase() }.eachCount()
     }
 
     var selectedGroup by remember { mutableStateOf<String?>(null) }
@@ -127,7 +136,7 @@ fun RelayRandomizerComponent(
             .fillMaxSize()
             .padding(bottom = 12.dp)
     ) {
-        if (availableGroups.isNotEmpty()) {
+        if (groupsToDisplay.isNotEmpty()) {
             Text(
                 text = "1. Trainingsgruppe wählen:",
                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
@@ -139,7 +148,7 @@ fun RelayRandomizerComponent(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier.padding(bottom = 10.dp)
             ) {
-                item {
+                item(key = "all_chip") {
                     FilterChip(
                         selected = selectedGroup == null,
                         onClick = { selectedGroup = null },
@@ -152,9 +161,9 @@ fun RelayRandomizerComponent(
                         )
                     )
                 }
-                items(availableGroups) { group ->
+                items(groupsToDisplay, key = { it }) { group ->
                     val isSelected = selectedGroup == group
-                    val groupCount = dbSwimmers.count { it.groupName.equals(group, ignoreCase = true) }
+                    val groupCount = groupCounts[group.lowercase()] ?: 0
                     FilterChip(
                         selected = isSelected,
                         onClick = { selectedGroup = group },
@@ -309,7 +318,7 @@ fun RelayRandomizerComponent(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
-                itemsIndexed(generatedTeams) { index, teamMembers ->
+                itemsIndexed(generatedTeams, key = { index, _ -> index }) { index, teamMembers ->
                     val teamColor = TEAM_COLORS.getOrElse(index % TEAM_COLORS.size) { AquaPrimary }
                     Card(
                         shape = RoundedCornerShape(16.dp),

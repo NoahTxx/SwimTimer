@@ -160,7 +160,8 @@ class StopwatchViewModel(
     val uiState: StateFlow<StopwatchUiState> = _uiState.asStateFlow()
 
     val allSwimmers: StateFlow<List<SwimmerEntity>> = repository.allSwimmers
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val swimmersSearchQuery = MutableStateFlow("")
 
@@ -168,6 +169,19 @@ class StopwatchViewModel(
 
     private val _customGroups = MutableStateFlow<Set<String>>(emptySet())
     val customGroups: StateFlow<Set<String>> = _customGroups.asStateFlow()
+
+    val availableGroups: StateFlow<List<String>> = combine(
+        allSwimmers,
+        _customGroups
+    ) { swimmers, custom ->
+        val fromSwimmers = swimmers.mapNotNull { it.groupName?.trim() }.filter { it.isNotBlank() }
+        (fromSwimmers + custom)
+            .filter { it.isNotBlank() }
+            .distinctBy { it.lowercase() }
+            .sortedWith(String.CASE_INSENSITIVE_ORDER)
+    }
+    .flowOn(Dispatchers.Default)
+    .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val swimmerUiList: StateFlow<List<SwimmerCardUiModel>> = combine(
         allSwimmers,
@@ -199,24 +213,39 @@ class StopwatchViewModel(
         }
     }
     .flowOn(Dispatchers.Default)
-    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val allSessions: StateFlow<List<SessionWithLaps>> = repository.allSessionsWithLaps
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private val undoStack = LinkedList<UndoAction>()
     private var tickerJob: Job? = null
 
     init {
-        loadSavedPreferences()
-        if (prefs == null) {
-            initializeLanes(4)
+        viewModelScope.launch(Dispatchers.IO) {
+            loadSavedPreferences()
+            if (prefs == null) {
+                initializeLanes(4)
+            }
         }
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             allSwimmers.collect { swimmers ->
+                val dbGroups = swimmers.mapNotNull { it.groupName?.trim() }.filter { it.isNotBlank() }
+                if (dbGroups.isNotEmpty()) {
+                    val currentCustom = _customGroups.value
+                    val missing = dbGroups.filter { dbG -> currentCustom.none { it.equals(dbG, ignoreCase = true) } }
+                    if (missing.isNotEmpty()) {
+                        _customGroups.update { old ->
+                            (old + missing).filter { it.isNotBlank() }.distinctBy { it.lowercase() }.toSet()
+                        }
+                        saveGroups()
+                    }
+                }
                 val currentFilter = selectedGroupFilter.value
                 if (currentFilter != null) {
-                    val groupExists = swimmers.any { it.groupName?.trim()?.equals(currentFilter, ignoreCase = true) == true }
+                    val groupExists = swimmers.any { it.groupName?.trim()?.equals(currentFilter, ignoreCase = true) == true } ||
+                            _customGroups.value.any { it.equals(currentFilter, ignoreCase = true) }
                     if (!groupExists) {
                         selectedGroupFilter.value = null
                     }
@@ -234,7 +263,9 @@ class StopwatchViewModel(
         }
         viewModelScope.launch(Dispatchers.IO) {
             repository.renameGroupForAllSwimmers(trimmedOld, trimmedNew)
-            _customGroups.update { it - trimmedOld + trimmedNew }
+            _customGroups.update { old ->
+                old.filterNot { it.equals(trimmedOld, ignoreCase = true) }.toSet() + trimmedNew
+            }
             saveGroups()
         }
     }
@@ -247,7 +278,9 @@ class StopwatchViewModel(
         }
         viewModelScope.launch(Dispatchers.IO) {
             repository.clearGroupForAllSwimmers(trimmed)
-            _customGroups.update { it - trimmed }
+            _customGroups.update { old ->
+                old.filterNot { it.equals(trimmed, ignoreCase = true) }.toSet()
+            }
             saveGroups()
         }
     }
@@ -255,8 +288,12 @@ class StopwatchViewModel(
     fun createGroup(groupName: String) {
         val name = groupName.trim()
         if (name.isBlank()) return
-        _customGroups.update { it + name }
-        saveGroups()
+        viewModelScope.launch(Dispatchers.IO) {
+            _customGroups.update { old ->
+                if (old.none { it.equals(name, ignoreCase = true) }) old + name else old
+            }
+            saveGroups()
+        }
     }
 
     private fun saveGroups() {

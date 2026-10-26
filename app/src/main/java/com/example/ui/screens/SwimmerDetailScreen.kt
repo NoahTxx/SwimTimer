@@ -82,6 +82,7 @@ fun SwimmerDetailScreen(
     allSessions: List<SessionWithLaps>,
     modifier: Modifier = Modifier,
     isActiveTab: Boolean = true,
+    availableGroups: List<String> = emptyList(),
     onBack: () -> Unit,
     onUpdateSwimmer: (SwimmerEntity) -> Unit,
     onDeleteSwimmer: (SwimmerEntity) -> Unit,
@@ -208,7 +209,7 @@ fun SwimmerDetailScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 // Swimmer Hero Card
-                item {
+                item(key = "hero_card") {
                     Card(
                         shape = RoundedCornerShape(20.dp),
                         colors = CardDefaults.cardColors(containerColor = OceanSurface),
@@ -470,7 +471,7 @@ fun SwimmerDetailScreen(
                 }
 
                 // History Title Header
-                item {
+                item(key = "history_header") {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -504,7 +505,7 @@ fun SwimmerDetailScreen(
 
                 // Sessions List
                 if (swimmerSessions.isEmpty()) {
-                    item {
+                    item(key = "empty_history") {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -553,6 +554,7 @@ fun SwimmerDetailScreen(
         if (isEditDialogOpen) {
             EditSwimmerDialog(
                 swimmer = swimmer,
+                availableGroups = availableGroups,
                 onDismiss = { isEditDialogOpen = false }
             ) { updated ->
                 onUpdateSwimmer(updated)
@@ -728,6 +730,7 @@ private fun SwimmerSessionHistoryCard(
 @Composable
 private fun EditSwimmerDialog(
     swimmer: SwimmerEntity,
+    availableGroups: List<String>,
     onDismiss: () -> Unit,
     onSave: (SwimmerEntity) -> Unit
 ) {
@@ -801,13 +804,6 @@ private fun EditSwimmerDialog(
                 )
 
                 Spacer(modifier = Modifier.height(10.dp))
-
-                val context = androidx.compose.ui.platform.LocalContext.current
-                val prefs = remember { context.applicationContext.getSharedPreferences("swim_timer_preferences", android.content.Context.MODE_PRIVATE) }
-                val availableGroups = remember {
-                    val customGroups = prefs.getStringSet("customGroups", emptySet()) ?: emptySet()
-                    customGroups.filter { it.isNotEmpty() }.distinct().sorted()
-                }
 
                 var isGroupDropdownExpanded by remember { mutableStateOf(false) }
 

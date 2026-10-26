@@ -79,6 +79,7 @@ fun MultiStopwatchScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val swimmers by viewModel.allSwimmers.collectAsStateWithLifecycle()
+    val availableGroups by viewModel.availableGroups.collectAsStateWithLifecycle()
 
     var isConfigDialogOpen by remember { mutableStateOf(value = false) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -525,6 +526,7 @@ fun MultiStopwatchScreen(
             AssignSwimmerDialog(
                 laneNumber = laneNum,
                 swimmers = swimmers,
+                availableGroups = availableGroups,
                 onDismiss = { viewModel.closeAssignSwimmerDialog() },
             ) { swimmer -> viewModel.assignSwimmerToLane(laneNum, swimmer) }
         }

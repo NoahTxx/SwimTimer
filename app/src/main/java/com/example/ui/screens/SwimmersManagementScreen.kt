@@ -88,7 +88,6 @@ fun SwimmersManagementScreen(
 ) {
     val context = LocalContext.current
     val allSwimmers by viewModel.allSwimmers.collectAsStateWithLifecycle()
-    val customGroups by viewModel.customGroups.collectAsStateWithLifecycle()
     val swimmers by viewModel.swimmerUiList.collectAsStateWithLifecycle()
     val searchQuery by viewModel.swimmersSearchQuery.collectAsStateWithLifecycle()
     val allSessions by viewModel.allSessions.collectAsStateWithLifecycle()
@@ -99,8 +98,9 @@ fun SwimmersManagementScreen(
 
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
 
-    val availableGroups = remember(allSwimmers, customGroups) {
-        (allSwimmers.mapNotNull { it.groupName?.trim() } + customGroups).filter { it.isNotEmpty() }.distinct().sorted()
+    val availableGroups by viewModel.availableGroups.collectAsStateWithLifecycle()
+    val groupCounts = remember(allSwimmers) {
+        allSwimmers.mapNotNull { it.groupName?.trim() }.filter { it.isNotBlank() }.groupingBy { it.lowercase() }.eachCount()
     }
     val selectedGroup by viewModel.selectedGroupFilter.collectAsStateWithLifecycle()
 
@@ -128,6 +128,7 @@ fun SwimmersManagementScreen(
             swimmer = activeSwimmer,
             allSessions = allSessions,
             isActiveTab = isActiveTab,
+            availableGroups = availableGroups,
             onBack = { selectedSwimmerId = null },
             onUpdateSwimmer = { updated -> viewModel.updateSwimmer(updated) },
             onDeleteSwimmer = { toDelete ->
@@ -276,7 +277,7 @@ fun SwimmersManagementScreen(
                     key = { it }
                 ) { group ->
                     val isSelected = selectedGroup == group
-                    val count = remember(allSwimmers, group) { allSwimmers.count { it.groupName.equals(group, ignoreCase = true) } }
+                    val count = groupCounts[group.lowercase()] ?: 0
                     androidx.compose.material3.FilterChip(
                         selected = isSelected,
                         onClick = {
@@ -304,7 +305,7 @@ fun SwimmersManagementScreen(
                         ) {
                             Icon(imageVector = Icons.Default.Add, contentDescription = null, tint = AquaPrimary, modifier = Modifier.size(14.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("+ Gruppe", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = AquaPrimary)
+                            Text("Gruppe", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = AquaPrimary)
                         }
                     }
                 }

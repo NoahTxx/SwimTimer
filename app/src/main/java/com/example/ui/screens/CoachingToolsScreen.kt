@@ -60,6 +60,7 @@ fun CoachingToolsScreen(
 ) {
     var selectedSection by rememberSaveable { mutableStateOf(CoachingToolSection.DRILLS) }
     val swimmers by viewModel.allSwimmers.collectAsStateWithLifecycle()
+    val availableGroups by viewModel.availableGroups.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier
@@ -126,7 +127,7 @@ fun CoachingToolsScreen(
         // Active Tool Section View
         when (selectedSection) {
             CoachingToolSection.DRILLS -> DrillQuickfinderComponent()
-            CoachingToolSection.RELAY -> RelayRandomizerComponent(dbSwimmers = swimmers)
+            CoachingToolSection.RELAY -> RelayRandomizerComponent(dbSwimmers = swimmers, availableGroups = availableGroups)
             CoachingToolSection.LOGGER -> IntervalSplitLoggerComponent()
         }
     }

@@ -46,13 +46,18 @@ import com.example.util.TimeFormatter
 fun AssignSwimmerDialog(
     laneNumber: Int,
     swimmers: List<SwimmerEntity>,
+    availableGroups: List<String> = emptyList(),
     onDismiss: () -> Unit,
     onSelectSwimmer: (SwimmerEntity?) -> Unit,
 ) {
     var selectedGroupFilter by remember { mutableStateOf<String?>(null) }
     
-    val availableGroups = remember(swimmers) {
-        swimmers.mapNotNull { it.groupName?.trim() }.filter { it.isNotEmpty() }.distinct().sorted()
+    val groupsToDisplay = remember(availableGroups, swimmers) {
+        if (availableGroups.isNotEmpty()) {
+            availableGroups
+        } else {
+            swimmers.mapNotNull { it.groupName?.trim() }.filter { it.isNotBlank() }.distinctBy { it.lowercase() }.sortedWith(String.CASE_INSENSITIVE_ORDER)
+        }
     }
     
     val filteredSwimmers = remember(swimmers, selectedGroupFilter) {
@@ -125,12 +130,12 @@ fun AssignSwimmerDialog(
                     color = AquaPrimary
                 )
                 
-                if (availableGroups.isNotEmpty()) {
+                if (groupsToDisplay.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     androidx.compose.foundation.lazy.LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        item {
+                        item(key = "all_chip") {
                             androidx.compose.material3.FilterChip(
                                 selected = selectedGroupFilter == null,
                                 onClick = { selectedGroupFilter = null },
@@ -141,7 +146,7 @@ fun AssignSwimmerDialog(
                                 )
                             )
                         }
-                        items(availableGroups) { group ->
+                        items(groupsToDisplay, key = { it }) { group ->
                             val isSelected = selectedGroupFilter == group
                             androidx.compose.material3.FilterChip(
                                 selected = isSelected,
