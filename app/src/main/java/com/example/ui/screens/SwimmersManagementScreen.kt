@@ -88,6 +88,7 @@ fun SwimmersManagementScreen(
 ) {
     val context = LocalContext.current
     val allSwimmers by viewModel.allSwimmers.collectAsStateWithLifecycle()
+    val customGroups by viewModel.customGroups.collectAsStateWithLifecycle()
     val swimmers by viewModel.swimmerUiList.collectAsStateWithLifecycle()
     val searchQuery by viewModel.swimmersSearchQuery.collectAsStateWithLifecycle()
     val allSessions by viewModel.allSessions.collectAsStateWithLifecycle()
@@ -98,8 +99,8 @@ fun SwimmersManagementScreen(
 
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
 
-    val availableGroups = remember(allSwimmers) {
-        allSwimmers.mapNotNull { it.groupName?.trim() }.filter { it.isNotEmpty() }.distinct().sorted()
+    val availableGroups = remember(allSwimmers, customGroups) {
+        (allSwimmers.mapNotNull { it.groupName?.trim() } + customGroups).filter { it.isNotEmpty() }.distinct().sorted()
     }
     val selectedGroup by viewModel.selectedGroupFilter.collectAsStateWithLifecycle()
 
@@ -367,6 +368,7 @@ fun SwimmersManagementScreen(
                 existingGroups = availableGroups,
                 onDismiss = { isAddGroupDialogOpen = false },
                 onCreateGroup = { newGroup ->
+                    viewModel.createGroup(newGroup)
                     viewModel.selectedGroupFilter.value = newGroup
                     isAddGroupDialogOpen = false
                 },
@@ -871,39 +873,49 @@ private fun AddSwimmerDialog(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Group field with quick selection chips
-                OutlinedTextField(
-                    value = groupName,
-                    onValueChange = { groupName = it },
-                    label = { Text("Trainingsgruppe (z. B. Dolphins 1)") },
-                    placeholder = { Text("z. B. Teens 2") },
-                    singleLine = true,
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
-                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { focusManager.clearFocus() }),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = TextWhite,
-                        unfocusedTextColor = TextWhite,
-                        focusedBorderColor = AquaPrimary
-                    ),
+                var isGroupDropdownExpanded by remember { mutableStateOf(false) }
+                
+                ExposedDropdownMenuBox(
+                    expanded = isGroupDropdownExpanded,
+                    onExpandedChange = { isGroupDropdownExpanded = !isGroupDropdownExpanded },
                     modifier = Modifier.fillMaxWidth()
-                )
-
-                if (availableGroups.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    OutlinedTextField(
+                        value = if (groupName.isEmpty()) "Keine Gruppe" else groupName,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Trainingsgruppe") },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = isGroupDropdownExpanded)
+                        },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = TextWhite,
+                            unfocusedTextColor = TextWhite,
+                            focusedBorderColor = AquaPrimary,
+                            unfocusedBorderColor = Color(0xFF1B2E46)
+                        ),
+                        modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, true).fillMaxWidth()
+                    )
+                    
+                    ExposedDropdownMenu(
+                        expanded = isGroupDropdownExpanded,
+                        onDismissRequest = { isGroupDropdownExpanded = false },
+                        containerColor = Color(0xFF101B2B)
                     ) {
+                        DropdownMenuItem(
+                            text = { Text("Keine Gruppe", color = TextWhite) },
+                            onClick = {
+                                groupName = ""
+                                isGroupDropdownExpanded = false
+                            }
+                        )
                         availableGroups.forEach { grp ->
-                            val isSelected = groupName.equals(grp, ignoreCase = true)
-                            androidx.compose.material3.FilterChip(
-                                selected = isSelected,
-                                onClick = { groupName = if (isSelected) "" else grp },
-                                label = { Text(grp, fontSize = 11.sp) },
-                                colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = AquaPrimary,
-                                    selectedLabelColor = Color.Black
-                                )
+                            DropdownMenuItem(
+                                text = { Text(grp, color = TextWhite) },
+                                onClick = {
+                                    groupName = grp
+                                    isGroupDropdownExpanded = false
+                                }
                             )
                         }
                     }
@@ -998,7 +1010,7 @@ private fun AddSwimmerDialog(
                     OutlinedTextField(
                         value = pb100Text,
                         onValueChange = { pb100Text = it },
-                        label = { Text("PB 100m", maxLines = 1) },
+                        label = { Text("PB 100m", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         placeholder = { Text("54.20") },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
@@ -1023,7 +1035,7 @@ private fun AddSwimmerDialog(
                     OutlinedTextField(
                         value = pb100LagenText,
                         onValueChange = { pb100LagenText = it },
-                        label = { Text("100m Lagen", maxLines = 1) },
+                        label = { Text("100m Lagen", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         placeholder = { Text("1:03.50") },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
@@ -1036,7 +1048,7 @@ private fun AddSwimmerDialog(
                     OutlinedTextField(
                         value = pb200LagenText,
                         onValueChange = { pb200LagenText = it },
-                        label = { Text("200m Lagen", maxLines = 1) },
+                        label = { Text("200m Lagen", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         placeholder = { Text("2:18.00") },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
@@ -1049,7 +1061,7 @@ private fun AddSwimmerDialog(
                     OutlinedTextField(
                         value = pb400LagenText,
                         onValueChange = { pb400LagenText = it },
-                        label = { Text("400m Lagen", maxLines = 1) },
+                        label = { Text("400m Lagen", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         placeholder = { Text("4:55.00") },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
@@ -1073,7 +1085,7 @@ private fun AddSwimmerDialog(
                     OutlinedTextField(
                         value = pb200FlyText,
                         onValueChange = { pb200FlyText = it },
-                        label = { Text("1. Schmett (50m)", maxLines = 1) },
+                        label = { Text("1. Schmett", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         placeholder = { Text("29.50") },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFFF5252)),
@@ -1082,7 +1094,7 @@ private fun AddSwimmerDialog(
                     OutlinedTextField(
                         value = pb200BackText,
                         onValueChange = { pb200BackText = it },
-                        label = { Text("2. Rücken (50m)", maxLines = 1) },
+                        label = { Text("2. Rücken", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         placeholder = { Text("35.00") },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFFFD600)),
@@ -1093,7 +1105,7 @@ private fun AddSwimmerDialog(
                     OutlinedTextField(
                         value = pb200BreastText,
                         onValueChange = { pb200BreastText = it },
-                        label = { Text("3. Brust (50m)", maxLines = 1) },
+                        label = { Text("3. Brust", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         placeholder = { Text("39.80") },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E676)),
@@ -1102,7 +1114,7 @@ private fun AddSwimmerDialog(
                     OutlinedTextField(
                         value = pb200FreeText,
                         onValueChange = { pb200FreeText = it },
-                        label = { Text("4. Kraul (50m)", maxLines = 1) },
+                        label = { Text("4. Kraul", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         placeholder = { Text("28.00") },
                         singleLine = true,
                         supportingText = { Text("Sync 50m PB", fontSize = 8.sp, color = PaceGreen) },
@@ -1123,7 +1135,7 @@ private fun AddSwimmerDialog(
                     OutlinedTextField(
                         value = pb400FlyText,
                         onValueChange = { pb400FlyText = it },
-                        label = { Text("1. Schmett (100m)", maxLines = 1) },
+                        label = { Text("1. Schmett", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         placeholder = { Text("1:04.50") },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFFF5252)),
@@ -1132,7 +1144,7 @@ private fun AddSwimmerDialog(
                     OutlinedTextField(
                         value = pb400BackText,
                         onValueChange = { pb400BackText = it },
-                        label = { Text("2. Rücken (100m)", maxLines = 1) },
+                        label = { Text("2. Rücken", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         placeholder = { Text("1:14.00") },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFFFD600)),
@@ -1143,7 +1155,7 @@ private fun AddSwimmerDialog(
                     OutlinedTextField(
                         value = pb400BreastText,
                         onValueChange = { pb400BreastText = it },
-                        label = { Text("3. Brust (100m)", maxLines = 1) },
+                        label = { Text("3. Brust", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         placeholder = { Text("1:24.00") },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E676)),
@@ -1152,7 +1164,7 @@ private fun AddSwimmerDialog(
                     OutlinedTextField(
                         value = pb400FreeText,
                         onValueChange = { pb400FreeText = it },
-                        label = { Text("4. Kraul (100m)", maxLines = 1) },
+                        label = { Text("4. Kraul", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         placeholder = { Text("1:01.00") },
                         singleLine = true,
                         supportingText = { Text("Sync 100m PB", fontSize = 8.sp, color = PaceGreen) },

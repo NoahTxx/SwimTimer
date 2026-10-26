@@ -267,9 +267,9 @@ fun IntervalSplitLoggerComponent(
 
                 if (avgMillis != null) {
                     Spacer(modifier = Modifier.height(10.dp))
-                    Row(
+                    Column(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
                             text = "Erfasst: ${recordedSplits.size} / $repCount (${repCount * distanceMeters}m)",
@@ -306,7 +306,10 @@ fun IntervalSplitLoggerComponent(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         // Rep Number Badge
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
                             Surface(
                                 shape = CircleShape,
                                 color = AquaPrimary,
@@ -329,7 +332,11 @@ fun IntervalSplitLoggerComponent(
                         }
 
                         // Actual Time Entry & Delta Display
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f),
+                            horizontalArrangement = Arrangement.End
+                        ) {
                             val actual = item.actualMillis
                             val target = item.targetMillis
 
@@ -365,7 +372,7 @@ fun IntervalSplitLoggerComponent(
                                     focusedTextColor = TextWhite,
                                     unfocusedTextColor = TextWhite
                                 ),
-                                modifier = Modifier.width(100.dp)
+                                modifier = Modifier.weight(1f)
                             )
                         }
                     }

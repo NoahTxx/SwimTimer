@@ -24,6 +24,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -31,6 +35,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.data.model.SwimmerEntity
 import com.example.ui.theme.AquaPrimary
@@ -44,6 +49,20 @@ fun AssignSwimmerDialog(
     onDismiss: () -> Unit,
     onSelectSwimmer: (SwimmerEntity?) -> Unit,
 ) {
+    var selectedGroupFilter by remember { mutableStateOf<String?>(null) }
+    
+    val availableGroups = remember(swimmers) {
+        swimmers.mapNotNull { it.groupName?.trim() }.filter { it.isNotEmpty() }.distinct().sorted()
+    }
+    
+    val filteredSwimmers = remember(swimmers, selectedGroupFilter) {
+        if (selectedGroupFilter == null) {
+            swimmers
+        } else {
+            swimmers.filter { it.groupName.equals(selectedGroupFilter, ignoreCase = true) }
+        }
+    }
+
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = RoundedCornerShape(20.dp),
@@ -105,10 +124,41 @@ fun AssignSwimmerDialog(
                     style = MaterialTheme.typography.labelMedium,
                     color = AquaPrimary
                 )
+                
+                if (availableGroups.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    androidx.compose.foundation.lazy.LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        item {
+                            androidx.compose.material3.FilterChip(
+                                selected = selectedGroupFilter == null,
+                                onClick = { selectedGroupFilter = null },
+                                label = { Text("Alle", fontSize = 11.sp) },
+                                colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = AquaPrimary,
+                                    selectedLabelColor = Color.Black
+                                )
+                            )
+                        }
+                        items(availableGroups) { group ->
+                            val isSelected = selectedGroupFilter == group
+                            androidx.compose.material3.FilterChip(
+                                selected = isSelected,
+                                onClick = { selectedGroupFilter = group },
+                                label = { Text(group, fontSize = 11.sp) },
+                                colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = AquaPrimary,
+                                    selectedLabelColor = Color.Black
+                                )
+                            )
+                        }
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                if (swimmers.isEmpty()) {
+                if (filteredSwimmers.isEmpty()) {
                     Text(
                         text = "Noch keine Schwimmer angelegt.",
                         style = MaterialTheme.typography.bodyMedium,
@@ -119,7 +169,7 @@ fun AssignSwimmerDialog(
                     LazyColumn(
                         modifier = Modifier.height(260.dp)
                     ) {
-                        items(swimmers, key = { swimmer -> swimmer.id }) { swimmer ->
+                        items(filteredSwimmers, key = { swimmer -> swimmer.id }) { swimmer ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()

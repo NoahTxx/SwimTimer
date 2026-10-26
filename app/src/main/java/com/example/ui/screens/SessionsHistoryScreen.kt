@@ -110,7 +110,7 @@ fun SessionsHistoryScreen(
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 // Export Button
-                FilledTonalButton(
+                androidx.compose.material3.FilledTonalIconButton(
                     onClick = {
                         if (sessions.isNotEmpty()) {
                             val json = ExportHelper.exportSessionsToJson(sessions)
@@ -138,30 +138,24 @@ fun SessionsHistoryScreen(
                     },
                     enabled = sessions.isNotEmpty(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.filledTonalButtonColors(
+                    colors = androidx.compose.material3.IconButtonDefaults.filledTonalIconButtonColors(
                         containerColor = OceanSurface,
                         contentColor = AquaPrimary
-                    ),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                    )
                 ) {
-                    Icon(imageVector = Icons.Default.FileUpload, contentDescription = "Export", modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Export", style = MaterialTheme.typography.labelSmall)
+                    Icon(imageVector = Icons.Default.FileUpload, contentDescription = "Export")
                 }
 
                 // Import Button
-                FilledTonalButton(
+                androidx.compose.material3.FilledTonalIconButton(
                     onClick = { importLauncher.launch("*/*") },
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.filledTonalButtonColors(
+                    colors = androidx.compose.material3.IconButtonDefaults.filledTonalIconButtonColors(
                         containerColor = OceanSurface,
                         contentColor = AquaPrimary
-                    ),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                    )
                 ) {
-                    Icon(imageVector = Icons.Default.FileDownload, contentDescription = "Import", modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Import", style = MaterialTheme.typography.labelSmall)
+                    Icon(imageVector = Icons.Default.FileDownload, contentDescription = "Import")
                 }
             }
         }

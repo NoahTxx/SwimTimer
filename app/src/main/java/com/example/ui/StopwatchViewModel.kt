@@ -164,6 +164,9 @@ class StopwatchViewModel(
 
     val selectedGroupFilter = MutableStateFlow<String?>(null) // null = Alle
 
+    private val _customGroups = MutableStateFlow<Set<String>>(emptySet())
+    val customGroups: StateFlow<Set<String>> = _customGroups.asStateFlow()
+
     val swimmerUiList: StateFlow<List<SwimmerCardUiModel>> = combine(
         allSwimmers,
         swimmersSearchQuery,
@@ -226,6 +229,8 @@ class StopwatchViewModel(
         }
         viewModelScope.launch(Dispatchers.IO) {
             repository.renameGroupForAllSwimmers(trimmedOld, trimmedNew)
+            _customGroups.update { it - trimmedOld + trimmedNew }
+            saveGroups()
         }
     }
 
@@ -237,7 +242,20 @@ class StopwatchViewModel(
         }
         viewModelScope.launch(Dispatchers.IO) {
             repository.clearGroupForAllSwimmers(trimmed)
+            _customGroups.update { it - trimmed }
+            saveGroups()
         }
+    }
+
+    fun createGroup(groupName: String) {
+        val name = groupName.trim()
+        if (name.isBlank()) return
+        _customGroups.update { it + name }
+        saveGroups()
+    }
+
+    private fun saveGroups() {
+        prefs?.edit()?.putStringSet("customGroups", _customGroups.value)?.apply()
     }
 
     private fun validateDistances(targetMeters: Int, splitMeters: Int) {
@@ -288,6 +306,10 @@ class StopwatchViewModel(
                 sessionTitle = "${dist}m $stroke"
             )
         }
+        
+        val savedGroups = prefs.getStringSet("customGroups", emptySet()) ?: emptySet()
+        _customGroups.value = savedGroups
+        
         initializeLanes(count)
     }
 
@@ -610,7 +632,7 @@ class StopwatchViewModel(
                         val finishLap = if (exactFinalTime > 0L && lane.laps.size < totalSplitsNeeded && lapTime >= 150L) {
                             val deltaTarget = lane.targetLapMillis?.let { lapTime - it }
                             LapItem(
-                                lapIndex = lane.laps.size + 1,
+                                lapIndex = totalSplitsNeeded,
                                 splitTimeMillis = exactFinalTime,
                                 lapTimeMillis = lapTime,
                                 targetLapMillis = lane.targetLapMillis,
@@ -792,7 +814,7 @@ class StopwatchViewModel(
             val finishLap = if (finalTime > 0L && lane.laps.size < totalSplitsNeeded && lapTime >= 150L) {
                 val deltaTarget = lane.targetLapMillis?.let { lapTime - it }
                 LapItem(
-                    lapIndex = lane.laps.size + 1,
+                    lapIndex = totalSplitsNeeded,
                     splitTimeMillis = finalTime,
                     lapTimeMillis = lapTime,
                     targetLapMillis = lane.targetLapMillis,

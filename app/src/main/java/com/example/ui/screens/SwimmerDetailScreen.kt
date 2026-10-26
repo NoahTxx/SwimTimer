@@ -802,21 +802,60 @@ private fun EditSwimmerDialog(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                OutlinedTextField(
-                    value = groupName,
-                    onValueChange = { groupName = it },
-                    label = { Text("Trainingsgruppe (z. B. Dolphins 1)") },
-                    placeholder = { Text("z. B. Teens 2") },
-                    singleLine = true,
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
-                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { focusManager.clearFocus() }),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = TextWhite,
-                        unfocusedTextColor = TextWhite,
-                        focusedBorderColor = AquaPrimary
-                    ),
+                val context = androidx.compose.ui.platform.LocalContext.current
+                val prefs = remember { context.applicationContext.getSharedPreferences("swim_timer_preferences", android.content.Context.MODE_PRIVATE) }
+                val availableGroups = remember {
+                    val customGroups = prefs.getStringSet("customGroups", emptySet()) ?: emptySet()
+                    customGroups.filter { it.isNotEmpty() }.distinct().sorted()
+                }
+
+                var isGroupDropdownExpanded by remember { mutableStateOf(false) }
+
+                ExposedDropdownMenuBox(
+                    expanded = isGroupDropdownExpanded,
+                    onExpandedChange = { isGroupDropdownExpanded = !isGroupDropdownExpanded },
                     modifier = Modifier.fillMaxWidth()
-                )
+                ) {
+                    OutlinedTextField(
+                        value = if (groupName.isEmpty()) "Keine Gruppe" else groupName,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Trainingsgruppe") },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = isGroupDropdownExpanded)
+                        },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = TextWhite,
+                            unfocusedTextColor = TextWhite,
+                            focusedBorderColor = AquaPrimary,
+                            unfocusedBorderColor = Color(0xFF1B2E46)
+                        ),
+                        modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, true).fillMaxWidth()
+                    )
+
+                    ExposedDropdownMenu(
+                        expanded = isGroupDropdownExpanded,
+                        onDismissRequest = { isGroupDropdownExpanded = false },
+                        containerColor = Color(0xFF101B2B)
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Keine Gruppe", color = TextWhite) },
+                            onClick = {
+                                groupName = ""
+                                isGroupDropdownExpanded = false
+                            }
+                        )
+                        availableGroups.forEach { grp ->
+                            DropdownMenuItem(
+                                text = { Text(grp, color = TextWhite) },
+                                onClick = {
+                                    groupName = grp
+                                    isGroupDropdownExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(10.dp))
 
@@ -870,7 +909,7 @@ private fun EditSwimmerDialog(
                     OutlinedTextField(
                         value = pb25Text,
                         onValueChange = { pb25Text = it },
-                        label = { Text("PB 25m", fontSize = 11.sp) },
+                        label = { Text("PB 25m", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         placeholder = { Text("12.50") },
                         singleLine = true,
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
@@ -881,7 +920,7 @@ private fun EditSwimmerDialog(
                     OutlinedTextField(
                         value = pb50Text,
                         onValueChange = { pb50Text = it },
-                        label = { Text("PB 50m", fontSize = 11.sp) },
+                        label = { Text("PB 50m", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         placeholder = { Text("26.80") },
                         singleLine = true,
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
@@ -892,7 +931,7 @@ private fun EditSwimmerDialog(
                     OutlinedTextField(
                         value = pb100Text,
                         onValueChange = { pb100Text = it },
-                        label = { Text("PB 100m", fontSize = 11.sp) },
+                        label = { Text("PB 100m", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         placeholder = { Text("58.20") },
                         singleLine = true,
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
@@ -914,7 +953,7 @@ private fun EditSwimmerDialog(
                     OutlinedTextField(
                         value = pb100LagenText,
                         onValueChange = { pb100LagenText = it },
-                        label = { Text("100mLagen", fontSize = 11.sp) },
+                        label = { Text("100mLagen", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         placeholder = { Text("1:04.50") },
                         singleLine = true,
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
@@ -925,7 +964,7 @@ private fun EditSwimmerDialog(
                     OutlinedTextField(
                         value = pb200LagenText,
                         onValueChange = { pb200LagenText = it },
-                        label = { Text("200mLagen", fontSize = 11.sp) },
+                        label = { Text("200mLagen", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         placeholder = { Text("2:18.50") },
                         singleLine = true,
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
@@ -936,7 +975,7 @@ private fun EditSwimmerDialog(
                     OutlinedTextField(
                         value = pb400LagenText,
                         onValueChange = { pb400LagenText = it },
-                        label = { Text("400mLagen", fontSize = 11.sp) },
+                        label = { Text("400mLagen", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         placeholder = { Text("4:55.00") },
                         singleLine = true,
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
