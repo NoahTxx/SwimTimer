@@ -42,6 +42,12 @@ class SwimRepository(private val database: AppDatabase) {
     suspend fun deleteSwimmerById(id: Long) =
         swimmerDao.deleteSwimmerById(id)
 
+    suspend fun renameGroupForAllSwimmers(oldName: String, newName: String) =
+        swimmerDao.renameGroupForAllSwimmers(oldName, newName)
+
+    suspend fun clearGroupForAllSwimmers(groupName: String) =
+        swimmerDao.clearGroupForAllSwimmers(groupName)
+
     suspend fun saveSessionWithLaps(
         session: SessionEntity,
         laps: List<LapRecordEntity>,
@@ -54,12 +60,6 @@ class SwimRepository(private val database: AppDatabase) {
         sessionId
     }
 
-    suspend fun renameGroupForAllSwimmers(oldName: String, newName: String) =
-        swimmerDao.renameGroupForAllSwimmers(oldName, newName)
-
-    suspend fun clearGroupForAllSwimmers(groupName: String) =
-        swimmerDao.clearGroupForAllSwimmers(groupName)
-
     suspend fun importSessionsWithLaps(sessionsWithLaps: List<SessionWithLaps>) = database.withTransaction {
         val existingSwimmers = swimmerDao.getAllSwimmersSync()
         val swimmerMapByNormalizedName = existingSwimmers
@@ -67,7 +67,6 @@ class SwimRepository(private val database: AppDatabase) {
             .toMutableMap()
 
         sessionsWithLaps.forEach { (session, laps) ->
-            // Speichere jede zu importierende Session zwingend als neuen Eintrag mit id = 0
             val newSessionId = sessionDao.insertSession(session.copy(id = 0))
 
             val lapsWithNewIdAndResolvedSwimmers = laps.map { lap ->
@@ -80,7 +79,6 @@ class SwimRepository(private val database: AppDatabase) {
                     if (matchedSwimmer != null) {
                         resolvedSwimmerId = matchedSwimmer.id
                     } else {
-                        // Schwimmer neu anlegen und dessen neue DB-ID nutzen
                         val newSwimmer = SwimmerEntity(id = 0, name = swimmerName)
                         val newSwimmerId = swimmerDao.insertSwimmer(newSwimmer)
                         val createdEntity = newSwimmer.copy(id = newSwimmerId)
@@ -94,12 +92,8 @@ class SwimRepository(private val database: AppDatabase) {
                     }
                 }
 
-                // Laps zwingend neue Session ID und id = 0 zuweisen
-                lap.copy(
-                    id = 0,
-                    sessionId = newSessionId,
-                    swimmerId = resolvedSwimmerId
-                )
+                val finalLap = if (resolvedSwimmerId != null) lap.copy(sessionId = newSessionId, swimmerId = resolvedSwimmerId) else lap.copy(sessionId = newSessionId, swimmerId = null)
+                finalLap
             }
 
             if (lapsWithNewIdAndResolvedSwimmers.isNotEmpty()) {

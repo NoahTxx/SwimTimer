@@ -73,7 +73,7 @@ private val TEAM_COLORS = listOf(
 @Composable
 fun RelayRandomizerComponent(
     dbSwimmers: List<SwimmerEntity>,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     val focusManager = LocalFocusManager.current
 
@@ -366,4 +366,3 @@ private fun Modifier.noRippleClickable(onClick: () -> Unit): Modifier = this.the
         onClick = onClick
     )
 )
-

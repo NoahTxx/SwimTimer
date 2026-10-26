@@ -116,7 +116,6 @@ object TimeFormatter {
                 val min = parts[0].trim().toLongOrNull() ?: return null
                 if (min < 0) return null
                 val secDouble = parts[1].trim().toDoubleOrNull() ?: return null
-                // Sekunden müssen bei MM:SS zwingend zwischen 0.0 und < 60.0 liegen (1:99.99 muss abgewiesen werden)
                 if (secDouble < 0.0 || secDouble >= 60.0) return null
                 val totalMillis = (min * 60_000L) + (secDouble * 1000.0).roundToLong()
                 if (totalMillis in 1L..3_600_000L) totalMillis else null
