@@ -188,6 +188,7 @@ class ExampleRobolectricTest {
 
     // Instance 1: User changes settings
     val vm1 = com.example.ui.StopwatchViewModel(repository, context)
+    kotlinx.coroutines.runBlocking { kotlinx.coroutines.delay(200) }
     vm1.setSessionMeta("Test Session", "Brust", 25, 200, 25)
     vm1.setStartMode(com.example.ui.StartMode.INTERVAL)
     vm1.setIntervalOffsetSeconds(10)
@@ -195,6 +196,7 @@ class ExampleRobolectricTest {
 
     // Instance 2: Simulates reopening app
     val vm2 = com.example.ui.StopwatchViewModel(repository, context)
+    kotlinx.coroutines.runBlocking { kotlinx.coroutines.delay(200) }
     val state2 = vm2.uiState.value
 
     assertEquals("Brust", state2.strokeType)
@@ -262,5 +264,27 @@ class ExampleRobolectricTest {
       }
     }
     assertEquals(1, currentLanes)
+  }
+
+  @Test
+  fun `test master reset clears target lap pace for all lanes`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = com.example.data.db.AppDatabase.getInstance(context)
+    val repository = com.example.data.repository.SwimRepository(db)
+
+    val vm = com.example.ui.StopwatchViewModel(repository, context)
+    vm.initializeLanes(4)
+    vm.setTargetPaceForLane(1, 30_000L)
+    vm.setTargetPaceForLane(2, 35_000L)
+
+    assertEquals(30_000L, vm.uiState.value.lanes.first { it.laneNumber == 1 }.targetLapMillis)
+    assertEquals(35_000L, vm.uiState.value.lanes.first { it.laneNumber == 2 }.targetLapMillis)
+
+    vm.onResetAll()
+
+    val resetLanes = vm.uiState.value.lanes
+    org.junit.Assert.assertNull(resetLanes.first { it.laneNumber == 1 }.targetLapMillis)
+    org.junit.Assert.assertNull(resetLanes.first { it.laneNumber == 2 }.targetLapMillis)
+    org.junit.Assert.assertTrue(resetLanes.all { it.targetLapMillis == null })
   }
 }

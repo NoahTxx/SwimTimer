@@ -955,6 +955,9 @@ class StopwatchViewModel(
                     finishTimeMillis = null,
                     currentElapsedMillis = 0L,
                     laps = emptyList(),
+                    targetLapMillis = null,
+                    spmTapStartRealtime = null,
+                    currentSpm = null,
                     countdownRemainingSeconds = 0
                 )
             }

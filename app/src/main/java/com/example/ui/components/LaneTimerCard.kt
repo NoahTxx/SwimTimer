@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -407,6 +408,7 @@ private fun LaneProgressAndLaps(
     }
 }
 
+@Suppress("UNUSED_PARAMETER")
 @Composable
 private fun LaneControls(
     status: LaneStatus,
@@ -428,33 +430,61 @@ private fun LaneControls(
                 if (onStartSingleLaneClick != null) {
                     FilledTonalButton(
                         onClick = onStartSingleLaneClick,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.filledTonalButtonColors(containerColor = AquaPrimary, contentColor = Color.Black)
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp),
+                        colors = ButtonDefaults.filledTonalButtonColors(containerColor = AquaPrimary, contentColor = Color.Black),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                     ) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Einzelstart", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Einzelstart",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            softWrap = false
+                        )
                     }
                 }
             }
             LaneStatus.RUNNING -> {
                 FilledTonalButton(
                     onClick = { onLapClick(SystemClock.elapsedRealtime()) },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.filledTonalButtonColors(containerColor = AquaPrimary, contentColor = Color.Black)
+                    modifier = Modifier
+                        .weight(1.5f)
+                        .height(52.dp),
+                    colors = ButtonDefaults.filledTonalButtonColors(containerColor = AquaPrimary, contentColor = Color.Black),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
                 ) {
-                    Icon(Icons.Default.Timer, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Split", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Icon(Icons.Default.Timer, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Split",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false
+                    )
                 }
 
                 FilledTonalButton(
                     onClick = { onFinishClick(SystemClock.elapsedRealtime()) },
-                    colors = ButtonDefaults.filledTonalButtonColors(containerColor = Color(0xFFEF5350), contentColor = Color.White)
+                    modifier = Modifier
+                        .weight(1.2f)
+                        .height(52.dp),
+                    colors = ButtonDefaults.filledTonalButtonColors(containerColor = Color(0xFFEF5350), contentColor = Color.White),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
                 ) {
-                    Icon(Icons.Default.Flag, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Ziel", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Icon(Icons.Default.Flag, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Ziel",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false
+                    )
                 }
 
                 if (onPauseClick != null) {
@@ -462,26 +492,9 @@ private fun LaneControls(
                         onClick = onPauseClick,
                         modifier = Modifier
                             .background(OceanBorder, CircleShape)
-                            .size(40.dp)
+                            .size(52.dp)
                     ) {
-                        Icon(Icons.Default.Pause, contentDescription = "Pause", tint = TextWhite)
-                    }
-                }
-
-                if (onStrokeRateTap != null) {
-                    FilledTonalButton(
-                        onClick = onStrokeRateTap,
-                        colors = ButtonDefaults.filledTonalButtonColors(containerColor = Color(0xFF00B0FF), contentColor = Color.Black)
-                    ) {
-                        Text(
-                            text = if (currentSpm != null && currentSpm > 0) {
-                                String.format(Locale.US, "%.0f SPM", currentSpm)
-                            } else "SPM",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Icon(Icons.Default.Pause, contentDescription = "Pause", tint = TextWhite, modifier = Modifier.size(24.dp))
                     }
                 }
             }
@@ -489,22 +502,41 @@ private fun LaneControls(
                 if (onResumeClick != null) {
                     FilledTonalButton(
                         onClick = onResumeClick,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.filledTonalButtonColors(containerColor = Color(0xFFFFA726), contentColor = Color.Black)
+                        modifier = Modifier
+                            .weight(1.5f)
+                            .height(52.dp),
+                        colors = ButtonDefaults.filledTonalButtonColors(containerColor = Color(0xFFFFA726), contentColor = Color.Black),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
                     ) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Weiter", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Weiter",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            softWrap = false
+                        )
                     }
                 }
 
                 FilledTonalButton(
                     onClick = { onFinishClick(SystemClock.elapsedRealtime()) },
-                    colors = ButtonDefaults.filledTonalButtonColors(containerColor = Color(0xFFEF5350), contentColor = Color.White)
+                    modifier = Modifier
+                        .weight(1.2f)
+                        .height(52.dp),
+                    colors = ButtonDefaults.filledTonalButtonColors(containerColor = Color(0xFFEF5350), contentColor = Color.White),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
                 ) {
-                    Icon(Icons.Default.Flag, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Ziel", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Icon(Icons.Default.Flag, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Ziel",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false
+                    )
                 }
             }
             LaneStatus.COUNTDOWN -> {
@@ -515,17 +547,26 @@ private fun LaneControls(
                     modifier = Modifier.weight(1f),
                     textAlign = TextAlign.Center,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    softWrap = false
                 )
             }
             LaneStatus.FINISHED -> {
                 if (onStartSingleLaneClick != null) {
                     FilledTonalButton(
                         onClick = onStartSingleLaneClick,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.filledTonalButtonColors(containerColor = OceanBorder, contentColor = TextWhite)
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp),
+                        colors = ButtonDefaults.filledTonalButtonColors(containerColor = OceanBorder, contentColor = TextWhite),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                     ) {
-                        Text("Neustart", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            text = "Neustart",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            softWrap = false
+                        )
                     }
                 } else {
                     Text(

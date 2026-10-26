@@ -7,7 +7,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
@@ -418,7 +417,6 @@ fun SwimmersManagementScreen(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SwimmerCard(
     swimmer: com.example.ui.SwimmerCardUiModel,
@@ -578,7 +576,6 @@ private fun SwimmerCard(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ManageGroupsDialog(
     existingGroups: List<String>,
@@ -765,7 +762,7 @@ private fun ManageGroupsDialog(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddSwimmerDialog(
     availableGroups: List<String> = emptyList(),

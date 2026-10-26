@@ -2,7 +2,6 @@ package com.example.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -39,7 +38,6 @@ import com.example.ui.StartMode
 import com.example.ui.theme.AquaPrimary
 import com.example.ui.theme.TextWhite
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun IntervalConfigDialog(
     currentStartMode: StartMode,
