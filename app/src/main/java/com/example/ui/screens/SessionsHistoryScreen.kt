@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -101,7 +102,10 @@ fun SessionsHistoryScreen(
             Text(
                 text = "Historie (${sessions.size})",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = TextWhite
+                color = TextWhite,
+                modifier = Modifier.weight(1f).padding(end = 8.dp),
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -277,7 +281,10 @@ private fun SessionHistoryCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f).padding(end = 8.dp)
+                ) {
                     Icon(
                         imageVector = Icons.Default.Pool,
                         contentDescription = null,
@@ -289,12 +296,15 @@ private fun SessionHistoryCard(
                         Text(
                             text = s.title,
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = TextWhite
+                            color = TextWhite,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                         )
                         Text(
                             text = "${TimeFormatter.formatDate(s.timestamp)} • ${s.poolLengthMeters}m Becken",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color.LightGray
+                            color = Color.LightGray,
+                            maxLines = 1
                         )
                     }
                 }
@@ -312,9 +322,10 @@ private fun SessionHistoryCard(
             Spacer(modifier = Modifier.height(6.dp))
 
             // Summary metrics
-            Row(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
                     text = "${s.targetDistanceMeters}m ${s.strokeType}",
@@ -378,7 +389,10 @@ private fun SessionHistoryCard(
                             Text(
                                 text = "Bahn $laneNum: $swimmer",
                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                color = TextWhite
+                                color = TextWhite,
+                                modifier = Modifier.weight(1f).padding(end = 8.dp),
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                             )
                             Text(
                                 text = "Gesamt: ${TimeFormatter.formatMillis(finishTime)}",

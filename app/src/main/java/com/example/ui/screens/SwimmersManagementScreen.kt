@@ -160,7 +160,9 @@ fun SwimmersManagementScreen(
                         fontSize = 20.sp
                     ),
                     color = TextWhite,
-                    maxLines = 1
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f).padding(end = 8.dp)
                 )
 
                 Row(
@@ -586,7 +588,42 @@ private fun ManageGroupsDialog(
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     var newGroupName by remember { mutableStateOf("") }
     var groupToRename by remember { mutableStateOf<String?>(null) }
+    var groupToDelete by remember { mutableStateOf<String?>(null) }
     var renameInputText by remember { mutableStateOf("") }
+
+    if (groupToDelete != null) {
+        val targetGroup = groupToDelete!!
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { groupToDelete = null },
+            title = { Text("Gruppe '$targetGroup' löschen?", color = TextWhite, fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    text = "Möchtest du die Gruppe '$targetGroup' wirklich löschen? Der Gruppenname aller betroffenen Athleten wird sofort auf NULL zurückgesetzt.",
+                    color = Color.LightGray
+                )
+            },
+            containerColor = Color(0xFF101B2B),
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeleteGroup(targetGroup)
+                        groupToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252))
+                ) {
+                    Text("Löschen", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                Button(
+                    onClick = { groupToDelete = null },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
+                ) {
+                    Text("Abbrechen", color = Color.LightGray)
+                }
+            }
+        )
+    }
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -676,7 +713,7 @@ private fun ManageGroupsDialog(
                                             text = group,
                                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                                             color = TextWhite,
-                                            modifier = Modifier.weight(1f)
+                                            modifier = Modifier.weight(1f).padding(end = 8.dp)
                                         )
                                         Row {
                                             IconButton(
@@ -689,7 +726,7 @@ private fun ManageGroupsDialog(
                                                 Icon(imageVector = Icons.Default.Edit, contentDescription = "Umbenennen", tint = AquaPrimary, modifier = Modifier.size(18.dp))
                                             }
                                             IconButton(
-                                                onClick = { onDeleteGroup(group) },
+                                                onClick = { groupToDelete = group },
                                                 modifier = Modifier.size(32.dp)
                                             ) {
                                                 Icon(imageVector = Icons.Default.Delete, contentDescription = "Gruppe löschen", tint = Color(0xFFFF5252), modifier = Modifier.size(18.dp))

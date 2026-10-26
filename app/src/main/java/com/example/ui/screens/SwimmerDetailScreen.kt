@@ -8,6 +8,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -151,7 +152,10 @@ fun SwimmerDetailScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f).padding(end = 8.dp)
+                ) {
                     IconButton(
                         onClick = onBack,
                         modifier = Modifier.testTag("swimmer_detail_back_button")
@@ -170,7 +174,8 @@ fun SwimmerDetailScreen(
                             fontSize = 20.sp
                         ),
                         color = TextWhite,
-                        maxLines = 1
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
@@ -233,7 +238,7 @@ fun SwimmerDetailScreen(
                                     }
                                 }
                                 Spacer(modifier = Modifier.width(16.dp))
-                                Column(modifier = Modifier.weight(1f)) {
+                                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                                     Text(
                                         text = swimmer.name,
                                         style = MaterialTheme.typography.headlineSmall.copy(
@@ -245,7 +250,10 @@ fun SwimmerDetailScreen(
                                         overflow = TextOverflow.Ellipsis
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                    FlowRow(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
                                         Surface(
                                             shape = RoundedCornerShape(8.dp),
                                             color = Color(0xFF132A38)
@@ -262,7 +270,6 @@ fun SwimmerDetailScreen(
                                         }
 
                                         if (!swimmer.groupName.isNullOrBlank()) {
-                                            Spacer(modifier = Modifier.width(6.dp))
                                             Surface(
                                                 shape = RoundedCornerShape(8.dp),
                                                 color = AquaPrimary.copy(alpha = 0.15f),
@@ -624,14 +631,15 @@ private fun SwimmerSessionHistoryCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
+                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = s.title,
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             color = TextWhite,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
                         )
                         if (isSessionPb) {
                             Spacer(modifier = Modifier.width(6.dp))

@@ -6,6 +6,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -158,6 +160,7 @@ fun DrillQuickfinderComponent(
                     selected = isSelected,
                     onClick = {
                         selectedStrokeFilter = filter
+                        selectedFocusAreaFilter = "Alle"
                         selectedSpecificFocusFilter = "Alle"
                     },
                     label = { Text(filter, fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
@@ -271,7 +274,8 @@ fun DrillQuickfinderComponent(
             ) {
                 items(
                     items = filteredDrills,
-                    key = { it.id }
+                    key = { it.id },
+                    contentType = { "drill_card" }
                 ) { drill ->
                     TechDrillCard(drill = drill)
                 }
@@ -280,6 +284,7 @@ fun DrillQuickfinderComponent(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TechDrillCard(
     drill: TechDrill
@@ -311,10 +316,10 @@ private fun TechDrillCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Surface(
                             shape = RoundedCornerShape(6.dp),

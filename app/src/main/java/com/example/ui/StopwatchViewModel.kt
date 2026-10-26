@@ -219,15 +219,24 @@ class StopwatchViewModel(
 
     fun renameGroup(oldName: String, newName: String) {
         if (oldName.isBlank() || newName.isBlank()) return
-        viewModelScope.launch {
-            repository.renameGroupForAllSwimmers(oldName.trim(), newName.trim())
+        val trimmedOld = oldName.trim()
+        val trimmedNew = newName.trim()
+        if (selectedGroupFilter.value?.trim()?.equals(trimmedOld, ignoreCase = true) == true) {
+            selectedGroupFilter.value = trimmedNew
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.renameGroupForAllSwimmers(trimmedOld, trimmedNew)
         }
     }
 
     fun deleteGroup(groupName: String) {
         if (groupName.isBlank()) return
-        viewModelScope.launch {
-            repository.clearGroupForAllSwimmers(groupName.trim())
+        val trimmed = groupName.trim()
+        if (selectedGroupFilter.value?.trim()?.equals(trimmed, ignoreCase = true) == true) {
+            selectedGroupFilter.value = null
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.clearGroupForAllSwimmers(trimmed)
         }
     }
 

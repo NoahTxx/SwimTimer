@@ -128,7 +128,7 @@ fun MultiStopwatchScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1f).padding(end = 8.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Row(
