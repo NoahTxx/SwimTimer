@@ -137,11 +137,13 @@ data class StopwatchUiState(
 data class SwimmerCardUiModel(
     val id: Long,
     val name: String,
+    val initial: String,
     val groupOrClub: String,
     val pb25mText: String,
     val pb50mText: String,
     val pb100mText: String,
     val pb100mImText: String,
+    val pb50mFormatted: String,
     val groupName: String? = null,
     val originalEntity: SwimmerEntity
 )
@@ -180,14 +182,17 @@ class StopwatchViewModel(
             filtered = filtered.filter { it.name.contains(query, ignoreCase = true) }
         }
         filtered.map { swimmer ->
+            val pb50mText = swimmer.pb50mMillis?.let { TimeFormatter.formatMillis(it, shortFormat = true) } ?: ""
             SwimmerCardUiModel(
                 id = swimmer.id,
                 name = swimmer.name,
+                initial = swimmer.name.take(1).uppercase(),
                 groupOrClub = swimmer.favoriteStroke,
                 pb25mText = swimmer.pb25mMillis?.let { TimeFormatter.formatMillis(it, shortFormat = true) } ?: "",
-                pb50mText = swimmer.pb50mMillis?.let { TimeFormatter.formatMillis(it, shortFormat = true) } ?: "",
+                pb50mText = pb50mText,
                 pb100mText = swimmer.pb100mMillis?.let { TimeFormatter.formatMillis(it) } ?: "",
                 pb100mImText = swimmer.pb100mLagenMillis?.let { TimeFormatter.formatMillis(it) } ?: "",
+                pb50mFormatted = pb50mText.ifEmpty { "--:--" },
                 groupName = swimmer.groupName,
                 originalEntity = swimmer
             )

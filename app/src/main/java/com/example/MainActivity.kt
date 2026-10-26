@@ -34,7 +34,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalFocusManager
+
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -113,16 +113,9 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainAppContent(viewModel: StopwatchViewModel) {
     var currentScreen by remember { mutableStateOf(AppScreen.STOPWATCH) }
-    var isPreloadReady by remember { mutableStateOf(value = false) }
 
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
-
-    // Defer background screens preload slightly so cold start is 100% smooth from frame 1
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(200.milliseconds)
-        isPreloadReady = true
-    }
 
     androidx.compose.runtime.LaunchedEffect(currentScreen) {
         focusManager.clearFocus()
@@ -150,36 +143,13 @@ fun MainAppContent(viewModel: StopwatchViewModel) {
                 .weight(1f)
                 .fillMaxWidth(),
         ) {
-            AppScreen.entries.forEach { screen ->
-                val isActive = currentScreen == screen
-                val shouldRender = isActive || isPreloadReady
-
-                if (shouldRender) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .layout { measurable, constraints ->
-                                if (isActive) {
-                                    val placeable = measurable.measure(constraints)
-                                    layout(placeable.width, placeable.height) {
-                                        placeable.placeRelative(0, 0)
-                                    }
-                                } else {
-                                    // Zero measure & layout cost during scrolling when inactive!
-                                    layout(0, 0) {}
-                                }
-                            }
-                            .graphicsLayer {
-                                alpha = if (isActive) 1f else 0f
-                            }
-                    ) {
-                        when (screen) {
-                            AppScreen.STOPWATCH -> MultiStopwatchScreen(viewModel = viewModel)
-                            AppScreen.HISTORY -> SessionsHistoryScreen(viewModel = viewModel)
-                            AppScreen.SWIMMERS -> SwimmersManagementScreen(viewModel = viewModel, isActiveTab = isActive)
-                            AppScreen.TOOLS -> CoachingToolsScreen(viewModel = viewModel)
-                        }
-                    }
+            val stateHolder = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
+            stateHolder.SaveableStateProvider(currentScreen) {
+                when (currentScreen) {
+                    AppScreen.STOPWATCH -> MultiStopwatchScreen(viewModel = viewModel)
+                    AppScreen.HISTORY -> SessionsHistoryScreen(viewModel = viewModel)
+                    AppScreen.SWIMMERS -> SwimmersManagementScreen(viewModel = viewModel, isActiveTab = true)
+                    AppScreen.TOOLS -> CoachingToolsScreen(viewModel = viewModel)
                 }
             }
         }

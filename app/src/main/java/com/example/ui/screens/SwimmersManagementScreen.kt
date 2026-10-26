@@ -449,7 +449,7 @@ private fun SwimmerCard(
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(
-                            text = swimmer.name.take(1).uppercase(),
+                            text = swimmer.initial,
                             color = Color.Black,
                             fontWeight = FontWeight.Black,
                             fontSize = 18.sp
@@ -545,9 +545,8 @@ private fun SwimmerCard(
                     color = Color.Gray,
                     maxLines = 1
                 )
-                val pb50Formatted = swimmer.pb50mText.ifEmpty { "--:--" }
                 Text(
-                    text = pb50Formatted,
+                    text = swimmer.pb50mFormatted,
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,
@@ -859,8 +858,13 @@ private fun AddSwimmerDialog(
                     onValueChange = { name = it },
                     label = { Text("Name") },
                     singleLine = true,
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
-                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { focusManager.clearFocus() }),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Text,
+                        imeAction = androidx.compose.ui.text.input.ImeAction.Done
+                    ),
+                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                        onDone = { focusManager.clearFocus() }
+                    ),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = TextWhite,
                         unfocusedTextColor = TextWhite,
@@ -894,7 +898,7 @@ private fun AddSwimmerDialog(
                             focusedBorderColor = AquaPrimary,
                             unfocusedBorderColor = Color(0xFF1B2E46)
                         ),
-                        modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, true).fillMaxWidth()
+                        modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, true).fillMaxWidth()
                     )
                     
                     ExposedDropdownMenu(

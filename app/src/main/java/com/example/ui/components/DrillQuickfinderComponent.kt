@@ -64,6 +64,7 @@ import com.example.ui.theme.TextWhite
 
 private val STROKE_FILTERS = listOf("Alle", "Kraul", "Rücken", "Brust", "Delfin", "Wenden / Starts")
 private val FOCUS_AREA_FILTERS = listOf("Alle", "Arme (Zug)", "Beine (Kick)", "Wasserlage & Rumpf", "Atmung & Koordination")
+private val ALL_DRILLS = StandardTechDrills.DEFAULT_DRILLS
 
 @Composable
 fun DrillQuickfinderComponent(
@@ -75,12 +76,10 @@ fun DrillQuickfinderComponent(
     var selectedFocusAreaFilter by rememberSaveable { mutableStateOf("Alle") }
     var selectedSpecificFocusFilter by rememberSaveable { mutableStateOf("Alle") }
 
-    val allDrills = remember { StandardTechDrills.DEFAULT_DRILLS }
-
     // Dynamic specific focus list based on selected stroke / focus area
     val availableSpecificFocuses by remember(selectedStrokeFilter, selectedFocusAreaFilter) {
         derivedStateOf {
-            val filtered = allDrills.filter { drill ->
+            val filtered = ALL_DRILLS.filter { drill ->
                 val matchesStroke = (selectedStrokeFilter == "Alle") || drill.stroke.equals(selectedStrokeFilter, ignoreCase = true)
                 val matchesFocusArea = (selectedFocusAreaFilter == "Alle") || drill.focusArea.equals(selectedFocusAreaFilter, ignoreCase = true)
                 matchesStroke && matchesFocusArea
@@ -97,7 +96,7 @@ fun DrillQuickfinderComponent(
 
     val filteredDrills by remember(searchQuery, selectedStrokeFilter, selectedFocusAreaFilter, selectedSpecificFocusFilter) {
         derivedStateOf {
-            allDrills.filter { drill ->
+            ALL_DRILLS.filter { drill ->
                 val matchesStroke = (selectedStrokeFilter == "Alle") || drill.stroke.equals(selectedStrokeFilter, ignoreCase = true)
                 val matchesFocusArea = (selectedFocusAreaFilter == "Alle") || drill.focusArea.equals(selectedFocusAreaFilter, ignoreCase = true)
                 val matchesSpecificFocus = (selectedSpecificFocusFilter == "Alle") || drill.specificFocus.equals(selectedSpecificFocusFilter, ignoreCase = true)
@@ -114,40 +113,44 @@ fun DrillQuickfinderComponent(
         }
     }
 
-    Column(
-        modifier = modifier.fillMaxSize()
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(bottom = 24.dp)
     ) {
-        // Search TextField
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
-            placeholder = { Text("Übung, Lage oder Stichwort suchen...", color = Color.Gray, fontSize = 13.sp) },
-            leadingIcon = {
-                Icon(imageVector = Icons.Default.Search, contentDescription = null, tint = AquaPrimary)
-            },
-            trailingIcon = {
-                if (searchQuery.isNotEmpty()) {
-                    IconButton(onClick = { searchQuery = "" }) {
-                        Icon(imageVector = Icons.Default.Clear, contentDescription = "Löschen", tint = Color.LightGray)
-                    }
-                }
-            },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
-            shape = RoundedCornerShape(14.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = OceanSurface,
-                unfocusedContainerColor = OceanSurface,
-                focusedBorderColor = AquaPrimary,
-                unfocusedBorderColor = Color(0xFF1B2E46),
-                focusedTextColor = TextWhite,
-                unfocusedTextColor = TextWhite
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 6.dp)
-        )
+        item(key = "search_and_filters") {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                // Search TextField
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("Übung, Lage oder Stichwort suchen...", color = Color.Gray, fontSize = 13.sp) },
+                    leadingIcon = {
+                        Icon(imageVector = Icons.Default.Search, contentDescription = null, tint = AquaPrimary)
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(imageVector = Icons.Default.Clear, contentDescription = "Löschen", tint = Color.LightGray)
+                            }
+                        }
+                    },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = OceanSurface,
+                        unfocusedContainerColor = OceanSurface,
+                        focusedBorderColor = AquaPrimary,
+                        unfocusedBorderColor = Color(0xFF1B2E46),
+                        focusedTextColor = TextWhite,
+                        unfocusedTextColor = TextWhite
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 6.dp)
+                )
 
         // FILTER LEVEL 1: Hauptkategorie (Schwimmart)
         LazyRow(
@@ -221,64 +224,61 @@ fun DrillQuickfinderComponent(
             }
         }
 
-        // Results Summary Header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 2.dp, vertical = 2.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "${filteredDrills.size} von ${allDrills.size} Übungen verfeinert",
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.Gray
-            )
+                // Results Summary Header
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 2.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "${filteredDrills.size} von ${ALL_DRILLS.size} Übungen verfeinert",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.Gray
+                    )
 
-            if (selectedStrokeFilter != "Alle" || selectedFocusAreaFilter != "Alle" || selectedSpecificFocusFilter != "Alle" || searchQuery.isNotEmpty()) {
-                Text(
-                    text = "Filter zurücksetzen",
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                    color = AquaPrimary,
-                    modifier = Modifier.clickable {
-                        selectedStrokeFilter = "Alle"
-                        selectedFocusAreaFilter = "Alle"
-                        selectedSpecificFocusFilter = "Alle"
-                        searchQuery = ""
+                    if (selectedStrokeFilter != "Alle" || selectedFocusAreaFilter != "Alle" || selectedSpecificFocusFilter != "Alle" || searchQuery.isNotEmpty()) {
+                        Text(
+                            text = "Filter zurücksetzen",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = AquaPrimary,
+                            modifier = Modifier.clickable {
+                                selectedStrokeFilter = "Alle"
+                                selectedFocusAreaFilter = "Alle"
+                                selectedSpecificFocusFilter = "Alle"
+                                searchQuery = ""
+                            }
+                        )
                     }
-                )
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
-
         // Drills List
         if (filteredDrills.isEmpty()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = "Keine passenden Übungen für diese Filterkombination",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.Gray
-                )
+            item(key = "empty_state") {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "Keine passenden Übungen für diese Filterkombination",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Gray
+                    )
+                }
             }
         } else {
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(bottom = 24.dp)
-            ) {
-                items(
-                    items = filteredDrills,
-                    key = { it.id },
-                    contentType = { "drill_card" }
-                ) { drill ->
-                    TechDrillCard(drill = drill)
-                }
+            items(
+                items = filteredDrills,
+                key = { it.id },
+                contentType = { "drill_card" }
+            ) { drill ->
+                TechDrillCard(drill = drill)
             }
         }
     }

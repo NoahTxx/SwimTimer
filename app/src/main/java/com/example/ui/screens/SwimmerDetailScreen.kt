@@ -830,7 +830,7 @@ private fun EditSwimmerDialog(
                             focusedBorderColor = AquaPrimary,
                             unfocusedBorderColor = Color(0xFF1B2E46)
                         ),
-                        modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, true).fillMaxWidth()
+                        modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, true).fillMaxWidth()
                     )
 
                     ExposedDropdownMenu(
