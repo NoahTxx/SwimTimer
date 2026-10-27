@@ -280,8 +280,8 @@ private fun DigitalTimerDisplay(
     LaunchedEffect(status, laneStartTimeRealtime, pausedElapsedMillis, finishTimeMillis) {
         if (status == LaneStatus.RUNNING && laneStartTimeRealtime != null) {
             while (true) {
-                withFrameMillis { frameTime ->
-                    displayMillis = (frameTime - laneStartTimeRealtime).coerceAtLeast(0L)
+                withFrameMillis {
+                    displayMillis = (SystemClock.elapsedRealtime() - laneStartTimeRealtime).coerceAtLeast(0L)
                 }
             }
         } else {

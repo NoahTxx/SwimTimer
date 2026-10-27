@@ -1274,18 +1274,28 @@ class StopwatchViewModel(
     }
 
     fun assignSwimmerToLane(laneNumber: Int, swimmer: SwimmerEntity?) {
-        val lanes = _uiState.value.lanes.map {
-            if (it.laneNumber == laneNumber) {
-                it.copy(
-                    swimmerId = swimmer?.id,
-                    swimmerName = swimmer?.name ?: "Bahn $laneNumber"
-                )
-            } else it
+        _uiState.update { currentState ->
+            val updatedLanes = currentState.lanes.map { lane ->
+                if (lane.laneNumber == laneNumber) {
+                    lane.copy(
+                        swimmerId = swimmer?.id,
+                        swimmerName = swimmer?.name ?: "Bahn $laneNumber"
+                    )
+                } else if (swimmer != null && lane.swimmerId == swimmer.id) {
+                    // Unassign swimmer from previous lane if already assigned elsewhere
+                    lane.copy(
+                        swimmerId = null,
+                        swimmerName = "Bahn ${lane.laneNumber}"
+                    )
+                } else {
+                    lane
+                }
+            }
+            currentState.copy(
+                lanes = updatedLanes,
+                isAssignSwimmerDialogVisible = false
+            )
         }
-        _uiState.update { it.copy(
-            lanes = lanes,
-            isAssignSwimmerDialogVisible = false
-        ) }
     }
 
     // --- Stroke Rate Calculator ---

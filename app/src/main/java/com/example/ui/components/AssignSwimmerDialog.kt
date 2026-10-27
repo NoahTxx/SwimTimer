@@ -48,6 +48,7 @@ import com.example.util.TimeFormatter
 fun AssignSwimmerDialog(
     laneNumber: Int,
     swimmers: List<SwimmerEntity>,
+    assignedSwimmers: Map<Long, Int> = emptyMap(),
     availableGroups: List<String> = emptyList(),
     onDismiss: () -> Unit,
     onSelectSwimmer: (SwimmerEntity?) -> Unit,
@@ -184,6 +185,10 @@ fun AssignSwimmerDialog(
                             key = { swimmer -> swimmer.id },
                             contentType = { "SwimmerDialogItem" }
                         ) { swimmer ->
+                            val currentAssignedLane = assignedSwimmers[swimmer.id]
+                            val isAssignedToOtherLane = currentAssignedLane != null && currentAssignedLane != laneNumber
+                            val isAssignedToThisLane = currentAssignedLane == laneNumber
+
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -217,10 +222,20 @@ fun AssignSwimmerDialog(
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
+                                        val subtitle = when {
+                                            isAssignedToThisLane -> "Auf dieser Bahn eingeteilt"
+                                            isAssignedToOtherLane -> "Bereits auf Bahn $currentAssignedLane"
+                                            else -> "Hauptlage: ${swimmer.favoriteStroke}"
+                                        }
+                                        val subtitleColor = when {
+                                            isAssignedToThisLane -> AquaPrimary
+                                            isAssignedToOtherLane -> Color(0xFFFFB74D)
+                                            else -> AquaPrimary
+                                        }
                                         Text(
-                                            text = "Hauptlage: ${swimmer.favoriteStroke}",
+                                            text = subtitle,
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = AquaPrimary,
+                                            color = subtitleColor,
                                             maxLines = 1
                                         )
                                     }

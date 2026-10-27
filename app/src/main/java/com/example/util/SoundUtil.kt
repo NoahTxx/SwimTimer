@@ -12,8 +12,8 @@ object SoundUtil {
     private fun getOrCreateGenerator(): ToneGenerator? {
         if (toneGenerator == null) {
             toneGenerator = try {
-                // Use STREAM_ALARM to ensure the start signal is loud and audible even if media is muted
-                ToneGenerator(AudioManager.STREAM_ALARM, 100)
+                // Use STREAM_MUSIC so that sound volume obeys media volume controls
+                ToneGenerator(AudioManager.STREAM_MUSIC, 100)
             } catch (_: Exception) {
                 null
             }

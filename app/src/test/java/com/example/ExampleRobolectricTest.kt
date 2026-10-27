@@ -289,4 +289,39 @@ class ExampleRobolectricTest {
     org.junit.Assert.assertNull(resetLanes.first { it.laneNumber == 2 }.targetLapMillis)
     org.junit.Assert.assertTrue(resetLanes.all { it.targetLapMillis == null })
   }
+
+  @Test
+  fun `test swimmer cannot be assigned to multiple lanes simultaneously`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = com.example.data.db.AppDatabase.getInstance(context)
+    val repository = com.example.data.repository.SwimRepository(db)
+    val prefsRepo = com.example.data.repository.UserPreferencesRepository(context)
+
+    val vm = com.example.ui.StopwatchViewModel(repository, prefsRepo)
+    vm.initializeLanes(4)
+
+    val dummySwimmer = com.example.data.model.SwimmerEntity(
+      id = 42L,
+      name = "Max Mustermann",
+      favoriteStroke = "Kraul"
+    )
+
+    // Assign to Lane 1
+    vm.assignSwimmerToLane(1, dummySwimmer)
+    assertEquals(42L, vm.uiState.value.lanes.first { it.laneNumber == 1 }.swimmerId)
+    assertEquals("Max Mustermann", vm.uiState.value.lanes.first { it.laneNumber == 1 }.swimmerName)
+
+    // Reassign same swimmer to Lane 2
+    vm.assignSwimmerToLane(2, dummySwimmer)
+
+    // Lane 1 should now be reset to default "Bahn 1"
+    val lane1 = vm.uiState.value.lanes.first { it.laneNumber == 1 }
+    org.junit.Assert.assertNull(lane1.swimmerId)
+    assertEquals("Bahn 1", lane1.swimmerName)
+
+    // Lane 2 should now have Max Mustermann
+    val lane2 = vm.uiState.value.lanes.first { it.laneNumber == 2 }
+    assertEquals(42L, lane2.swimmerId)
+    assertEquals("Max Mustermann", lane2.swimmerName)
+  }
 }

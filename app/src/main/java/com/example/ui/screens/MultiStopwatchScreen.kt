@@ -536,9 +536,15 @@ fun MultiStopwatchScreen(
 
         if (uiState.isAssignSwimmerDialogVisible && (uiState.assignSwimmerLane != null)) {
             val laneNum = uiState.assignSwimmerLane!!
+            val assignedSwimmers = remember(uiState.lanes) {
+                uiState.lanes.mapNotNull { lane ->
+                    lane.swimmerId?.let { sId -> sId to lane.laneNumber }
+                }.toMap()
+            }
             AssignSwimmerDialog(
                 laneNumber = laneNum,
                 swimmers = swimmers,
+                assignedSwimmers = assignedSwimmers,
                 availableGroups = availableGroups,
                 onDismiss = { viewModel.closeAssignSwimmerDialog() },
             ) { swimmer -> viewModel.assignSwimmerToLane(laneNum, swimmer) }
