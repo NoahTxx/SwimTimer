@@ -1779,6 +1779,50 @@ class StopwatchViewModel(
         }
     }
 
+    fun importSessionsFromUri(contentResolver: android.content.ContentResolver, uri: android.net.Uri, onComplete: ((Int) -> Unit)? = null) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val count = try {
+                val jsonString = contentResolver.openInputStream(uri)?.use { stream ->
+                    stream.bufferedReader(Charsets.UTF_8).readText()
+                } ?: ""
+                val importedSessions = ExportHelper.importSessionsFromJson(jsonString)
+                if (importedSessions.isNotEmpty()) {
+                    repository.importSessionsWithLaps(importedSessions)
+                }
+                importedSessions.size
+            } catch (_: Exception) {
+                0
+            }
+            if (onComplete != null) {
+                kotlinx.coroutines.withContext(Dispatchers.Main) {
+                    onComplete(count)
+                }
+            }
+        }
+    }
+
+    fun importSwimmersFromUri(contentResolver: android.content.ContentResolver, uri: android.net.Uri, onComplete: ((Int) -> Unit)? = null) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val count = try {
+                val jsonString = contentResolver.openInputStream(uri)?.use { stream ->
+                    stream.bufferedReader(Charsets.UTF_8).readText()
+                } ?: ""
+                val importedSwimmers = ExportHelper.importSwimmersFromJson(jsonString)
+                if (importedSwimmers.isNotEmpty()) {
+                    importSwimmers(importedSwimmers)
+                }
+                importedSwimmers.size
+            } catch (_: Exception) {
+                0
+            }
+            if (onComplete != null) {
+                kotlinx.coroutines.withContext(Dispatchers.Main) {
+                    onComplete(count)
+                }
+            }
+        }
+    }
+
     fun updateSwimmer(swimmer: SwimmerEntity) {
         viewModelScope.launch {
             repository.updateSwimmer(swimmer)

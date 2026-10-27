@@ -6,10 +6,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -90,7 +92,7 @@ fun AssignSwimmerDialog(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    IconButton(onClick = onDismiss) {
+                    IconButton(onClick = onDismiss, modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)) {
                         Icon(imageVector = Icons.Default.Close, contentDescription = "Schließen", tint = Color.LightGray)
                     }
                 }
@@ -101,6 +103,7 @@ fun AssignSwimmerDialog(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .defaultMinSize(minHeight = 48.dp)
                         .clickable { onSelectSwimmer(null) }
                         .padding(vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -143,7 +146,8 @@ fun AssignSwimmerDialog(
                                 colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = AquaPrimary,
                                     selectedLabelColor = Color.Black
-                                )
+                                ),
+                                modifier = Modifier.sizeIn(minHeight = 48.dp)
                             )
                         }
                         items(groupsToDisplay, key = { it }) { group ->
@@ -155,7 +159,8 @@ fun AssignSwimmerDialog(
                                 colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = AquaPrimary,
                                     selectedLabelColor = Color.Black
-                                )
+                                ),
+                                modifier = Modifier.sizeIn(minHeight = 48.dp)
                             )
                         }
                     }
@@ -182,6 +187,7 @@ fun AssignSwimmerDialog(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
+                                    .defaultMinSize(minHeight = 48.dp)
                                     .clickable { onSelectSwimmer(swimmer) }
                                     .padding(vertical = 10.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -151,7 +152,7 @@ fun TargetPaceDialog(
                                 selectedContainerColor = Color(0xFF00E676),
                                 selectedLabelColor = Color.Black
                             ),
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f).sizeIn(minHeight = 48.dp)
                         )
                         // GA2 Chip
                         FilterChip(
@@ -162,7 +163,7 @@ fun TargetPaceDialog(
                                 selectedContainerColor = Color(0xFFFFD600),
                                 selectedLabelColor = Color.Black
                             ),
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f).sizeIn(minHeight = 48.dp)
                         )
                     }
 
@@ -181,7 +182,7 @@ fun TargetPaceDialog(
                                 selectedContainerColor = Color(0xFFFF9100),
                                 selectedLabelColor = Color.Black
                             ),
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f).sizeIn(minHeight = 48.dp)
                         )
                         // Sprint Chip
                         FilterChip(
@@ -192,7 +193,7 @@ fun TargetPaceDialog(
                                 selectedContainerColor = AquaPrimary,
                                 selectedLabelColor = Color.Black
                             ),
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f).sizeIn(minHeight = 48.dp)
                         )
                     }
 
@@ -222,7 +223,8 @@ fun TargetPaceDialog(
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = AquaPrimary,
                                 selectedLabelColor = Color.Black
-                            )
+                            ),
+                            modifier = Modifier.sizeIn(minHeight = 48.dp)
                         )
                     }
                 }
@@ -234,7 +236,8 @@ fun TargetPaceDialog(
                     horizontalArrangement = Arrangement.End
                 ) {
                     OutlinedButton(
-                        onClick = { onSavePace(null) }
+                        onClick = { onSavePace(null) },
+                        modifier = Modifier.sizeIn(minHeight = 48.dp)
                     ) {
                         Text("Zurücksetzen", color = Color.LightGray)
                     }
@@ -250,7 +253,8 @@ fun TargetPaceDialog(
                                 onSavePace(null)
                             }
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = PaceGreen)
+                        colors = ButtonDefaults.buttonColors(containerColor = PaceGreen),
+                        modifier = Modifier.sizeIn(minHeight = 48.dp)
                     ) {
                         Text("Speichern", color = Color.Black, fontWeight = FontWeight.Bold)
                     }

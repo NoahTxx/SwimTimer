@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -33,7 +34,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -112,18 +112,8 @@ fun SwimmersManagementScreen(
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
     ) { uri ->
-        uri?.let {
-            coroutineScope.launch(Dispatchers.IO) {
-                try {
-                    context.contentResolver.openInputStream(it)?.use { stream ->
-                        val json = stream.bufferedReader().readText()
-                        val imported = ExportHelper.importSwimmersFromJson(json)
-                        if (imported.isNotEmpty()) {
-                            viewModel.importSwimmers(imported)
-                        }
-                    }
-                } catch (_: Exception) {}
-            }
+        uri?.let { selectedUri ->
+            viewModel.importSwimmersFromUri(context.contentResolver, selectedUri)
         }
     }
 
@@ -730,13 +720,13 @@ private fun ManageGroupsDialog(
                                                     groupToRename = group
                                                     renameInputText = group
                                                 },
-                                                modifier = Modifier.size(32.dp)
+                                                modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                                             ) {
                                                 Icon(imageVector = Icons.Default.Edit, contentDescription = "Umbenennen", tint = AquaPrimary, modifier = Modifier.size(18.dp))
                                             }
                                             IconButton(
                                                 onClick = { groupToDelete = group },
-                                                modifier = Modifier.size(32.dp)
+                                                modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                                             ) {
                                                 Icon(imageVector = Icons.Default.Delete, contentDescription = "Gruppe löschen", tint = Color(0xFFFF5252), modifier = Modifier.size(18.dp))
                                             }
@@ -754,14 +744,15 @@ private fun ManageGroupsDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
                 ) {
-                    Button(onClick = onDismiss, colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)) {
+                    Button(onClick = onDismiss, colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent), modifier = Modifier.sizeIn(minHeight = 48.dp)) {
                         Text("Schließen", color = Color.LightGray)
                     }
                     if (newGroupName.isNotBlank()) {
                         Spacer(modifier = Modifier.width(8.dp))
                         Button(
                             onClick = { onCreateGroup(newGroupName.trim()) },
-                            colors = ButtonDefaults.buttonColors(containerColor = AquaPrimary)
+                            colors = ButtonDefaults.buttonColors(containerColor = AquaPrimary),
+                            modifier = Modifier.sizeIn(minHeight = 48.dp)
                         ) {
                             Text("Erstellen", color = Color.Black, fontWeight = FontWeight.Bold)
                         }
@@ -919,7 +910,8 @@ private fun AddSwimmerDialog(
                             onClick = {
                                 groupName = ""
                                 isGroupDropdownExpanded = false
-                            }
+                            },
+                            modifier = Modifier.sizeIn(minHeight = 48.dp)
                         )
                         availableGroups.forEach { grp ->
                             DropdownMenuItem(
@@ -927,7 +919,8 @@ private fun AddSwimmerDialog(
                                 onClick = {
                                     groupName = grp
                                     isGroupDropdownExpanded = false
-                                }
+                                },
+                                modifier = Modifier.sizeIn(minHeight = 48.dp)
                             )
                         }
                     }
