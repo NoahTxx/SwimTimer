@@ -130,7 +130,8 @@ fun LaneTimerCard(
                 countdownRemainingSeconds = lane.countdownRemainingSeconds,
                 pausedElapsedMillis = lane.currentElapsedMillis,
                 laneStartTimeRealtime = lane.laneStartTimeRealtime,
-                finishTimeMillis = lane.finishTimeMillis
+                finishTimeMillis = lane.finishTimeMillis,
+                finishRealtimeMillis = lane.finishRealtimeMillis
             )
 
             LaneProgressAndLaps(
@@ -273,15 +274,24 @@ private fun DigitalTimerDisplay(
     countdownRemainingSeconds: Int,
     pausedElapsedMillis: Long,
     laneStartTimeRealtime: Long?,
-    finishTimeMillis: Long?
+    finishTimeMillis: Long?,
+    finishRealtimeMillis: Long? = null
 ) {
     var displayMillis by remember { mutableLongStateOf(0L) }
+    var restElapsedMillis by remember { mutableLongStateOf(0L) }
 
-    LaunchedEffect(status, laneStartTimeRealtime, pausedElapsedMillis, finishTimeMillis) {
+    LaunchedEffect(status, laneStartTimeRealtime, pausedElapsedMillis, finishTimeMillis, finishRealtimeMillis) {
         if (status == LaneStatus.RUNNING && laneStartTimeRealtime != null) {
             while (true) {
                 withFrameMillis {
                     displayMillis = (SystemClock.elapsedRealtime() - laneStartTimeRealtime).coerceAtLeast(0L)
+                }
+            }
+        } else if (status == LaneStatus.FINISHED && finishRealtimeMillis != null) {
+            displayMillis = finishTimeMillis ?: pausedElapsedMillis
+            while (true) {
+                withFrameMillis {
+                    restElapsedMillis = (SystemClock.elapsedRealtime() - finishRealtimeMillis).coerceAtLeast(0L)
                 }
             }
         } else {
@@ -291,6 +301,7 @@ private fun DigitalTimerDisplay(
                 LaneStatus.COUNTDOWN -> -(countdownRemainingSeconds * 1000L)
                 else -> 0L
             }
+            restElapsedMillis = 0L
         }
     }
 
@@ -309,20 +320,51 @@ private fun DigitalTimerDisplay(
             .padding(vertical = 10.dp, horizontal = 16.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = if (status == LaneStatus.COUNTDOWN) {
-                "-${TimeFormatter.formatSeconds(countdownRemainingSeconds.toLong())}"
-            } else {
-                TimeFormatter.formatMillis(displayMillis)
-            },
-            fontFamily = FontFamily.Monospace,
-            fontSize = 38.sp,
-            fontWeight = FontWeight.Bold,
-            color = displayColor,
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = if (status == LaneStatus.COUNTDOWN) {
+                    "-${TimeFormatter.formatSeconds(countdownRemainingSeconds.toLong())}"
+                } else {
+                    TimeFormatter.formatMillis(displayMillis)
+                },
+                fontFamily = FontFamily.Monospace,
+                fontSize = if (status == LaneStatus.FINISHED && finishRealtimeMillis != null) 34.sp else 38.sp,
+                fontWeight = FontWeight.Bold,
+                color = displayColor,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            if (status == LaneStatus.FINISHED && finishRealtimeMillis != null) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Pause,
+                        contentDescription = "Pausentimer",
+                        tint = Color(0xFFFFB74D),
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Pause: ${TimeFormatter.formatMillis(restElapsedMillis)}",
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFFFB74D),
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
     }
 }
 

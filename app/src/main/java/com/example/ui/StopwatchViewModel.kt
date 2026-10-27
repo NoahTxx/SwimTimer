@@ -63,6 +63,7 @@ data class LaneState(
     val status: LaneStatus = LaneStatus.IDLE,
     val laneStartTimeRealtime: Long? = null,
     val finishTimeMillis: Long? = null,
+    val finishRealtimeMillis: Long? = null,
     val currentElapsedMillis: Long = 0L,
     val laps: List<LapItem> = emptyList(),
     val targetLapMillis: Long? = null,
@@ -80,11 +81,14 @@ sealed interface UndoAction {
         val laneNumber: Int,
         val previousStatus: LaneStatus,
         val previousFinishTime: Long?,
+        val previousFinishRealtime: Long? = null,
         val removedLap: LapItem
     ) : UndoAction
     data class LaneFinished(
         val laneNumber: Int,
         val previousStatus: LaneStatus,
+        val previousFinishTime: Long? = null,
+        val previousFinishRealtime: Long? = null,
         val removedFinishLap: LapItem?
     ) : UndoAction
     data class BulkStart(val previousLanes: List<LaneState>, val previousMasterStart: Long?) : UndoAction
@@ -489,6 +493,7 @@ class StopwatchViewModel(
                         status = LaneStatus.COUNTDOWN,
                         laneStartTimeRealtime = null,
                         finishTimeMillis = null,
+                        finishRealtimeMillis = null,
                         intervalOffsetMillis = offsetMillis,
                         countdownRemainingSeconds = index * intervalSec,
                         currentElapsedMillis = 0L,
@@ -499,6 +504,7 @@ class StopwatchViewModel(
                         status = LaneStatus.RUNNING,
                         laneStartTimeRealtime = now,
                         finishTimeMillis = null,
+                        finishRealtimeMillis = null,
                         intervalOffsetMillis = 0L,
                         currentElapsedMillis = 0L,
                         laps = emptyList(),
@@ -534,6 +540,7 @@ class StopwatchViewModel(
                 status = LaneStatus.RUNNING,
                 laneStartTimeRealtime = now,
                 finishTimeMillis = null,
+                finishRealtimeMillis = null,
                 currentElapsedMillis = 0L,
                 laps = emptyList(),
                 intervalOffsetMillis = 0L,
@@ -680,6 +687,7 @@ class StopwatchViewModel(
                         lane.copy(
                             status = LaneStatus.FINISHED,
                             finishTimeMillis = exactFinalTime,
+                            finishRealtimeMillis = now,
                             currentElapsedMillis = exactFinalTime,
                             laps = updatedLaps
                         )
@@ -688,7 +696,8 @@ class StopwatchViewModel(
                         val finalTime = lane.currentElapsedMillis
                         lane.copy(
                             status = LaneStatus.FINISHED,
-                            finishTimeMillis = finalTime
+                            finishTimeMillis = finalTime,
+                            finishRealtimeMillis = now
                         )
                     }
                     else -> lane
@@ -740,7 +749,9 @@ class StopwatchViewModel(
 
             lanes[index] = lane.copy(
                 status = LaneStatus.RUNNING,
-                laneStartTimeRealtime = now - lane.currentElapsedMillis
+                laneStartTimeRealtime = now - lane.currentElapsedMillis,
+                finishTimeMillis = null,
+                finishRealtimeMillis = null
             )
 
             currentState.copy(lanes = lanes)
@@ -782,6 +793,7 @@ class StopwatchViewModel(
                 laneNumber = laneNumber,
                 previousStatus = lane.status,
                 previousFinishTime = lane.finishTimeMillis,
+                previousFinishRealtime = lane.finishRealtimeMillis,
                 removedLap = newLap
             )
 
@@ -789,6 +801,7 @@ class StopwatchViewModel(
                 lane.copy(
                     status = LaneStatus.FINISHED,
                     finishTimeMillis = splitTime,
+                    finishRealtimeMillis = now,
                     currentElapsedMillis = splitTime,
                     laps = lane.laps + newLap
                 )
@@ -841,11 +854,18 @@ class StopwatchViewModel(
 
             val updatedLaps = if (finishLap != null) lane.laps + finishLap else lane.laps
 
-            pushedUndo = UndoAction.LaneFinished(laneNumber, lane.status, finishLap)
+            pushedUndo = UndoAction.LaneFinished(
+                laneNumber = laneNumber,
+                previousStatus = lane.status,
+                previousFinishTime = lane.finishTimeMillis,
+                previousFinishRealtime = lane.finishRealtimeMillis,
+                removedFinishLap = finishLap
+            )
 
             lanes[index] = lane.copy(
                 status = LaneStatus.FINISHED,
                 finishTimeMillis = finalTime,
+                finishRealtimeMillis = now,
                 currentElapsedMillis = finalTime,
                 laps = updatedLaps
             )
@@ -895,6 +915,7 @@ class StopwatchViewModel(
                     lane.copy(
                         status = LaneStatus.FINISHED,
                         finishTimeMillis = splitTime,
+                        finishRealtimeMillis = now,
                         currentElapsedMillis = splitTime,
                         laps = lane.laps + newLap
                     )
@@ -924,6 +945,7 @@ class StopwatchViewModel(
                     status = LaneStatus.IDLE,
                     laneStartTimeRealtime = null,
                     finishTimeMillis = null,
+                    finishRealtimeMillis = null,
                     currentElapsedMillis = 0L,
                     laps = emptyList(),
                     targetLapMillis = null,
@@ -973,6 +995,7 @@ class StopwatchViewModel(
                             lanes[idx] = lanes[idx].copy(
                                 status = action.previousStatus,
                                 finishTimeMillis = action.previousFinishTime,
+                                finishRealtimeMillis = action.previousFinishRealtime,
                                 laps = currentLaps
                             )
                             anyRunning = lanes.any { it.status == LaneStatus.RUNNING || it.status == LaneStatus.COUNTDOWN || it.status == LaneStatus.PAUSED }
@@ -997,7 +1020,8 @@ class StopwatchViewModel(
                         } else lanes[idx].laps
                         lanes[idx] = lanes[idx].copy(
                             status = action.previousStatus,
-                            finishTimeMillis = null,
+                            finishTimeMillis = action.previousFinishTime,
+                            finishRealtimeMillis = action.previousFinishRealtime,
                             laps = restoredLaps
                         )
                         return@update currentState.copy(

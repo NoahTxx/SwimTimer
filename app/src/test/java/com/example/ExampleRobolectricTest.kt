@@ -346,4 +346,48 @@ class ExampleRobolectricTest {
     assertEquals(42L, lane2.swimmerId)
     assertEquals("Max Mustermann", lane2.swimmerName)
   }
+
+  @Test
+  fun `test pause timer finishRealtimeMillis starts immediately on finish and resets on restart`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = com.example.data.db.AppDatabase.getInstance(context)
+    val repository = com.example.data.repository.SwimRepository(db)
+    val prefsRepo = com.example.data.repository.UserPreferencesRepository(context)
+
+    val vm = com.example.ui.StopwatchViewModel(repository, prefsRepo)
+    vm.initializeLanes(2)
+
+    // Initially IDLE
+    val lane1Initial = vm.uiState.value.lanes.first { it.laneNumber == 1 }
+    org.junit.Assert.assertNull(lane1Initial.finishRealtimeMillis)
+
+    // Start Single Lane
+    vm.onStartSingleLane(1)
+
+    val lane1Running = vm.uiState.value.lanes.first { it.laneNumber == 1 }
+    assertEquals(com.example.ui.LaneStatus.RUNNING, lane1Running.status)
+    org.junit.Assert.assertNull(lane1Running.finishRealtimeMillis)
+
+    // Finish Lane at finishTime
+    val finishRealtime = 1_030_000L
+    vm.onFinishLane(1, exactRealtime = finishRealtime)
+
+    val lane1Finished = vm.uiState.value.lanes.first { it.laneNumber == 1 }
+    assertEquals(com.example.ui.LaneStatus.FINISHED, lane1Finished.status)
+    assertEquals(finishRealtime, lane1Finished.finishRealtimeMillis)
+
+    // Undo Finish -> finishRealtimeMillis restored to null
+    vm.performUndo()
+    val lane1Undone = vm.uiState.value.lanes.first { it.laneNumber == 1 }
+    assertEquals(com.example.ui.LaneStatus.RUNNING, lane1Undone.status)
+    org.junit.Assert.assertNull(lane1Undone.finishRealtimeMillis)
+
+    // Finish again
+    vm.onFinishLane(1, exactRealtime = finishRealtime)
+    assertEquals(finishRealtime, vm.uiState.value.lanes.first { it.laneNumber == 1 }.finishRealtimeMillis)
+
+    // Reset All -> finishRealtimeMillis cleared
+    vm.onResetAll()
+    org.junit.Assert.assertNull(vm.uiState.value.lanes.first { it.laneNumber == 1 }.finishRealtimeMillis)
+  }
 }
