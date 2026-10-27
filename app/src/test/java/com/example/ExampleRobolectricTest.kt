@@ -38,6 +38,28 @@ class ExampleRobolectricTest {
   }
 
   @Test
+  fun `test split rounding consistency guarantees lap sum equals total split`() {
+    fun roundToHundredths(millis: Long): Long = ((millis + 5L) / 10L) * 10L
+
+    val rawSplit1 = 1538L
+    val rawSplit2 = 8786L
+
+    val split1 = roundToHundredths(rawSplit1)
+    val split2 = roundToHundredths(rawSplit2)
+
+    val lap1 = split1
+    val lap2 = split2 - split1
+
+    val lap1Formatted = TimeFormatter.formatMillis(lap1, shortFormat = true)
+    val lap2Formatted = TimeFormatter.formatMillis(lap2, shortFormat = true)
+    val totalFormatted = TimeFormatter.formatMillis(split2, shortFormat = true)
+
+    assertEquals("01.54", lap1Formatted)
+    assertEquals("07.25", lap2Formatted)
+    assertEquals("08.79", totalFormatted)
+  }
+
+  @Test
   fun `test official individual medley sequence is Schmett Ruecken Brust Freistil`() {
     val officialOrder = listOf("Schmett", "Rücken", "Brust", "Freistil")
     assertEquals("Schmett", officialOrder[0])

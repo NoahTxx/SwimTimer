@@ -658,7 +658,7 @@ class StopwatchViewModel(
                         )
                     }
                     LaneStatus.RUNNING -> {
-                        val exactFinalTime = computeExactLaneElapsed(lane, now, currentState.masterStartTimeRealtime)
+                        val exactFinalTime = roundToHundredths(computeExactLaneElapsed(lane, now, currentState.masterStartTimeRealtime))
                         val previousSplit = lane.laps.lastOrNull()?.splitTimeMillis ?: 0L
                         val lapTime = (exactFinalTime - previousSplit).coerceAtLeast(0L)
                         val totalSplitsNeeded = (lane.targetDistanceMeters / lane.splitDistanceMeters).coerceAtLeast(1)
@@ -761,7 +761,7 @@ class StopwatchViewModel(
             val lane = lanes[index]
             if (lane.status != LaneStatus.RUNNING) return@update currentState
 
-            val splitTime = computeExactLaneElapsed(lane, now, currentState.masterStartTimeRealtime)
+            val splitTime = roundToHundredths(computeExactLaneElapsed(lane, now, currentState.masterStartTimeRealtime))
             val previousSplit = lane.laps.lastOrNull()?.splitTimeMillis ?: 0L
             val lapTime = (splitTime - previousSplit).coerceAtLeast(0L)
 
@@ -825,7 +825,7 @@ class StopwatchViewModel(
             val lane = lanes[index]
             if (lane.status != LaneStatus.RUNNING) return@update currentState
 
-            val finalTime = computeExactLaneElapsed(lane, now, currentState.masterStartTimeRealtime)
+            val finalTime = roundToHundredths(computeExactLaneElapsed(lane, now, currentState.masterStartTimeRealtime))
             val previousSplit = lane.laps.lastOrNull()?.splitTimeMillis ?: 0L
             val lapTime = (finalTime - previousSplit).coerceAtLeast(0L)
             val totalSplitsNeeded = (lane.targetDistanceMeters / lane.splitDistanceMeters).coerceAtLeast(1)
@@ -877,7 +877,7 @@ class StopwatchViewModel(
             val newLanes = currentLanes.map { lane ->
                 if (lane.status != LaneStatus.RUNNING) return@map lane
 
-                val splitTime = computeExactLaneElapsed(lane, now, currentState.masterStartTimeRealtime)
+                val splitTime = roundToHundredths(computeExactLaneElapsed(lane, now, currentState.masterStartTimeRealtime))
                 val previousSplit = lane.laps.lastOrNull()?.splitTimeMillis ?: 0L
                 val lapTime = (splitTime - previousSplit).coerceAtLeast(0L)
 
@@ -948,7 +948,13 @@ class StopwatchViewModel(
         }
     }
 
+    private fun roundToHundredths(millis: Long): Long = ((millis + 5L) / 10L) * 10L
+
     // --- Undo Logic ---
+
+    fun clearUndoMessage() {
+        _uiState.update { it.copy(lastUndoMessage = null) }
+    }
 
     private fun pushUndo(action: UndoAction) {
         undoStack.push(action)

@@ -92,19 +92,22 @@ fun SessionsHistoryScreen(
         modifier = modifier
             .fillMaxSize()
             .background(DeepOceanBackground)
-            .padding(horizontal = 14.dp, vertical = 8.dp)
+            .padding(horizontal = 14.dp, vertical = 12.dp)
     ) {
         // Top Action Bar for Export/Import
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 10.dp),
+                .padding(bottom = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = "Historie (${sessions.size})",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp
+                ),
                 color = TextWhite,
                 modifier = Modifier.weight(1f).padding(end = 8.dp),
                 maxLines = 1,

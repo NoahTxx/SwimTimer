@@ -88,6 +88,7 @@ fun MultiStopwatchScreen(
     LaunchedEffect(uiState.lastUndoMessage) {
         uiState.lastUndoMessage?.let {
             snackbarHostState.showSnackbar(it)
+            viewModel.clearUndoMessage()
         }
     }
 
@@ -292,8 +293,7 @@ fun MultiStopwatchScreen(
             ) {
                 // Left: Reset & Undo
                 Row(
-                    modifier = Modifier.weight(1f),
-                    horizontalArrangement = Arrangement.Start,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     var isResetConfirmOpen by remember { mutableStateOf(value = false) }
@@ -317,7 +317,7 @@ fun MultiStopwatchScreen(
                         ),
                         contentPadding = PaddingValues(0.dp),
                         modifier = Modifier
-                            .size(56.dp)
+                            .size(46.dp)
                             .testTag("master_reset_button")
                     ) {
                         Icon(Icons.Default.Refresh, contentDescription = "Reset", modifier = Modifier.size(22.dp))
@@ -358,7 +358,6 @@ fun MultiStopwatchScreen(
                     }
 
                     if (uiState.canUndo) {
-                        Spacer(modifier = Modifier.width(6.dp))
                         FilledTonalButton(
                             onClick = { HapticUtil.vibrateClick(context); viewModel.performUndo() },
                             shape = RoundedCornerShape(14.dp),
@@ -368,10 +367,10 @@ fun MultiStopwatchScreen(
                             ),
                             contentPadding = PaddingValues(0.dp),
                             modifier = Modifier
-                                .size(56.dp)
+                                .size(46.dp)
                                 .testTag("undo_button")
                         ) {
-                            Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "Rückgängig", modifier = Modifier.size(20.dp))
+                            Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "Rückgängig", modifier = Modifier.size(22.dp))
                         }
                     }
                 }
@@ -388,8 +387,8 @@ fun MultiStopwatchScreen(
                         elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp),
                         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
                         modifier = Modifier
-                            .weight(2.4f)
-                            .height(56.dp)
+                            .weight(1f)
+                            .height(52.dp)
                             .testTag("master_start_all_button")
                     ) {
                         Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(26.dp))
@@ -413,8 +412,8 @@ fun MultiStopwatchScreen(
                         shape = RoundedCornerShape(18.dp),
                         elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp),
                         modifier = Modifier
-                            .weight(2.2f)
-                            .height(56.dp)
+                            .weight(1f)
+                            .height(52.dp)
                             .testTag("master_stop_all_button")
                     ) {
                         Icon(Icons.Default.Stop, contentDescription = null, modifier = Modifier.size(28.dp))
@@ -430,32 +429,26 @@ fun MultiStopwatchScreen(
                 }
 
                 // Right: Speichern / Save (Protected against accidental double-saving)
-                Row(
-                    modifier = Modifier.weight(1f),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
+                Button(
+                    onClick = { HapticUtil.vibrateHeavy(context); viewModel.saveCurrentSession() },
+                    enabled = anyLapsRecorded && !uiState.isCurrentRunSaved,
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (uiState.isCurrentRunSaved) PaceGreen else AquaPrimary,
+                        contentColor = Color.Black,
+                        disabledContainerColor = if (uiState.isCurrentRunSaved) PaceGreen.copy(alpha = 0.4f) else AquaPrimary.copy(alpha = 0.25f),
+                        disabledContentColor = Color.DarkGray
+                    ),
+                    contentPadding = PaddingValues(0.dp),
+                    modifier = Modifier
+                        .size(48.dp)
+                        .testTag("master_save_button")
                 ) {
-                    Button(
-                        onClick = { HapticUtil.vibrateHeavy(context); viewModel.saveCurrentSession() },
-                        enabled = anyLapsRecorded && !uiState.isCurrentRunSaved,
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (uiState.isCurrentRunSaved) PaceGreen else AquaPrimary,
-                            contentColor = Color.Black,
-                            disabledContainerColor = if (uiState.isCurrentRunSaved) PaceGreen.copy(alpha = 0.4f) else AquaPrimary.copy(alpha = 0.25f),
-                            disabledContentColor = Color.DarkGray
-                        ),
-                        contentPadding = PaddingValues(0.dp),
-                        modifier = Modifier
-                            .size(52.dp)
-                            .testTag("master_save_button")
-                    ) {
-                        Icon(
-                            imageVector = if (uiState.isCurrentRunSaved) Icons.Default.Check else Icons.Default.Save,
-                            contentDescription = "Speichern",
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
+                    Icon(
+                        imageVector = if (uiState.isCurrentRunSaved) Icons.Default.Check else Icons.Default.Save,
+                        contentDescription = "Speichern",
+                        modifier = Modifier.size(22.dp)
+                    )
                 }
             }
         }

@@ -10,10 +10,11 @@ object TimeFormatter {
 
     fun writeMillisToBuffer(millis: Long, buffer: CharArray): Int {
         val safeMillis = millis.coerceAtLeast(0L)
-        val totalSeconds = (safeMillis / 1_000L).toInt()
+        val totalHundredths = (safeMillis + 5L) / 10L
+        val totalSeconds = (totalHundredths / 100L).toInt()
         val minutes = (totalSeconds / 60).coerceAtMost(99)
         val seconds = totalSeconds % 60
-        val hundredths = ((safeMillis % 1_000L) / 10L).toInt()
+        val hundredths = (totalHundredths % 100L).toInt()
 
         buffer[0] = ('0'.code + (minutes / 10)).toChar()
         buffer[1] = ('0'.code + (minutes % 10)).toChar()
@@ -30,10 +31,11 @@ object TimeFormatter {
     fun writeSignedMillisToBuffer(signedMillis: Long, buffer: CharArray): Int {
         val isCountdown = signedMillis < 0L
         val absMillis = abs(signedMillis)
-        val totalSeconds = (absMillis / 1_000L).toInt()
+        val totalHundredths = (absMillis + 5L) / 10L
+        val totalSeconds = (totalHundredths / 100L).toInt()
         val minutes = (totalSeconds / 60).coerceAtMost(99)
         val seconds = totalSeconds % 60
-        val hundredths = ((absMillis % 1_000L) / 10L).toInt()
+        val hundredths = (totalHundredths % 100L).toInt()
 
         var idx = 0
         if (isCountdown) {
@@ -59,9 +61,11 @@ object TimeFormatter {
 
     fun formatMillis(millis: Long, shortFormat: Boolean = false): String {
         val safeMillis = millis.coerceAtLeast(0L)
-        val minutes = (safeMillis / 60_000L).toInt()
-        val seconds = ((safeMillis % 60_000L) / 1_000L).toInt()
-        val hundredths = ((safeMillis % 1_000L) / 10L).toInt()
+        val totalHundredths = (safeMillis + 5L) / 10L
+        val totalSeconds = (totalHundredths / 100L).toInt()
+        val minutes = (totalSeconds / 60).coerceAtMost(99)
+        val seconds = totalSeconds % 60
+        val hundredths = (totalHundredths % 100L).toInt()
 
         if (shortFormat && (minutes == 0)) {
             return buildString(6) {

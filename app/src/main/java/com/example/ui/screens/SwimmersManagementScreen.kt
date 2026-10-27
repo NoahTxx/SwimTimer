@@ -140,7 +140,7 @@ fun SwimmersManagementScreen(
         modifier = modifier
             .fillMaxSize()
             .background(DeepOceanBackground)
-            .padding(horizontal = 16.dp, vertical = 16.dp)
+            .padding(horizontal = 14.dp, vertical = 12.dp)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Header Row with Title, Import/Export Buttons
