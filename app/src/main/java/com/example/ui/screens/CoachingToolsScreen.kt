@@ -19,7 +19,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Groups
-import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -42,7 +41,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.StopwatchViewModel
 import com.example.ui.components.DrillQuickfinderComponent
-import com.example.ui.components.IntervalSplitLoggerComponent
 import com.example.ui.components.RelayRandomizerComponent
 import com.example.ui.theme.AquaPrimary
 import com.example.ui.theme.DeepOceanBackground
@@ -50,8 +48,7 @@ import com.example.ui.theme.OceanSurface
 
 enum class CoachingToolSection(val label: String, val icon: ImageVector) {
     DRILLS("Technik-Drills", Icons.AutoMirrored.Filled.MenuBook),
-    RELAY("Team-Losung", Icons.Default.Groups),
-    LOGGER("Soll vs. Ist", Icons.Default.Timer)
+    RELAY("Team-Losung", Icons.Default.Groups)
 }
 
 @Composable
@@ -130,7 +127,6 @@ fun CoachingToolsScreen(
             when (selectedSection) {
                 CoachingToolSection.DRILLS -> DrillQuickfinderComponent()
                 CoachingToolSection.RELAY -> RelayRandomizerComponent(dbSwimmers = swimmers, availableGroups = availableGroups)
-                CoachingToolSection.LOGGER -> IntervalSplitLoggerComponent()
             }
         }
     }

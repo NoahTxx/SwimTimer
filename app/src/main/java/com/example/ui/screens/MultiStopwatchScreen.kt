@@ -86,17 +86,17 @@ fun MultiStopwatchScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(uiState.lastUndoMessage) {
-        uiState.lastUndoMessage?.let {
-            snackbarHostState.showSnackbar(it)
+        uiState.lastUndoMessage?.let { msg ->
             viewModel.clearUndoMessage()
+            snackbarHostState.showSnackbar(msg)
         }
     }
 
     LaunchedEffect(uiState.isSessionSavedSuccess) {
         if (uiState.isSessionSavedSuccess) {
             val msg = uiState.saveNotificationMessage ?: "Trainingseinheit erfolgreich gespeichert!"
-            snackbarHostState.showSnackbar(msg)
             viewModel.clearSavedSuccess()
+            snackbarHostState.showSnackbar(msg)
         }
     }
 

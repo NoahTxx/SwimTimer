@@ -663,8 +663,8 @@ class StopwatchViewModel(
                         val lapTime = (exactFinalTime - previousSplit).coerceAtLeast(0L)
                         val totalSplitsNeeded = (lane.targetDistanceMeters / lane.splitDistanceMeters).coerceAtLeast(1)
 
-                        // Only append a final lap if not already at required split count and >150ms since last split
-                        val finishLap = if (exactFinalTime > 0L && lane.laps.size < totalSplitsNeeded && lapTime >= 150L) {
+                        // Only append a final lap if not already at required split count
+                        val finishLap = if (exactFinalTime > 0L && lane.laps.size < totalSplitsNeeded) {
                             val deltaTarget = lane.targetLapMillis?.let { lapTime - it }
                             LapItem(
                                 lapIndex = totalSplitsNeeded,
@@ -765,9 +765,6 @@ class StopwatchViewModel(
             val previousSplit = lane.laps.lastOrNull()?.splitTimeMillis ?: 0L
             val lapTime = (splitTime - previousSplit).coerceAtLeast(0L)
 
-            // Debounce accidental double-tap / water drop under 1.5 seconds
-            if (lapTime < MIN_LAP_DURATION_MS) return@update currentState
-
             val deltaTarget = lane.targetLapMillis?.let { lapTime - it }
             val newLapIndex = lane.laps.size + 1
             val totalSplitsNeeded = (lane.targetDistanceMeters / lane.splitDistanceMeters).coerceAtLeast(1)
@@ -830,8 +827,8 @@ class StopwatchViewModel(
             val lapTime = (finalTime - previousSplit).coerceAtLeast(0L)
             val totalSplitsNeeded = (lane.targetDistanceMeters / lane.splitDistanceMeters).coerceAtLeast(1)
 
-            // Only create a new lap if we haven't already recorded all splits (and at least 150ms passed)
-            val finishLap = if (finalTime > 0L && lane.laps.size < totalSplitsNeeded && lapTime >= 150L) {
+            // Only create a new lap if we haven't already recorded all splits
+            val finishLap = if (finalTime > 0L && lane.laps.size < totalSplitsNeeded) {
                 val deltaTarget = lane.targetLapMillis?.let { lapTime - it }
                 LapItem(
                     lapIndex = totalSplitsNeeded,
@@ -880,8 +877,6 @@ class StopwatchViewModel(
                 val splitTime = roundToHundredths(computeExactLaneElapsed(lane, now, currentState.masterStartTimeRealtime))
                 val previousSplit = lane.laps.lastOrNull()?.splitTimeMillis ?: 0L
                 val lapTime = (splitTime - previousSplit).coerceAtLeast(0L)
-
-                if (lapTime < 200L) return@map lane
 
                 val deltaTarget = lane.targetLapMillis?.let { lapTime - it }
                 val newLapIndex = lane.laps.size + 1
@@ -2007,8 +2002,6 @@ class StopwatchViewModel(
     }
 
     companion object {
-        const val MIN_LAP_DURATION_MS = 1_500L
-
         fun isSameStroke(strokeA: String?, strokeB: String?): Boolean {
             if (strokeA == null || strokeB == null) return false
             val a = strokeA.trim().lowercase()
