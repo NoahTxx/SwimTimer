@@ -44,7 +44,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -62,7 +61,6 @@ import com.example.ui.theme.AquaPrimary
 import com.example.ui.theme.DeepOceanBackground
 import com.example.ui.theme.OceanSurface
 import com.example.ui.theme.SwimTimerTheme
-import kotlin.time.Duration.Companion.milliseconds
 
 enum class AppScreen {
     STOPWATCH,
@@ -109,29 +107,12 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private fun Modifier.visibleIf(isVisible: Boolean): Modifier = this.layout { measurable, constraints ->
-    val placeable = measurable.measure(constraints)
-    if (isVisible) {
-        layout(placeable.width, placeable.height) {
-            placeable.placeRelative(0, 0)
-        }
-    } else {
-        layout(0, 0) {}
-    }
-}
-
 @Composable
 fun MainAppContent(viewModel: StopwatchViewModel) {
     var currentScreen by remember { mutableStateOf(AppScreen.STOPWATCH) }
-    var precomposeOtherTabs by remember { mutableStateOf(false) }
 
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
-
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(250.milliseconds)
-        precomposeOtherTabs = true
-    }
 
     androidx.compose.runtime.LaunchedEffect(currentScreen) {
         focusManager.clearFocus()
@@ -159,24 +140,11 @@ fun MainAppContent(viewModel: StopwatchViewModel) {
                 .weight(1f)
                 .fillMaxWidth(),
         ) {
-            AppScreen.entries.forEach { screen ->
-                val isActive = currentScreen == screen
-                val shouldRender = isActive || precomposeOtherTabs
-
-                if (shouldRender) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .visibleIf(isActive)
-                    ) {
-                        when (screen) {
-                            AppScreen.STOPWATCH -> MultiStopwatchScreen(viewModel = viewModel)
-                            AppScreen.HISTORY -> SessionsHistoryScreen(viewModel = viewModel)
-                            AppScreen.SWIMMERS -> SwimmersManagementScreen(viewModel = viewModel, isActiveTab = isActive)
-                            AppScreen.TOOLS -> CoachingToolsScreen(viewModel = viewModel)
-                        }
-                    }
-                }
+            when (currentScreen) {
+                AppScreen.STOPWATCH -> MultiStopwatchScreen(viewModel = viewModel)
+                AppScreen.HISTORY -> SessionsHistoryScreen(viewModel = viewModel)
+                AppScreen.SWIMMERS -> SwimmersManagementScreen(viewModel = viewModel, isActiveTab = true)
+                AppScreen.TOOLS -> CoachingToolsScreen(viewModel = viewModel)
             }
         }
 
