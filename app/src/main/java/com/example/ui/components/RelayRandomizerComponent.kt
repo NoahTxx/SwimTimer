@@ -40,7 +40,6 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -72,11 +71,16 @@ private val TEAM_COLORS = listOf(
 )
 
 private val teamsSaver = Saver<List<List<String>>, String>(
-    save = { teams -> teams.joinToString(";") { team -> team.joinToString(",") } },
+    save = { teams -> teams.joinToString("\u001E") { team -> team.joinToString("\u001F") } },
     restore = { str ->
         if (str.isEmpty()) emptyList()
-        else str.split(";").map { teamStr -> if (teamStr.isEmpty()) emptyList() else teamStr.split(",") }
+        else str.split("\u001E").map { teamStr -> if (teamStr.isEmpty()) emptyList() else teamStr.split("\u001F") }
     }
+)
+
+private val swimmerIdsSaver = Saver<Set<Long>?, List<Long>>(
+    save = { set -> set?.toList() ?: emptyList() },
+    restore = { list -> list.toSet() }
 )
 
 @Composable
@@ -106,10 +110,12 @@ fun RelayRandomizerComponent(
         else dbSwimmers.filter { it.groupName.equals(selectedGroup, ignoreCase = true) }
     }
 
-    var selectedSwimmerIds by remember { mutableStateOf(groupSwimmers.map { it.id }.toSet()) }
+    var savedSwimmerIds by rememberSaveable(stateSaver = swimmerIdsSaver) {
+        mutableStateOf<Set<Long>?>(null)
+    }
 
-    LaunchedEffect(selectedGroup, dbSwimmers) {
-        selectedSwimmerIds = groupSwimmers.map { it.id }.toSet()
+    val selectedSwimmerIds = remember(savedSwimmerIds, groupSwimmers) {
+        savedSwimmerIds ?: groupSwimmers.map { it.id }.toSet()
     }
 
     var manualInputText by rememberSaveable { mutableStateOf("") }
@@ -160,7 +166,10 @@ fun RelayRandomizerComponent(
                 item(key = "all_chip") {
                     FilterChip(
                         selected = selectedGroup == null,
-                        onClick = { selectedGroup = null },
+                        onClick = {
+                            selectedGroup = null
+                            savedSwimmerIds = dbSwimmers.map { it.id }.toSet()
+                        },
                         label = { Text("Alle (${dbSwimmers.size})", fontSize = 12.sp, fontWeight = if (selectedGroup == null) FontWeight.Bold else FontWeight.Normal) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = AquaPrimary,
@@ -175,7 +184,11 @@ fun RelayRandomizerComponent(
                     val groupCount = groupCounts[group.lowercase()] ?: 0
                     FilterChip(
                         selected = isSelected,
-                        onClick = { selectedGroup = group },
+                        onClick = {
+                            selectedGroup = group
+                            val newSwimmers = dbSwimmers.filter { it.groupName.equals(group, ignoreCase = true) }
+                            savedSwimmerIds = newSwimmers.map { it.id }.toSet()
+                        },
                         label = { Text("$group ($groupCount)", fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = AquaPrimary,
@@ -210,7 +223,7 @@ fun RelayRandomizerComponent(
                         modifier = Modifier
                             .padding(start = 8.dp)
                             .noRippleClickable {
-                                selectedSwimmerIds = if (selectedSwimmerIds.size == groupSwimmers.size) {
+                                savedSwimmerIds = if (selectedSwimmerIds.size == groupSwimmers.size) {
                                     emptySet()
                                 } else {
                                     groupSwimmers.map { it.id }.toSet()
@@ -230,7 +243,7 @@ fun RelayRandomizerComponent(
                     FilterChip(
                         selected = isSelected,
                         onClick = {
-                            selectedSwimmerIds = if (isSelected) {
+                            savedSwimmerIds = if (isSelected) {
                                 selectedSwimmerIds - swimmer.id
                             } else {
                                 selectedSwimmerIds + swimmer.id

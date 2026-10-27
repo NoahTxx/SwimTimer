@@ -52,7 +52,9 @@ import com.example.util.TimeFormatter
 
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.snapshots.SnapshotStateList
 
 @Immutable
 data class RepetitionSplit(
@@ -60,6 +62,33 @@ data class RepetitionSplit(
     val targetMillis: Long?,
     val actualMillis: Long? = null,
     val inputText: String = ""
+)
+
+private val repSplitsSaver = listSaver<SnapshotStateList<RepetitionSplit>, String>(
+    save = { list ->
+        list.map { "${it.repIndex}\u001F${it.targetMillis ?: ""}\u001F${it.actualMillis ?: ""}\u001F${it.inputText}" }
+    },
+    restore = { savedList ->
+        val stateList = mutableStateListOf<RepetitionSplit>()
+        savedList.forEach { itemStr ->
+            val parts = itemStr.split("\u001F", limit = 4)
+            if (parts.size == 4) {
+                val repIdx = parts[0].toIntOrNull() ?: 1
+                val targetMs = parts[1].toLongOrNull()
+                val actualMs = parts[2].toLongOrNull()
+                val txt = parts[3]
+                stateList.add(
+                    RepetitionSplit(
+                        repIndex = repIdx,
+                        targetMillis = targetMs,
+                        actualMillis = actualMs,
+                        inputText = txt
+                    )
+                )
+            }
+        }
+        stateList
+    }
 )
 
 @Composable
@@ -91,7 +120,9 @@ fun IntervalSplitLoggerComponent(
         distanceMetersText.toIntOrNull()?.coerceIn(25, 1500) ?: 50
     }
 
-    val repSplits = remember { mutableStateListOf<RepetitionSplit>() }
+    val repSplits = rememberSaveable(saver = repSplitsSaver) {
+        mutableStateListOf<RepetitionSplit>()
+    }
 
     LaunchedEffect(repCount, targetMillis) {
         for (i in 0 until repSplits.size) {
