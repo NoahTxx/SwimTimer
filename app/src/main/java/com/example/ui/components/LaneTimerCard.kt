@@ -115,6 +115,7 @@ fun LaneTimerCard(
             LaneHeader(
                 laneNumber = lane.laneNumber,
                 swimmerName = lane.swimmerName,
+                seriesCount = lane.seriesCount,
                 status = lane.status,
                 targetLapMillis = lane.targetLapMillis,
                 laneAccentColor = laneAccentColor,
@@ -138,7 +139,9 @@ fun LaneTimerCard(
                 targetDistanceMeters = lane.targetDistanceMeters,
                 splitDistanceMeters = lane.splitDistanceMeters,
                 strokeType = lane.strokeType,
-                laps = lane.laps,
+                currentRunLaps = lane.laps,
+                allLaps = lane.allLaps,
+                seriesCount = lane.seriesCount,
                 isExpanded = isExpanded,
                 onExpandClick = { isExpanded = !isExpanded }
             )
@@ -158,7 +161,8 @@ fun LaneTimerCard(
 
             LaneLapsHistory(
                 isExpanded = isExpanded,
-                laps = lane.laps,
+                allLaps = lane.allLaps,
+                seriesCount = lane.seriesCount,
                 splitDistanceMeters = lane.splitDistanceMeters
             )
         }
@@ -169,6 +173,7 @@ fun LaneTimerCard(
 private fun LaneHeader(
     laneNumber: Int,
     swimmerName: String,
+    seriesCount: Int,
     status: LaneStatus,
     targetLapMillis: Long?,
     laneAccentColor: Color,
@@ -223,6 +228,23 @@ private fun LaneHeader(
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Spacer(modifier = Modifier.width(6.dp))
+
+            Surface(
+                color = Color(0xFF1B2E46),
+                shape = RoundedCornerShape(8.dp),
+                border = BorderStroke(1.dp, AquaPrimary.copy(alpha = 0.5f))
+            ) {
+                Text(
+                    text = "Serie $seriesCount",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = AquaPrimary,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    maxLines = 1
                 )
             }
         }
@@ -373,11 +395,13 @@ private fun LaneProgressAndLaps(
     targetDistanceMeters: Int,
     splitDistanceMeters: Int,
     strokeType: String,
-    laps: List<LapItem>,
+    currentRunLaps: List<LapItem>,
+    allLaps: List<LapItem>,
+    seriesCount: Int,
     isExpanded: Boolean,
     onExpandClick: () -> Unit
 ) {
-    val completedDistance = laps.size * splitDistanceMeters
+    val completedDistance = currentRunLaps.size * splitDistanceMeters
 
     Row(
         modifier = Modifier
@@ -424,13 +448,13 @@ private fun LaneProgressAndLaps(
             }
         }
 
-        if (laps.isNotEmpty()) {
+        if (allLaps.isNotEmpty()) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.clickable { onExpandClick() }
             ) {
                 Text(
-                    text = "${laps.size} Laps",
+                    text = if (seriesCount > 1) "${allLaps.size} Laps ($seriesCount S.)" else "${allLaps.size} Laps",
                     fontSize = 12.sp,
                     color = TextWhite.copy(alpha = 0.7f),
                     maxLines = 1
@@ -624,10 +648,11 @@ private fun LaneControls(
 @Composable
 private fun LaneLapsHistory(
     isExpanded: Boolean,
-    laps: List<LapItem>,
+    allLaps: List<LapItem>,
+    seriesCount: Int,
     splitDistanceMeters: Int
 ) {
-    AnimatedVisibility(visible = isExpanded && laps.isNotEmpty()) {
+    AnimatedVisibility(visible = isExpanded && allLaps.isNotEmpty()) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -638,7 +663,7 @@ private fun LaneLapsHistory(
                 color = OceanBorder
             )
 
-            laps.forEach { lap ->
+            allLaps.forEach { lap ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -646,14 +671,33 @@ private fun LaneLapsHistory(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(
-                        text = "Lap ${lap.lapIndex} (${lap.lapIndex * splitDistanceMeters}m)",
-                        fontSize = 12.sp,
-                        color = TextWhite.copy(alpha = 0.7f),
+                    Row(
                         modifier = Modifier.weight(1f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (seriesCount > 1) {
+                            Surface(
+                                color = Color(0xFF1B2E46),
+                                shape = RoundedCornerShape(4.dp),
+                                modifier = Modifier.padding(end = 6.dp)
+                            ) {
+                                Text(
+                                    text = "S${lap.seriesIndex}",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = AquaPrimary,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                )
+                            }
+                        }
+                        Text(
+                            text = "Lap ${lap.lapIndex} (${lap.lapIndex * splitDistanceMeters}m)",
+                            fontSize = 12.sp,
+                            color = TextWhite.copy(alpha = 0.7f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,

@@ -390,4 +390,55 @@ class ExampleRobolectricTest {
     vm.onResetAll()
     org.junit.Assert.assertNull(vm.uiState.value.lanes.first { it.laneNumber == 1 }.finishRealtimeMillis)
   }
+
+  @Test
+  fun `test stopwatch series functionality preserves previous laps on restart and increments seriesCount`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = com.example.data.db.AppDatabase.getInstance(context)
+    val repository = com.example.data.repository.SwimRepository(db)
+    val prefsRepo = com.example.data.repository.UserPreferencesRepository(context)
+
+    val vm = com.example.ui.StopwatchViewModel(repository, prefsRepo)
+    vm.initializeLanes(2)
+
+    val lane1Initial = vm.uiState.value.lanes.first { it.laneNumber == 1 }
+    assertEquals(1, lane1Initial.seriesCount)
+    org.junit.Assert.assertTrue(lane1Initial.completedSeriesLaps.isEmpty())
+
+    // 1. Start Lane 1
+    vm.onStartSingleLane(1)
+    vm.onLapLane(1, exactRealtime = 15_000L) // Lap 1 of Series 1
+    vm.onFinishLane(1, exactRealtime = 30_000L) // Finish Series 1
+
+    val lane1Series1Finished = vm.uiState.value.lanes.first { it.laneNumber == 1 }
+    assertEquals(com.example.ui.LaneStatus.FINISHED, lane1Series1Finished.status)
+    assertEquals(1, lane1Series1Finished.seriesCount)
+    assertEquals(2, lane1Series1Finished.laps.size)
+    assertEquals(2, lane1Series1Finished.allLaps.size)
+
+    // 2. Restart Lane 1 (Start Series 2)
+    vm.onStartSingleLane(1)
+
+    val lane1Series2Running = vm.uiState.value.lanes.first { it.laneNumber == 1 }
+    assertEquals(com.example.ui.LaneStatus.RUNNING, lane1Series2Running.status)
+    assertEquals(2, lane1Series2Running.seriesCount)
+    assertEquals(2, lane1Series2Running.completedSeriesLaps.size)
+    assertEquals(0, lane1Series2Running.laps.size)
+    assertEquals(2, lane1Series2Running.allLaps.size)
+
+    // Take lap for Series 2
+    vm.onFinishLane(1, exactRealtime = 60_000L) // Finish Series 2
+
+    val lane1Series2Finished = vm.uiState.value.lanes.first { it.laneNumber == 1 }
+    assertEquals(com.example.ui.LaneStatus.FINISHED, lane1Series2Finished.status)
+    assertEquals(2, lane1Series2Finished.seriesCount)
+    assertEquals(2, lane1Series2Finished.completedSeriesLaps.size)
+    assertEquals(1, lane1Series2Finished.laps.size)
+    assertEquals(3, lane1Series2Finished.allLaps.size)
+
+    // Verify series indices
+    assertEquals(1, lane1Series2Finished.allLaps[0].seriesIndex)
+    assertEquals(1, lane1Series2Finished.allLaps[1].seriesIndex)
+    assertEquals(2, lane1Series2Finished.allLaps[2].seriesIndex)
+  }
 }

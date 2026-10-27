@@ -53,6 +53,7 @@ data class LapItem(
     val targetLapMillis: Long? = null,
     val deltaTargetMillis: Long? = null,
     val strokeRateSpm: Double? = null,
+    val seriesIndex: Int = 1,
 )
 
 @Immutable
@@ -66,6 +67,8 @@ data class LaneState(
     val finishRealtimeMillis: Long? = null,
     val currentElapsedMillis: Long = 0L,
     val laps: List<LapItem> = emptyList(),
+    val seriesCount: Int = 1,
+    val completedSeriesLaps: List<LapItem> = emptyList(),
     val targetLapMillis: Long? = null,
     val intervalOffsetMillis: Long = 0L,
     val countdownRemainingSeconds: Int = 0,
@@ -74,7 +77,10 @@ data class LaneState(
     val strokeType: String = "Freistil",
     val spmTapStartRealtime: Long? = null,
     val currentSpm: Double? = null,
-)
+) {
+    val allLaps: List<LapItem>
+        get() = completedSeriesLaps + laps
+}
 
 sealed interface UndoAction {
     data class LapAdded(
@@ -475,6 +481,15 @@ class StopwatchViewModel(
 
     // --- Time Control Actions ---
 
+    private fun LaneState.preservePreviousSeriesIfAny(): Pair<List<LapItem>, Int> {
+        return if (this.laps.isNotEmpty() || this.status == LaneStatus.FINISHED) {
+            val taggedLaps = this.laps.map { it.copy(seriesIndex = this.seriesCount) }
+            Pair(this.completedSeriesLaps + taggedLaps, this.seriesCount + 1)
+        } else {
+            Pair(this.completedSeriesLaps, this.seriesCount)
+        }
+    }
+
     fun onStartAll() {
         SoundUtil.playStartSignal()
         val now = clock.nowMillis()
@@ -487,6 +502,7 @@ class StopwatchViewModel(
             val intervalSec = currentState.intervalOffsetSeconds
 
             val newLanes = currentLanes.mapIndexed { index, lane ->
+                val (newCompletedLaps, newSeriesCount) = lane.preservePreviousSeriesIfAny()
                 if (mode == StartMode.INTERVAL && index > 0) {
                     val offsetMillis = index * intervalSec * 1000L
                     lane.copy(
@@ -497,7 +513,9 @@ class StopwatchViewModel(
                         intervalOffsetMillis = offsetMillis,
                         countdownRemainingSeconds = index * intervalSec,
                         currentElapsedMillis = 0L,
-                        laps = emptyList()
+                        laps = emptyList(),
+                        completedSeriesLaps = newCompletedLaps,
+                        seriesCount = newSeriesCount
                     )
                 } else {
                     lane.copy(
@@ -508,6 +526,8 @@ class StopwatchViewModel(
                         intervalOffsetMillis = 0L,
                         currentElapsedMillis = 0L,
                         laps = emptyList(),
+                        completedSeriesLaps = newCompletedLaps,
+                        seriesCount = newSeriesCount,
                         countdownRemainingSeconds = 0
                     )
                 }
@@ -534,8 +554,8 @@ class StopwatchViewModel(
             if (index == -1) return@update currentState
 
             val lane = lanes[index]
+            val (newCompletedLaps, newSeriesCount) = lane.preservePreviousSeriesIfAny()
             
-            // Single start completely resets laps for this individual lane and detaches it from the master start.
             lanes[index] = lane.copy(
                 status = LaneStatus.RUNNING,
                 laneStartTimeRealtime = now,
@@ -543,6 +563,8 @@ class StopwatchViewModel(
                 finishRealtimeMillis = null,
                 currentElapsedMillis = 0L,
                 laps = emptyList(),
+                completedSeriesLaps = newCompletedLaps,
+                seriesCount = newSeriesCount,
                 intervalOffsetMillis = 0L,
                 countdownRemainingSeconds = 0
             )
@@ -574,12 +596,15 @@ class StopwatchViewModel(
             val updatedLanes = state.lanes.map { lane ->
                 val scheduledStartRealtime = baseStartRealtime + (waveIndex * staggerIntervalMillis)
                 waveIndex++
+                val (newCompletedLaps, newSeriesCount) = lane.preservePreviousSeriesIfAny()
                 lane.copy(
                     status = LaneStatus.RUNNING,
                     laneStartTimeRealtime = scheduledStartRealtime,
                     finishTimeMillis = null,
                     currentElapsedMillis = 0L,
                     laps = emptyList(),
+                    completedSeriesLaps = newCompletedLaps,
+                    seriesCount = newSeriesCount,
                     intervalOffsetMillis = 0L,
                     countdownRemainingSeconds = 0,
                     spmTapStartRealtime = null,
@@ -678,7 +703,9 @@ class StopwatchViewModel(
                                 splitTimeMillis = exactFinalTime,
                                 lapTimeMillis = lapTime,
                                 targetLapMillis = lane.targetLapMillis,
-                                deltaTargetMillis = deltaTarget
+                                deltaTargetMillis = deltaTarget,
+                                strokeRateSpm = lane.currentSpm,
+                                seriesIndex = lane.seriesCount
                             )
                         } else null
 
@@ -786,7 +813,9 @@ class StopwatchViewModel(
                 splitTimeMillis = splitTime,
                 lapTimeMillis = lapTime,
                 targetLapMillis = lane.targetLapMillis,
-                deltaTargetMillis = deltaTarget
+                deltaTargetMillis = deltaTarget,
+                strokeRateSpm = lane.currentSpm,
+                seriesIndex = lane.seriesCount
             )
 
             pushedUndo = UndoAction.LapAdded(
@@ -848,7 +877,9 @@ class StopwatchViewModel(
                     splitTimeMillis = finalTime,
                     lapTimeMillis = lapTime,
                     targetLapMillis = lane.targetLapMillis,
-                    deltaTargetMillis = deltaTarget
+                    deltaTargetMillis = deltaTarget,
+                    strokeRateSpm = lane.currentSpm,
+                    seriesIndex = lane.seriesCount
                 )
             } else null
 
@@ -908,7 +939,9 @@ class StopwatchViewModel(
                     splitTimeMillis = splitTime,
                     lapTimeMillis = lapTime,
                     targetLapMillis = lane.targetLapMillis,
-                    deltaTargetMillis = deltaTarget
+                    deltaTargetMillis = deltaTarget,
+                    strokeRateSpm = lane.currentSpm,
+                    seriesIndex = lane.seriesCount
                 )
 
                 if (isFinalLap) {
@@ -948,6 +981,8 @@ class StopwatchViewModel(
                     finishRealtimeMillis = null,
                     currentElapsedMillis = 0L,
                     laps = emptyList(),
+                    completedSeriesLaps = emptyList(),
+                    seriesCount = 1,
                     targetLapMillis = null,
                     spmTapStartRealtime = null,
                     currentSpm = null,
@@ -1362,7 +1397,7 @@ class StopwatchViewModel(
 
         viewModelScope.launch {
             val state = _uiState.value
-            val activeLanesWithLaps = state.lanes.filter { it.laps.isNotEmpty() }
+            val activeLanesWithLaps = state.lanes.filter { it.allLaps.isNotEmpty() }
             if (activeLanesWithLaps.isEmpty()) return@launch
 
             val defaultTitle = "${state.targetDistanceMeters}m ${state.strokeType}"
@@ -1384,14 +1419,14 @@ class StopwatchViewModel(
 
             val lapEntities = mutableListOf<LapRecordEntity>()
             activeLanesWithLaps.forEach { lane ->
-                lane.laps.forEach { lap ->
+                lane.allLaps.forEachIndexed { globalIndex, lap ->
                     lapEntities.add(
                         LapRecordEntity(
                             sessionId = 0, // Assigned by repository
                             swimmerId = lane.swimmerId,
                             swimmerName = lane.swimmerName,
                             laneNumber = lane.laneNumber,
-                            lapIndex = lap.lapIndex,
+                            lapIndex = globalIndex + 1,
                             splitTimeMillis = lap.splitTimeMillis,
                             lapTimeMillis = lap.lapTimeMillis,
                             targetLapMillis = lap.targetLapMillis,
@@ -1439,83 +1474,85 @@ class StopwatchViewModel(
                         var updatedPb400Free = swimmer.pb400mLagenFreeSplitMillis
 
                         var hasImproved = false
-                        // Only accept finishTime as full-distance PB if swimmer completed all required splits!
-                        val completedFullDistance = lane.laps.size >= expectedSplitsForFullDistance
-                        val finishTime = if (completedFullDistance) {
-                            lane.laps[expectedSplitsForFullDistance - 1].splitTimeMillis
-                        } else null
 
-                        // Helper to find exact cumulative split time at a specific distance (e.g. 25m, 50m, 100m)
-                        fun getCumulativeSplitAtMeters(meters: Int): Long? {
-                            if (meters % state.splitDistanceMeters != 0) return null
-                            val lapIdx = (meters / state.splitDistanceMeters) - 1
-                            return lane.laps.getOrNull(lapIdx)?.splitTimeMillis?.takeIf { it > 0L }
-                        }
+                        val runs = lane.allLaps.groupBy { it.seriesIndex }.values
+                        runs.forEach { seriesLaps ->
+                            val completedFullDistance = seriesLaps.size >= expectedSplitsForFullDistance
+                            val finishTime = if (completedFullDistance) {
+                                seriesLaps[expectedSplitsForFullDistance - 1].splitTimeMillis
+                            } else null
 
-                        // Non-Lagen: Check 25m, 50m, and 100m PBs (both full distance and exact intermediate splits)
-                        if (state.strokeType != "Lagen" && isSameStroke(state.strokeType, swimmer.favoriteStroke)) {
-                            val timeAt25m = getCumulativeSplitAtMeters(25)
-                            if (timeAt25m != null && (updatedPb25 == null || timeAt25m < updatedPb25)) {
-                                updatedPb25 = timeAt25m
-                                hasImproved = true
-                                pbAchievements.add("${swimmer.name} 25m ${swimmer.favoriteStroke}: ${TimeFormatter.formatMillis(timeAt25m, shortFormat = true)}")
+                            // Helper to find exact cumulative split time at a specific distance (e.g. 25m, 50m, 100m)
+                            fun getCumulativeSplitAtMeters(meters: Int): Long? {
+                                if (meters % state.splitDistanceMeters != 0) return null
+                                val lapIdx = (meters / state.splitDistanceMeters) - 1
+                                return seriesLaps.getOrNull(lapIdx)?.splitTimeMillis?.takeIf { it > 0L }
                             }
 
-                            val timeAt50m = getCumulativeSplitAtMeters(50)
-                            if (timeAt50m != null && (updatedPb50 == null || timeAt50m < updatedPb50)) {
-                                updatedPb50 = timeAt50m
-                                hasImproved = true
-                                pbAchievements.add("${swimmer.name} 50m ${swimmer.favoriteStroke}: ${TimeFormatter.formatMillis(timeAt50m, shortFormat = true)}")
-                            }
-
-                            val timeAt100m = getCumulativeSplitAtMeters(100)
-                            if (timeAt100m != null && (updatedPb100 == null || timeAt100m < updatedPb100)) {
-                                updatedPb100 = timeAt100m
-                                hasImproved = true
-                                pbAchievements.add("${swimmer.name} 100m ${swimmer.favoriteStroke}: ${TimeFormatter.formatMillis(timeAt100m)}")
-                            }
-                        }
-
-                        // Lagen (Official Einzel-Reihenfolge: 1. Schmett, 2. Rücken, 3. Brust, 4. Freistil)
-                        if (state.strokeType == "Lagen") {
-                            // Total Lagen PBs (only when full distance was completed!)
-                            if (state.targetDistanceMeters == 100 && finishTime != null && finishTime > 0) {
-                                if (updatedPb100Lagen == null || finishTime < updatedPb100Lagen) {
-                                    updatedPb100Lagen = finishTime
+                            // Non-Lagen: Check 25m, 50m, and 100m PBs (both full distance and exact intermediate splits)
+                            if (state.strokeType != "Lagen" && isSameStroke(state.strokeType, swimmer.favoriteStroke)) {
+                                val timeAt25m = getCumulativeSplitAtMeters(25)
+                                if (timeAt25m != null && (updatedPb25 == null || timeAt25m < updatedPb25)) {
+                                    updatedPb25 = timeAt25m
                                     hasImproved = true
-                                    pbAchievements.add("${swimmer.name} 100m Lagen: ${TimeFormatter.formatMillis(finishTime)}")
+                                    pbAchievements.add("${swimmer.name} 25m ${swimmer.favoriteStroke}: ${TimeFormatter.formatMillis(timeAt25m, shortFormat = true)}")
                                 }
-                            } else if (state.targetDistanceMeters == 200 && finishTime != null && finishTime > 0) {
-                                if (updatedPb200Lagen == null || finishTime < updatedPb200Lagen) {
-                                    updatedPb200Lagen = finishTime
+
+                                val timeAt50m = getCumulativeSplitAtMeters(50)
+                                if (timeAt50m != null && (updatedPb50 == null || timeAt50m < updatedPb50)) {
+                                    updatedPb50 = timeAt50m
                                     hasImproved = true
-                                    pbAchievements.add("${swimmer.name} 200m Lagen: ${TimeFormatter.formatMillis(finishTime)}")
+                                    pbAchievements.add("${swimmer.name} 50m ${swimmer.favoriteStroke}: ${TimeFormatter.formatMillis(timeAt50m, shortFormat = true)}")
                                 }
-                            } else if (state.targetDistanceMeters == 400 && finishTime != null && finishTime > 0) {
-                                if (updatedPb400Lagen == null || finishTime < updatedPb400Lagen) {
-                                    updatedPb400Lagen = finishTime
+
+                                val timeAt100m = getCumulativeSplitAtMeters(100)
+                                if (timeAt100m != null && (updatedPb100 == null || timeAt100m < updatedPb100)) {
+                                    updatedPb100 = timeAt100m
                                     hasImproved = true
-                                    pbAchievements.add("${swimmer.name} 400m Lagen: ${TimeFormatter.formatMillis(finishTime)}")
+                                    pbAchievements.add("${swimmer.name} 100m ${swimmer.favoriteStroke}: ${TimeFormatter.formatMillis(timeAt100m)}")
                                 }
                             }
 
-                            val legDist = (state.targetDistanceMeters / 4).coerceAtLeast(1)
-                            // Only evaluate individual medley legs if splitDistance cleanly divides legDist
-                            if (legDist % state.splitDistanceMeters == 0) {
-                                val splitsPerLeg = (legDist / state.splitDistanceMeters).coerceAtLeast(1)
-
-                                fun getLegTime(legIndex: Int): Long? {
-                                    val startIdx = legIndex * splitsPerLeg
-                                    val endIdx = startIdx + splitsPerLeg
-                                    if (lane.laps.size >= endIdx) {
-                                        var sum = 0L
-                                        for (i in startIdx until endIdx) {
-                                            sum += lane.laps[i].lapTimeMillis
-                                        }
-                                        return if (sum > 0) sum else null
+                            // Lagen (Official Einzel-Reihenfolge: 1. Schmett, 2. Rücken, 3. Brust, 4. Freistil)
+                            if (state.strokeType == "Lagen") {
+                                // Total Lagen PBs (only when full distance was completed!)
+                                if (state.targetDistanceMeters == 100 && finishTime != null && finishTime > 0) {
+                                    if (updatedPb100Lagen == null || finishTime < updatedPb100Lagen) {
+                                        updatedPb100Lagen = finishTime
+                                        hasImproved = true
+                                        pbAchievements.add("${swimmer.name} 100m Lagen: ${TimeFormatter.formatMillis(finishTime)}")
                                     }
-                                    return null
+                                } else if (state.targetDistanceMeters == 200 && finishTime != null && finishTime > 0) {
+                                    if (updatedPb200Lagen == null || finishTime < updatedPb200Lagen) {
+                                        updatedPb200Lagen = finishTime
+                                        hasImproved = true
+                                        pbAchievements.add("${swimmer.name} 200m Lagen: ${TimeFormatter.formatMillis(finishTime)}")
+                                    }
+                                } else if (state.targetDistanceMeters == 400 && finishTime != null && finishTime > 0) {
+                                    if (updatedPb400Lagen == null || finishTime < updatedPb400Lagen) {
+                                        updatedPb400Lagen = finishTime
+                                        hasImproved = true
+                                        pbAchievements.add("${swimmer.name} 400m Lagen: ${TimeFormatter.formatMillis(finishTime)}")
+                                    }
                                 }
+
+                                val legDist = (state.targetDistanceMeters / 4).coerceAtLeast(1)
+                                // Only evaluate individual medley legs if splitDistance cleanly divides legDist
+                                if (legDist % state.splitDistanceMeters == 0) {
+                                    val splitsPerLeg = (legDist / state.splitDistanceMeters).coerceAtLeast(1)
+
+                                    fun getLegTime(legIndex: Int): Long? {
+                                        val startIdx = legIndex * splitsPerLeg
+                                        val endIdx = startIdx + splitsPerLeg
+                                        if (seriesLaps.size >= endIdx) {
+                                            var sum = 0L
+                                            for (i in startIdx until endIdx) {
+                                                sum += seriesLaps[i].lapTimeMillis
+                                            }
+                                            return if (sum > 0) sum else null
+                                        }
+                                        return null
+                                    }
 
                                 val flyLegTime = getLegTime(0)
                                 val backLegTime = getLegTime(1)
@@ -1677,6 +1714,7 @@ class StopwatchViewModel(
                                     }
                                 }
                             }
+                        }
                         }
 
                         if (hasImproved) {

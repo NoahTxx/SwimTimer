@@ -148,7 +148,7 @@ fun DrillQuickfinderComponent(
 
         // FILTER LEVEL 1: Hauptkategorie (Schwimmart)
         LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.padding(bottom = 6.dp)
         ) {
             items(STROKE_FILTERS, key = { it }) { filter ->
@@ -160,12 +160,19 @@ fun DrillQuickfinderComponent(
                         selectedFocusAreaFilter = "Alle"
                         selectedSpecificFocusFilter = "Alle"
                     },
-                    label = { Text(filter, fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                    shape = RoundedCornerShape(10.dp),
+                    label = { Text(filter, fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium) },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = AquaPrimary,
                         selectedLabelColor = Color.Black,
                         containerColor = OceanSurface,
-                        labelColor = Color.LightGray
+                        labelColor = TextWhite.copy(alpha = 0.85f)
+                    ),
+                    border = FilterChipDefaults.filterChipBorder(
+                        enabled = true,
+                        selected = isSelected,
+                        borderColor = Color(0xFF1B2E46),
+                        selectedBorderColor = AquaPrimary
                     )
                 )
             }
@@ -173,7 +180,7 @@ fun DrillQuickfinderComponent(
 
         // FILTER LEVEL 2: Fokus-Bereich (Unterkategorie 1)
         LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.padding(bottom = 6.dp)
         ) {
             items(FOCUS_AREA_FILTERS, key = { it }) { focus ->
@@ -184,12 +191,19 @@ fun DrillQuickfinderComponent(
                         selectedFocusAreaFilter = focus
                         selectedSpecificFocusFilter = "Alle"
                     },
-                    label = { Text(focus, fontSize = 11.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                    shape = RoundedCornerShape(10.dp),
+                    label = { Text(focus, fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium) },
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = Color(0xFFFFD600),
+                        selectedContainerColor = AquaPrimary,
                         selectedLabelColor = Color.Black,
-                        containerColor = Color(0xFF0F1E2E),
-                        labelColor = Color.LightGray
+                        containerColor = OceanSurface,
+                        labelColor = TextWhite.copy(alpha = 0.85f)
+                    ),
+                    border = FilterChipDefaults.filterChipBorder(
+                        enabled = true,
+                        selected = isSelected,
+                        borderColor = Color(0xFF1B2E46),
+                        selectedBorderColor = AquaPrimary
                     )
                 )
             }
@@ -198,7 +212,7 @@ fun DrillQuickfinderComponent(
         // FILTER LEVEL 3: Spezifischer Schwerpunkt (Unterkategorie 2 - dynamic)
         if (availableSpecificFocuses.size > 2) {
             LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.padding(bottom = 8.dp)
             ) {
                 items(availableSpecificFocuses, key = { it }) { specific ->
@@ -206,12 +220,19 @@ fun DrillQuickfinderComponent(
                     FilterChip(
                         selected = isSelected,
                         onClick = { selectedSpecificFocusFilter = specific },
-                        label = { Text(specific, fontSize = 10.5.sp) },
+                        shape = RoundedCornerShape(10.dp),
+                        label = { Text(specific, fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium) },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Color(0xFF00E676),
+                            selectedContainerColor = AquaPrimary,
                             selectedLabelColor = Color.Black,
-                            containerColor = Color(0xFF0A1828),
-                            labelColor = Color.Gray
+                            containerColor = OceanSurface,
+                            labelColor = TextWhite.copy(alpha = 0.85f)
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = isSelected,
+                            borderColor = Color(0xFF1B2E46),
+                            selectedBorderColor = AquaPrimary
                         )
                     )
                 }
@@ -222,14 +243,14 @@ fun DrillQuickfinderComponent(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 2.dp, vertical = 2.dp),
+                        .padding(horizontal = 2.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "${filteredDrills.size} von ${ALL_DRILLS.size} Übungen verfeinert",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.Gray
+                        text = if (filteredDrills.size == ALL_DRILLS.size) "${ALL_DRILLS.size} Übungen" else "${filteredDrills.size} von ${ALL_DRILLS.size} Übungen",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 12.sp),
+                        color = TextWhite.copy(alpha = 0.7f)
                     )
 
                     if (selectedStrokeFilter != "Alle" || selectedFocusAreaFilter != "Alle" || selectedSpecificFocusFilter != "Alle" || searchQuery.isNotEmpty()) {

@@ -823,6 +823,8 @@ private fun AddSwimmerDialog(
     var breastSplitText by remember { mutableStateOf("") }
     var freeSplitText by remember { mutableStateOf("") }
 
+    var isSplitsExpanded by remember { mutableStateOf(false) }
+
     val strokeOptions = listOf("Freistil", "Brust", "Rücken", "Schmetterling", "Lagen")
 
     Dialog(onDismissRequest = onDismiss) {
@@ -848,7 +850,15 @@ private fun AddSwimmerDialog(
                     maxLines = 1
                 )
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // --- ABSCHNITT 1: STAMMDATEN ---
+                Text(
+                    text = "STAMMDATEN",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
+                    color = AquaPrimary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
 
                 // Name field
                 OutlinedTextField(
@@ -866,7 +876,8 @@ private fun AddSwimmerDialog(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = TextWhite,
                         unfocusedTextColor = TextWhite,
-                        focusedBorderColor = AquaPrimary
+                        focusedBorderColor = AquaPrimary,
+                        unfocusedBorderColor = Color(0xFF1B2E46)
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -945,7 +956,7 @@ private fun AddSwimmerDialog(
                             focusedTextColor = TextWhite,
                             unfocusedTextColor = TextWhite,
                             focusedBorderColor = AquaPrimary,
-                            unfocusedBorderColor = Color.Gray,
+                            unfocusedBorderColor = Color(0xFF1B2E46),
                             focusedLabelColor = AquaPrimary
                         ),
                         modifier = Modifier
@@ -978,9 +989,16 @@ private fun AddSwimmerDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                // Standard PB fields (Optional)
+                // --- ABSCHNITT 2: STANDARD BESTZEITEN ---
+                Text(
+                    text = "BESTZEITEN (OPTIONAL)",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
+                    color = AquaPrimary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -994,7 +1012,8 @@ private fun AddSwimmerDialog(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = TextWhite,
                             unfocusedTextColor = TextWhite,
-                            focusedBorderColor = AquaPrimary
+                            focusedBorderColor = AquaPrimary,
+                            unfocusedBorderColor = Color(0xFF1B2E46)
                         ),
                         modifier = Modifier.weight(1f)
                     )
@@ -1007,7 +1026,8 @@ private fun AddSwimmerDialog(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = TextWhite,
                             unfocusedTextColor = TextWhite,
-                            focusedBorderColor = AquaPrimary
+                            focusedBorderColor = AquaPrimary,
+                            unfocusedBorderColor = Color(0xFF1B2E46)
                         ),
                         modifier = Modifier.weight(1f)
                     )
@@ -1020,21 +1040,23 @@ private fun AddSwimmerDialog(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = TextWhite,
                             unfocusedTextColor = TextWhite,
-                            focusedBorderColor = AquaPrimary
+                            focusedBorderColor = AquaPrimary,
+                            unfocusedBorderColor = Color(0xFF1B2E46)
                         ),
                         modifier = Modifier.weight(1f)
                     )
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                // Lagen PBs (100m, 200m, 400m)
+                // --- ABSCHNITT 3: LAGEN WETTKAMPFZEITEN ---
                 Text(
-                    text = "Lagen Wettkampfzeiten (optional, z.B. 1:03.50):",
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                    text = "LAGEN WETTKAMPFZEITEN (OPTIONAL)",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
                     color = Color(0xFFFFD600)
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(8.dp))
+
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     OutlinedTextField(
                         value = pb100LagenText,
@@ -1045,7 +1067,8 @@ private fun AddSwimmerDialog(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = TextWhite,
                             unfocusedTextColor = TextWhite,
-                            focusedBorderColor = Color(0xFFFFD600)
+                            focusedBorderColor = Color(0xFFFFD600),
+                            unfocusedBorderColor = Color(0xFF1B2E46)
                         ),
                         modifier = Modifier.weight(1f)
                     )
@@ -1058,7 +1081,8 @@ private fun AddSwimmerDialog(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = TextWhite,
                             unfocusedTextColor = TextWhite,
-                            focusedBorderColor = Color(0xFFFFD600)
+                            focusedBorderColor = Color(0xFFFFD600),
+                            unfocusedBorderColor = Color(0xFF1B2E46)
                         ),
                         modifier = Modifier.weight(1f)
                     )
@@ -1071,163 +1095,200 @@ private fun AddSwimmerDialog(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = TextWhite,
                             unfocusedTextColor = TextWhite,
-                            focusedBorderColor = Color(0xFFFFD600)
+                            focusedBorderColor = Color(0xFFFFD600),
+                            unfocusedBorderColor = Color(0xFF1B2E46)
                         ),
                         modifier = Modifier.weight(1f)
                     )
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                // 200m Lagen Teilstrecken (4x 50m)
-                Text(
-                    text = "200m Lagen Teilstrecken (4 × 50m):",
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                    color = AquaPrimary
-                )
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OutlinedTextField(
-                        value = pb200FlyText,
-                        onValueChange = { pb200FlyText = it },
-                        label = { Text("1. Schmett", maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        placeholder = { Text("29.50") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFFF5252)),
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = pb200BackText,
-                        onValueChange = { pb200BackText = it },
-                        label = { Text("2. Rücken", maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        placeholder = { Text("35.00") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFFFD600)),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OutlinedTextField(
-                        value = pb200BreastText,
-                        onValueChange = { pb200BreastText = it },
-                        label = { Text("3. Brust", maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        placeholder = { Text("39.80") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E676)),
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = pb200FreeText,
-                        onValueChange = { pb200FreeText = it },
-                        label = { Text("4. Kraul", maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        placeholder = { Text("28.00") },
-                        singleLine = true,
-                        supportingText = { Text("Sync 50m PB", fontSize = 8.sp, color = PaceGreen) },
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E5FF)),
-                        modifier = Modifier.weight(1f)
-                    )
+                // --- ABSCHNITT 4: LAGEN TEILSTRECKEN (AUFKLAPPBAR) ---
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFF142436),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { isSplitsExpanded = !isSplitsExpanded }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = if (isSplitsExpanded) "Lagen-Teilstrecken verbergen" else "Lagen-Teilstrecken eintragen (optional)",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = AquaPrimary
+                        )
+                        Icon(
+                            imageVector = if (isSplitsExpanded) Icons.Default.Close else Icons.Default.Add,
+                            contentDescription = null,
+                            tint = AquaPrimary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(4.dp))
+                if (isSplitsExpanded) {
+                    Spacer(modifier = Modifier.height(10.dp))
 
-                // 400m Lagen Teilstrecken (4x 100m)
-                Text(
-                    text = "400m Lagen Teilstrecken (4 × 100m):",
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                    color = Color(0xFF80D8FF)
-                )
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OutlinedTextField(
-                        value = pb400FlyText,
-                        onValueChange = { pb400FlyText = it },
-                        label = { Text("1. Schmett", maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        placeholder = { Text("1:04.50") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFFF5252)),
-                        modifier = Modifier.weight(1f)
+                    // 100m Lagen Teilstrecken (4x 25m)
+                    Text(
+                        text = "100m Lagen Teilstrecken (4 × 25m):",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = Color(0xFFFFD600)
                     )
-                    OutlinedTextField(
-                        value = pb400BackText,
-                        onValueChange = { pb400BackText = it },
-                        label = { Text("2. Rücken", maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        placeholder = { Text("1:14.00") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFFFD600)),
-                        modifier = Modifier.weight(1f)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        OutlinedTextField(
+                            value = flySplitText,
+                            onValueChange = { flySplitText = it },
+                            label = { Text("1. Schmett", maxLines = 1) },
+                            placeholder = { Text("13.80") },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFFF5252), unfocusedBorderColor = Color(0xFF1B2E46)),
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = backSplitText,
+                            onValueChange = { backSplitText = it },
+                            label = { Text("2. Rücken", maxLines = 1) },
+                            placeholder = { Text("15.50") },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFFFD600), unfocusedBorderColor = Color(0xFF1B2E46)),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        OutlinedTextField(
+                            value = breastSplitText,
+                            onValueChange = { breastSplitText = it },
+                            label = { Text("3. Brust", maxLines = 1) },
+                            placeholder = { Text("18.00") },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E676), unfocusedBorderColor = Color(0xFF1B2E46)),
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = freeSplitText,
+                            onValueChange = { freeSplitText = it },
+                            label = { Text("4. Kraul", maxLines = 1) },
+                            placeholder = { Text("12.90") },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E5FF), unfocusedBorderColor = Color(0xFF1B2E46)),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // 200m Lagen Teilstrecken (4x 50m)
+                    Text(
+                        text = "200m Lagen Teilstrecken (4 × 50m):",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = AquaPrimary
                     )
-                }
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OutlinedTextField(
-                        value = pb400BreastText,
-                        onValueChange = { pb400BreastText = it },
-                        label = { Text("3. Brust", maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        placeholder = { Text("1:24.00") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E676)),
-                        modifier = Modifier.weight(1f)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        OutlinedTextField(
+                            value = pb200FlyText,
+                            onValueChange = { pb200FlyText = it },
+                            label = { Text("1. Schmett", maxLines = 1) },
+                            placeholder = { Text("29.50") },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFFF5252), unfocusedBorderColor = Color(0xFF1B2E46)),
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = pb200BackText,
+                            onValueChange = { pb200BackText = it },
+                            label = { Text("2. Rücken", maxLines = 1) },
+                            placeholder = { Text("35.00") },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFFFD600), unfocusedBorderColor = Color(0xFF1B2E46)),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        OutlinedTextField(
+                            value = pb200BreastText,
+                            onValueChange = { pb200BreastText = it },
+                            label = { Text("3. Brust", maxLines = 1) },
+                            placeholder = { Text("39.80") },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E676), unfocusedBorderColor = Color(0xFF1B2E46)),
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = pb200FreeText,
+                            onValueChange = { pb200FreeText = it },
+                            label = { Text("4. Kraul", maxLines = 1) },
+                            placeholder = { Text("28.00") },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E5FF), unfocusedBorderColor = Color(0xFF1B2E46)),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // 400m Lagen Teilstrecken (4x 100m)
+                    Text(
+                        text = "400m Lagen Teilstrecken (4 × 100m):",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = Color(0xFF80D8FF)
                     )
-                    OutlinedTextField(
-                        value = pb400FreeText,
-                        onValueChange = { pb400FreeText = it },
-                        label = { Text("4. Kraul", maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        placeholder = { Text("1:01.00") },
-                        singleLine = true,
-                        supportingText = { Text("Sync 100m PB", fontSize = 8.sp, color = PaceGreen) },
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E5FF)),
-                        modifier = Modifier.weight(1f)
-                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        OutlinedTextField(
+                            value = pb400FlyText,
+                            onValueChange = { pb400FlyText = it },
+                            label = { Text("1. Schmett", maxLines = 1) },
+                            placeholder = { Text("1:04.50") },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFFF5252), unfocusedBorderColor = Color(0xFF1B2E46)),
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = pb400BackText,
+                            onValueChange = { pb400BackText = it },
+                            label = { Text("2. Rücken", maxLines = 1) },
+                            placeholder = { Text("1:14.00") },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFFFD600), unfocusedBorderColor = Color(0xFF1B2E46)),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        OutlinedTextField(
+                            value = pb400BreastText,
+                            onValueChange = { pb400BreastText = it },
+                            label = { Text("3. Brust", maxLines = 1) },
+                            placeholder = { Text("1:24.00") },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E676), unfocusedBorderColor = Color(0xFF1B2E46)),
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = pb400FreeText,
+                            onValueChange = { pb400FreeText = it },
+                            label = { Text("4. Kraul", maxLines = 1) },
+                            placeholder = { Text("1:01.00") },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E5FF), unfocusedBorderColor = Color(0xFF1B2E46)),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(4.dp))
-
-                // 100m Lagen Teilstrecken (4x 25m)
-                Text(
-                    text = "100m Lagen Teilstrecken (4 × 25m):",
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                    color = Color(0xFFFFD600)
-                )
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OutlinedTextField(
-                        value = flySplitText,
-                        onValueChange = { flySplitText = it },
-                        label = { Text("1. Schmett (25m)", maxLines = 1) },
-                        placeholder = { Text("13.80") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFFF5252)),
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = backSplitText,
-                        onValueChange = { backSplitText = it },
-                        label = { Text("2. Rücken (25m)", maxLines = 1) },
-                        placeholder = { Text("15.50") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFFFD600)),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OutlinedTextField(
-                        value = breastSplitText,
-                        onValueChange = { breastSplitText = it },
-                        label = { Text("3. Brust (25m)", maxLines = 1) },
-                        placeholder = { Text("18.00") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E676)),
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = freeSplitText,
-                        onValueChange = { freeSplitText = it },
-                        label = { Text("4. Kraul (25m)", maxLines = 1) },
-                        placeholder = { Text("12.90") },
-                        singleLine = true,
-                        supportingText = { Text("Sync 25m PB", fontSize = 8.sp, color = PaceGreen) },
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E5FF)),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),

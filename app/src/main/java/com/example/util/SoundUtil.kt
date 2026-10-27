@@ -22,23 +22,33 @@ object SoundUtil {
     }
 
     /**
-     * Official swimming electronic start horn/whistle tone (loud 350ms beep)
+     * Official swimming electronic start horn signal (loud high-pitch 400ms beep)
      */
     fun playStartSignal() {
         executor.execute {
             try {
-                getOrCreateGenerator()?.startTone(ToneGenerator.TONE_PROP_BEEP, 350)
+                val gen = getOrCreateGenerator() ?: return@execute
+                try {
+                    gen.startTone(ToneGenerator.TONE_CDMA_HIGH_L, 400)
+                } catch (_: Exception) {
+                    gen.startTone(ToneGenerator.TONE_PROP_BEEP, 400)
+                }
             } catch (_: Exception) {}
         }
     }
 
     /**
-     * Countdown preparatory beep (120ms)
+     * Countdown preparatory beep (distinct short mid-pitch 100ms tone)
      */
     fun playCountdownBeep() {
         executor.execute {
             try {
-                getOrCreateGenerator()?.startTone(ToneGenerator.TONE_PROP_BEEP2, 120)
+                val gen = getOrCreateGenerator() ?: return@execute
+                try {
+                    gen.startTone(ToneGenerator.TONE_PROP_BEEP2, 100)
+                } catch (_: Exception) {
+                    gen.startTone(ToneGenerator.TONE_CDMA_PIP, 100)
+                }
             } catch (_: Exception) {}
         }
     }
