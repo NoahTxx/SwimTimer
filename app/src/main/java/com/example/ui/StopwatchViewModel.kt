@@ -459,7 +459,7 @@ class StopwatchViewModel(
                             val remainingMs = (laneStartTarget - now).coerceAtLeast(0L)
                             val remainingSec = ((remainingMs + 999L) / 1000L).toInt()
                             if (remainingSec != lane.countdownRemainingSeconds && remainingSec in 1..3) {
-                                SoundUtil.playCountdownBeep()
+                                SoundUtil.playCountdownBeep(remainingSec)
                             }
                             lane.copy(countdownRemainingSeconds = remainingSec)
                         }
@@ -1789,20 +1789,23 @@ class StopwatchViewModel(
         pb400Fly: Long? = null,
         pb400Back: Long? = null,
         pb400Breast: Long? = null,
-        pb400Free: Long? = null
+        pb400Free: Long? = null,
+        customPbsMap: Map<Pair<String, Int>, Long>? = null
     ) {
         viewModelScope.launch {
+            val resolvedStroke = if (stroke == "Lagen") "Freistil" else stroke
+            val customJson = customPbsMap?.let { SwimmerEntity.serializeCustomPbsMap(it) }
             val swimmer = SwimmerEntity(
                 name = name.trim(),
                 ageGroup = "Offen",
-                favoriteStroke = stroke,
+                favoriteStroke = resolvedStroke,
                 groupName = groupName?.trim()?.takeIf { it.isNotBlank() },
-                pb25mMillis = pb25m,
-                pb50mMillis = pb50m,
-                pb100mMillis = pb100m,
-                pb100mLagenMillis = pb100mLagen,
-                pb200mLagenMillis = pb200mLagen,
-                pb400mLagenMillis = pb400mLagen,
+                pb25mMillis = pb25m ?: customPbsMap?.get(resolvedStroke to 25),
+                pb50mMillis = pb50m ?: customPbsMap?.get(resolvedStroke to 50),
+                pb100mMillis = pb100m ?: customPbsMap?.get(resolvedStroke to 100),
+                pb100mLagenMillis = pb100mLagen ?: customPbsMap?.get("Lagen" to 100),
+                pb200mLagenMillis = pb200mLagen ?: customPbsMap?.get("Lagen" to 200),
+                pb400mLagenMillis = pb400mLagen ?: customPbsMap?.get("Lagen" to 400),
                 lagenFlySplitMillis = flySplit,
                 lagenBackSplitMillis = backSplit,
                 lagenBreastSplitMillis = breastSplit,
@@ -1814,7 +1817,8 @@ class StopwatchViewModel(
                 pb400mLagenFlySplitMillis = pb400Fly,
                 pb400mLagenBackSplitMillis = pb400Back,
                 pb400mLagenBreastSplitMillis = pb400Breast,
-                pb400mLagenFreeSplitMillis = pb400Free
+                pb400mLagenFreeSplitMillis = pb400Free,
+                customPbsJson = customJson
             )
             repository.insertSwimmer(swimmer)
         }

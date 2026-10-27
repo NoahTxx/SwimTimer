@@ -153,6 +153,14 @@ fun DrillQuickfinderComponent(
         ) {
             items(STROKE_FILTERS, key = { it }) { filter ->
                 val isSelected = selectedStrokeFilter == filter
+                val catColor = when (filter) {
+                    "Kraul" -> Color(0xFF00E5FF)
+                    "Rücken" -> Color(0xFFFFD600)
+                    "Brust" -> Color(0xFF00E676)
+                    "Delfin" -> Color(0xFFFF5252)
+                    "Wenden / Starts" -> Color(0xFFFF9100)
+                    else -> AquaPrimary
+                }
                 FilterChip(
                     selected = isSelected,
                     onClick = {
@@ -161,18 +169,24 @@ fun DrillQuickfinderComponent(
                         selectedSpecificFocusFilter = "Alle"
                     },
                     shape = RoundedCornerShape(10.dp),
-                    label = { Text(filter, fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium) },
+                    label = {
+                        Text(
+                            text = filter,
+                            fontSize = 12.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold
+                        )
+                    },
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = AquaPrimary,
+                        selectedContainerColor = catColor,
                         selectedLabelColor = Color.Black,
-                        containerColor = OceanSurface,
-                        labelColor = TextWhite.copy(alpha = 0.85f)
+                        containerColor = if (filter == "Alle") OceanSurface else catColor.copy(alpha = 0.15f),
+                        labelColor = if (filter == "Alle") TextWhite.copy(alpha = 0.85f) else catColor
                     ),
                     border = FilterChipDefaults.filterChipBorder(
                         enabled = true,
                         selected = isSelected,
-                        borderColor = Color(0xFF1B2E46),
-                        selectedBorderColor = AquaPrimary
+                        borderColor = if (filter == "Alle") Color(0xFF1B2E46) else catColor.copy(alpha = 0.5f),
+                        selectedBorderColor = catColor
                     )
                 )
             }

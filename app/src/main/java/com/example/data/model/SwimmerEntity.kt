@@ -35,4 +35,41 @@ data class SwimmerEntity(
     val colorHex: Long = 0xFF00E5FF,
     val notes: String = "",
     val groupName: String? = null,
-)
+    val customPbsJson: String? = null,
+) {
+    fun parseCustomPbsMap(): Map<Pair<String, Int>, Long> {
+        if (customPbsJson.isNullOrBlank()) return emptyMap()
+        val result = mutableMapOf<Pair<String, Int>, Long>()
+        try {
+            val json = org.json.JSONObject(customPbsJson)
+            val keys = json.keys()
+            while (keys.hasNext()) {
+                val key = keys.next()
+                val parts = key.split("_")
+                if (parts.size == 2) {
+                    val stroke = parts[0]
+                    val dist = parts[1].toIntOrNull()
+                    val millis = json.optLong(key, -1L)
+                    if (dist != null && millis > 0L) {
+                        result[stroke to dist] = millis
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+        return result
+    }
+
+    companion object {
+        fun serializeCustomPbsMap(map: Map<Pair<String, Int>, Long>): String? {
+            if (map.isEmpty()) return null
+            val json = org.json.JSONObject()
+            map.forEach { (strokeDist, millis) ->
+                if (millis > 0L) {
+                    val key = "${strokeDist.first}_${strokeDist.second}"
+                    json.put(key, millis)
+                }
+            }
+            return json.toString()
+        }
+    }
+}

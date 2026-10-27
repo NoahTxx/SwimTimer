@@ -249,6 +249,8 @@ private fun LaneHeader(
             }
         }
 
+        Spacer(modifier = Modifier.width(10.dp))
+
         Row(verticalAlignment = Alignment.CenterVertically) {
             SuggestionChip(
                 onClick = onTargetPaceClick,
