@@ -33,7 +33,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -128,28 +127,10 @@ fun CoachingToolsScreen(
 
         // Active Tool Section View
         Box(modifier = Modifier.fillMaxSize()) {
-            CoachingToolSection.entries.forEach { section ->
-                val isSelected = selectedSection == section
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .layout { measurable, constraints ->
-                            val placeable = measurable.measure(constraints)
-                            if (isSelected) {
-                                layout(placeable.width, placeable.height) {
-                                    placeable.placeRelative(0, 0)
-                                }
-                            } else {
-                                layout(0, 0) {}
-                            }
-                        }
-                ) {
-                    when (section) {
-                        CoachingToolSection.DRILLS -> DrillQuickfinderComponent()
-                        CoachingToolSection.RELAY -> RelayRandomizerComponent(dbSwimmers = swimmers, availableGroups = availableGroups)
-                        CoachingToolSection.LOGGER -> IntervalSplitLoggerComponent()
-                    }
-                }
+            when (selectedSection) {
+                CoachingToolSection.DRILLS -> DrillQuickfinderComponent()
+                CoachingToolSection.RELAY -> RelayRandomizerComponent(dbSwimmers = swimmers, availableGroups = availableGroups)
+                CoachingToolSection.LOGGER -> IntervalSplitLoggerComponent()
             }
         }
     }

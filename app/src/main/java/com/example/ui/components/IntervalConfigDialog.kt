@@ -38,6 +38,17 @@ import com.example.ui.StartMode
 import com.example.ui.theme.AquaPrimary
 import com.example.ui.theme.TextWhite
 
+private fun getAvailableSplitOptions(distance: Int): List<Int> = when (distance) {
+    25 -> listOf(25)
+    50 -> listOf(25, 50)
+    100 -> listOf(25, 50, 100)
+    200 -> listOf(25, 50, 100, 200)
+    400 -> listOf(25, 50, 100, 200, 400)
+    800 -> listOf(25, 50, 100, 200, 400, 800)
+    1500 -> listOf(25, 50, 100, 200, 500, 1500)
+    else -> listOf(25, 50, 100)
+}
+
 @Composable
 fun IntervalConfigDialog(
     currentStartMode: StartMode,
@@ -66,23 +77,9 @@ fun IntervalConfigDialog(
         listOf(25, 50, 100, 200, 400, 800, 1500)
     }
 
-    // 25m splits available for ALL distances!
-    val availableSplitOptions = when (distance) {
-        25 -> listOf(25)
-        50 -> listOf(25, 50)
-        100 -> listOf(25, 50, 100)
-        200 -> listOf(25, 50, 100, 200)
-        400 -> listOf(25, 50, 100, 200, 400)
-        800 -> listOf(25, 50, 100, 200, 400, 800)
-        1500 -> listOf(25, 50, 100, 200, 500, 1500)
-        else -> listOf(25, 50, 100)
-    }
-
-    if (!availableSplitOptions.contains(splitDistance)) {
-        splitDistance = 25
-    }
-
-    val expectedLaps = (distance / splitDistance).coerceAtLeast(1)
+    val availableSplitOptions = remember(distance) { getAvailableSplitOptions(distance) }
+    val effectiveSplitDistance = if (splitDistance in availableSplitOptions) splitDistance else availableSplitOptions.first()
+    val expectedLaps = (distance / effectiveSplitDistance).coerceAtLeast(1)
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -220,9 +217,15 @@ fun IntervalConfigDialog(
                             selected = stroke == s,
                             onClick = {
                                 stroke = s
+                                var newDist = distance
                                 if (s == "Lagen") {
-                                    if (distance < 100) distance = 100
-                                    if (distance > 400) distance = 400
+                                    if (newDist < 100) newDist = 100
+                                    if (newDist > 400) newDist = 400
+                                }
+                                distance = newDist
+                                val newSplits = getAvailableSplitOptions(newDist)
+                                if (splitDistance !in newSplits) {
+                                    splitDistance = newSplits.first()
                                 }
                             },
                             label = { Text(s, maxLines = 1) },
@@ -270,6 +273,10 @@ fun IntervalConfigDialog(
                             selected = distance == d,
                             onClick = {
                                 distance = d
+                                val newSplits = getAvailableSplitOptions(d)
+                                if (splitDistance !in newSplits) {
+                                    splitDistance = newSplits.first()
+                                }
                             },
                             label = { Text("${d}m", maxLines = 1) },
                             colors = FilterChipDefaults.filterChipColors(
@@ -298,7 +305,7 @@ fun IntervalConfigDialog(
                     availableSplitOptions.forEach { sDist ->
                         val labelText = if (sDist == distance) "Nur Ziel (${sDist}m)" else "Alle ${sDist}m"
                         FilterChip(
-                            selected = splitDistance == sDist,
+                            selected = effectiveSplitDistance == sDist,
                             onClick = { splitDistance = sDist },
                             label = { Text(labelText, maxLines = 1) },
                             colors = FilterChipDefaults.filterChipColors(
@@ -309,8 +316,8 @@ fun IntervalConfigDialog(
                     }
                 }
                 val splitInfoText = when {
-                    (stroke == "Lagen") && (splitDistance == 25) -> "25m Splits aktiv: Erfasst 1. Schmett, 2. Rücken, 3. Brust, 4. Freistil separat als Bestzeiten!"
-                    splitDistance < distance -> "Splits alle ${splitDistance}m • $expectedLaps Laps bis Ziel (${distance}m)"
+                    (stroke == "Lagen") && (effectiveSplitDistance == 25) -> "25m Splits aktiv: Erfasst 1. Schmett, 2. Rücken, 3. Brust, 4. Freistil separat als Bestzeiten!"
+                    effectiveSplitDistance < distance -> "Splits alle ${effectiveSplitDistance}m • $expectedLaps Laps bis Ziel (${distance}m)"
                     else -> "Nur Endzeit wird gestoppt (1 Lap)"
                 }
                 Text(
@@ -337,7 +344,7 @@ fun IntervalConfigDialog(
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = {
-                            onSave(mode, intervalSec, poolLength, distance, splitDistance, stroke)
+                            onSave(mode, intervalSec, poolLength, distance, effectiveSplitDistance, stroke)
                             onDismiss()
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = AquaPrimary)

@@ -10,6 +10,9 @@ import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
 object ExportHelper {
 
     val LAGEN_SHORT_NAMES = listOf("Schmett", "Rücken", "Brust", "Freistil")
@@ -86,39 +89,40 @@ object ExportHelper {
         return sb.toString()
     }
 
-    fun shareSession(context: Context, sessionWithLaps: SessionWithLaps) {
-        val summaryText = generateTextSummary(sessionWithLaps)
-        val csvContent = generateCsv(sessionWithLaps)
+    suspend fun shareSession(context: Context, sessionWithLaps: SessionWithLaps) {
+        val shareIntent = withContext(Dispatchers.IO) {
+            val summaryText = generateTextSummary(sessionWithLaps)
+            val csvContent = generateCsv(sessionWithLaps)
+            try {
+                val fileName = "SwimSession_${sessionWithLaps.session.id}_${System.currentTimeMillis()}.csv"
+                val file = File(context.cacheDir, fileName)
+                FileOutputStream(file).use { out ->
+                    out.write(csvContent.toByteArray(Charsets.UTF_8))
+                }
 
-        try {
-            val fileName = "SwimSession_${sessionWithLaps.session.id}_${System.currentTimeMillis()}.csv"
-            val file = File(context.cacheDir, fileName)
-            FileOutputStream(file).use { out ->
-                out.write(csvContent.toByteArray(Charsets.UTF_8))
+                val uri = FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    file,
+                )
+
+                Intent(Intent.ACTION_SEND).apply {
+                    type = "text/csv"
+                    putExtra(Intent.EXTRA_SUBJECT, "Schwimmzeiten: ${sessionWithLaps.session.title}")
+                    putExtra(Intent.EXTRA_TEXT, summaryText)
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+            } catch (_: Exception) {
+                Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_SUBJECT, "Schwimmzeiten: ${sessionWithLaps.session.title}")
+                    putExtra(Intent.EXTRA_TEXT, summaryText)
+                }
             }
-
-            val uri = FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                file,
-            )
-
-            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                type = "text/csv"
-                putExtra(Intent.EXTRA_SUBJECT, "Schwimmzeiten: ${sessionWithLaps.session.title}")
-                putExtra(Intent.EXTRA_TEXT, summaryText)
-                putExtra(Intent.EXTRA_STREAM, uri)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
+        }
+        withContext(Dispatchers.Main) {
             context.startActivity(Intent.createChooser(shareIntent, "Training exportieren & teilen"))
-        } catch (_: Exception) {
-            // Fallback to text sharing if file writing fails
-            val textIntent = Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(Intent.EXTRA_SUBJECT, "Schwimmzeiten: ${sessionWithLaps.session.title}")
-                putExtra(Intent.EXTRA_TEXT, summaryText)
-            }
-            context.startActivity(Intent.createChooser(textIntent, "Training teilen (Text)"))
         }
     }
 
@@ -200,66 +204,72 @@ object ExportHelper {
         return list
     }
 
-    fun shareSwimmersExport(context: Context, swimmers: List<SwimmerEntity>) {
-        val json = exportSwimmersToJson(swimmers)
-        try {
-            val fileName = "SwimTimer_Athleten_Export_${System.currentTimeMillis()}.json"
-            val file = File(context.cacheDir, fileName)
-            FileOutputStream(file).use { out ->
-                out.write(json.toByteArray(Charsets.UTF_8))
+    suspend fun shareSwimmersExport(context: Context, swimmers: List<SwimmerEntity>) {
+        val shareIntent = withContext(Dispatchers.IO) {
+            val json = exportSwimmersToJson(swimmers)
+            try {
+                val fileName = "SwimTimer_Athleten_Export_${System.currentTimeMillis()}.json"
+                val file = File(context.cacheDir, fileName)
+                FileOutputStream(file).use { out ->
+                    out.write(json.toByteArray(Charsets.UTF_8))
+                }
+                val uri = FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    file
+                )
+                Intent(Intent.ACTION_SEND).apply {
+                    type = "application/json"
+                    putExtra(Intent.EXTRA_SUBJECT, "SwimTimer Athleten Export (${swimmers.size} Schwimmer)")
+                    putExtra(Intent.EXTRA_TEXT, "Anbei der Export deiner ${swimmers.size} Athleten für SwimTimer.")
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+            } catch (_: Exception) {
+                Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_SUBJECT, "SwimTimer Athleten Export")
+                    putExtra(Intent.EXTRA_TEXT, json)
+                }
             }
-            val uri = FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                file
-            )
-            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                type = "application/json"
-                putExtra(Intent.EXTRA_SUBJECT, "SwimTimer Athleten Export (${swimmers.size} Schwimmer)")
-                putExtra(Intent.EXTRA_TEXT, "Anbei der Export deiner ${swimmers.size} Athleten für SwimTimer.")
-                putExtra(Intent.EXTRA_STREAM, uri)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
+        }
+        withContext(Dispatchers.Main) {
             context.startActivity(Intent.createChooser(shareIntent, "Athleten exportieren"))
-        } catch (_: Exception) {
-            val textIntent = Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(Intent.EXTRA_SUBJECT, "SwimTimer Athleten Export")
-                putExtra(Intent.EXTRA_TEXT, json)
-            }
-            context.startActivity(Intent.createChooser(textIntent, "Athleten exportieren (Text)"))
         }
     }
 
-    fun shareSessionsExport(context: Context, sessions: List<SessionWithLaps>) {
+    suspend fun shareSessionsExport(context: Context, sessions: List<SessionWithLaps>) {
         if (sessions.isEmpty()) return
-        val json = exportSessionsToJson(sessions)
-        try {
-            val fileName = "SwimTimer_Historie_Export_${System.currentTimeMillis()}.json"
-            val file = File(context.cacheDir, fileName)
-            FileOutputStream(file).use { out ->
-                out.write(json.toByteArray(Charsets.UTF_8))
+        val shareIntent = withContext(Dispatchers.IO) {
+            val json = exportSessionsToJson(sessions)
+            try {
+                val fileName = "SwimTimer_Historie_Export_${System.currentTimeMillis()}.json"
+                val file = File(context.cacheDir, fileName)
+                FileOutputStream(file).use { out ->
+                    out.write(json.toByteArray(Charsets.UTF_8))
+                }
+                val uri = FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    file
+                )
+                Intent(Intent.ACTION_SEND).apply {
+                    type = "application/json"
+                    putExtra(Intent.EXTRA_SUBJECT, "SwimTimer Historie Export (${sessions.size} Einheiten)")
+                    putExtra(Intent.EXTRA_TEXT, "Anbei der JSON-Export deiner ${sessions.size} Trainingseinheiten.")
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+            } catch (_: Exception) {
+                Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_SUBJECT, "SwimTimer Historie Export")
+                    putExtra(Intent.EXTRA_TEXT, json)
+                }
             }
-            val uri = FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                file
-            )
-            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                type = "application/json"
-                putExtra(Intent.EXTRA_SUBJECT, "SwimTimer Historie Export (${sessions.size} Einheiten)")
-                putExtra(Intent.EXTRA_TEXT, "Anbei der JSON-Export deiner ${sessions.size} Trainingseinheiten.")
-                putExtra(Intent.EXTRA_STREAM, uri)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
+        }
+        withContext(Dispatchers.Main) {
             context.startActivity(Intent.createChooser(shareIntent, "Historie exportieren"))
-        } catch (_: Exception) {
-            val textIntent = Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(Intent.EXTRA_SUBJECT, "SwimTimer Historie Export")
-                putExtra(Intent.EXTRA_TEXT, json)
-            }
-            context.startActivity(Intent.createChooser(textIntent, "Historie exportieren (Text)"))
         }
     }
 

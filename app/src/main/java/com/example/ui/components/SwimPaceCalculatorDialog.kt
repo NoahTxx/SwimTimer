@@ -33,7 +33,6 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -53,6 +52,8 @@ import com.example.ui.theme.AquaPrimary
 import com.example.ui.theme.TextWhite
 import com.example.util.TimeFormatter
 
+import androidx.compose.runtime.Immutable
+
 enum class PacingStrategy(val title: String, val subtitle: String) {
     EVEN("Gleichmäßig", "Konstante Pace pro Split"),
     NEGATIVE("Negative Split", "2. Rennhälfte ~1.5s schneller"),
@@ -60,6 +61,7 @@ enum class PacingStrategy(val title: String, val subtitle: String) {
     MEDLEY_DISTRIBUTION("Lagen-Physiologie", "Schmett 24% • Rück 26% • Brust 27% • Kraul 23%")
 }
 
+@Immutable
 data class CalculatedSplit(
     val lapIndex: Int,
     val splitDistanceMeters: Int,
@@ -67,6 +69,17 @@ data class CalculatedSplit(
     val lapDurationMillis: Long,
     val cumulativeTimeMillis: Long,
 )
+
+private fun getPaceCalculatorSplitOptions(distance: Int): List<Int> = when (distance) {
+    25 -> listOf(25)
+    50 -> listOf(25, 50)
+    100 -> listOf(25, 50, 100)
+    200 -> listOf(25, 50, 100, 200)
+    400 -> listOf(25, 50, 100, 200)
+    800 -> listOf(25, 50, 100, 200)
+    1500 -> listOf(25, 50, 100, 200, 500)
+    else -> listOf(25, 50)
+}
 
 @Composable
 fun SwimPaceCalculatorDialog(
@@ -98,45 +111,29 @@ fun SwimPaceCalculatorDialog(
     val distanceOptions = if (stroke == "Lagen") listOf(100, 200, 400) else listOf(25, 50, 100, 200, 400, 800, 1500)
     val strokeOptions = listOf("Freistil", "Brust", "Rücken", "Schmetterling", "Lagen")
 
-    // Splits: Ensure 25m is always selectable for all distances
-    val splitOptions = when (distance) {
-        25 -> listOf(25)
-        50 -> listOf(25, 50)
-        100 -> listOf(25, 50, 100)
-        200 -> listOf(25, 50, 100, 200)
-        400 -> listOf(25, 50, 100, 200)
-        800 -> listOf(25, 50, 100, 200)
-        1500 -> listOf(25, 50, 100, 200, 500)
-        else -> listOf(25, 50)
-    }
+    val splitOptions = remember(distance) { getPaceCalculatorSplitOptions(distance) }
+    val effectiveSplitDistance = if (splitDistance in splitOptions) splitDistance else splitOptions.first()
 
-    if (!splitOptions.contains(splitDistance)) {
-        splitDistance = splitOptions.first()
-    }
-
-    // Parsing target time
-    val parsedTargetMillis by remember(targetTimeInput) {
-        derivedStateOf {
-            val text = targetTimeInput.trim().replace(',', '.')
-            if (text.contains(':')) {
-                val parts = text.split(':')
-                val mins = parts[0].toLongOrNull() ?: 0L
-                val secs = parts.getOrNull(1)?.toDoubleOrNull() ?: 0.0
-                (((mins * 60) + secs) * 1000).toLong()
-            } else {
-                val secs = text.toDoubleOrNull() ?: 0.0
-                (secs * 1000).toLong()
-            }
+    // Parsing target time directly without redundant derivedStateOf
+    val parsedTargetMillis = remember(targetTimeInput) {
+        val text = targetTimeInput.trim().replace(',', '.')
+        if (text.contains(':')) {
+            val parts = text.split(':')
+            val mins = parts[0].toLongOrNull() ?: 0L
+            val secs = parts.getOrNull(1)?.toDoubleOrNull() ?: 0.0
+            (((mins * 60) + secs) * 1000).toLong()
+        } else {
+            val secs = text.toDoubleOrNull() ?: 0.0
+            (secs * 1000).toLong()
         }
     }
 
-    // Calculate splits list
-    val calculatedSplits by remember(distance, splitDistance, stroke, strategy, parsedTargetMillis) {
-        derivedStateOf {
-            val totalMillis = parsedTargetMillis
-            if (totalMillis <= 0) return@derivedStateOf emptyList()
-
-            val numLaps = (distance / splitDistance).coerceAtLeast(1)
+    // Calculate splits list directly with remember
+    val calculatedSplits = remember(distance, effectiveSplitDistance, stroke, strategy, parsedTargetMillis) {
+        val totalMillis = parsedTargetMillis
+        if (totalMillis <= 0) emptyList()
+        else {
+            val numLaps = (distance / effectiveSplitDistance).coerceAtLeast(1)
             val isLagen = stroke == "Lagen"
             val legDist = (distance / 4).coerceAtLeast(1)
             val lagenStrokes = listOf("1. Schmett", "2. Rücken", "3. Brust", "4. Freistil")
@@ -151,14 +148,14 @@ fun SwimPaceCalculatorDialog(
 
                 var accumulated = 0L
                 for (lapIdx in 1..numLaps) {
-                    val legIdx = (((lapIdx - 1) * splitDistance) / legDist).coerceIn(0, 3)
+                    val legIdx = (((lapIdx - 1) * effectiveSplitDistance) / legDist).coerceIn(0, 3)
                     val legRatio = ratios[legIdx]
                     val lapDuration = ((totalMillis * legRatio) / splitsPerLeg).toLong()
                     accumulated += lapDuration
                     splits.add(
                         CalculatedSplit(
                             lapIndex = lapIdx,
-                            splitDistanceMeters = (lapIdx * splitDistance).coerceAtMost(distance),
+                            splitDistanceMeters = (lapIdx * effectiveSplitDistance).coerceAtMost(distance),
                             strokeName = lagenStrokes[legIdx],
                             lapDurationMillis = lapDuration,
                             cumulativeTimeMillis = accumulated
@@ -176,7 +173,7 @@ fun SwimPaceCalculatorDialog(
                             splits.add(
                                 CalculatedSplit(
                                     lapIndex = lapIdx,
-                                    splitDistanceMeters = (lapIdx * splitDistance).coerceAtMost(distance),
+                                    splitDistanceMeters = (lapIdx * effectiveSplitDistance).coerceAtMost(distance),
                                     strokeName = stroke,
                                     lapDurationMillis = evenLap,
                                     cumulativeTimeMillis = accumulated
@@ -199,7 +196,7 @@ fun SwimPaceCalculatorDialog(
                             splits.add(
                                 CalculatedSplit(
                                     lapIndex = lapIdx,
-                                    splitDistanceMeters = (lapIdx * splitDistance).coerceAtMost(distance),
+                                    splitDistanceMeters = (lapIdx * effectiveSplitDistance).coerceAtMost(distance),
                                     strokeName = stroke,
                                     lapDurationMillis = lapDuration,
                                     cumulativeTimeMillis = accumulated
@@ -226,7 +223,7 @@ fun SwimPaceCalculatorDialog(
                             splits.add(
                                 CalculatedSplit(
                                     lapIndex = lapIdx,
-                                    splitDistanceMeters = (lapIdx * splitDistance).coerceAtMost(distance),
+                                    splitDistanceMeters = (lapIdx * effectiveSplitDistance).coerceAtMost(distance),
                                     strokeName = stroke,
                                     lapDurationMillis = lapDuration,
                                     cumulativeTimeMillis = accumulated
@@ -330,9 +327,15 @@ fun SwimPaceCalculatorDialog(
                             selected = stroke == s,
                             onClick = {
                                 stroke = s
+                                var newDist = distance
                                 if (s == "Lagen") {
-                                    if (distance < 100) distance = 100
+                                    if (newDist < 100) newDist = 100
                                     strategy = PacingStrategy.MEDLEY_DISTRIBUTION
+                                }
+                                distance = newDist
+                                val newSplits = getPaceCalculatorSplitOptions(newDist)
+                                if (splitDistance !in newSplits) {
+                                    splitDistance = newSplits.first()
                                 }
                             },
                             label = { Text(s, fontSize = 12.sp) },
@@ -368,7 +371,13 @@ fun SwimPaceCalculatorDialog(
                     distanceOptions.forEach { d ->
                         FilterChip(
                             selected = distance == d,
-                            onClick = { distance = d },
+                            onClick = {
+                                distance = d
+                                val newSplits = getPaceCalculatorSplitOptions(d)
+                                if (splitDistance !in newSplits) {
+                                    splitDistance = newSplits.first()
+                                }
+                            },
                             label = { Text("${d}m", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = AquaPrimary,
@@ -390,7 +399,7 @@ fun SwimPaceCalculatorDialog(
                 ) {
                     splitOptions.forEach { sDist ->
                         FilterChip(
-                            selected = splitDistance == sDist,
+                            selected = effectiveSplitDistance == sDist,
                             onClick = { splitDistance = sDist },
                             label = { Text("Alle ${sDist}m", fontSize = 12.sp) },
                             colors = FilterChipDefaults.filterChipColors(

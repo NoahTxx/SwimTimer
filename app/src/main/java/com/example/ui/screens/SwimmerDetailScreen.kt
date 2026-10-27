@@ -93,8 +93,15 @@ fun SwimmerDetailScreen(
     var isEditDialogOpen by remember { mutableStateOf(value = false) }
     var isDeleteConfirmOpen by remember { mutableStateOf(value = false) }
 
+    // Pre-filter sessions that have laps for this swimmer
+    val swimmerSessions = remember(allSessions, swimmer.id) {
+        allSessions.filter { sessionWithLaps ->
+            sessionWithLaps.laps.any { it.swimmerId == swimmer.id }
+        }
+    }
+
     // Calculate Dynamic PBs from both manual entry and session history
-    val dynamicPbs = remember(swimmer, allSessions) {
+    val dynamicPbs = remember(swimmer, swimmerSessions) {
         val pbs = mutableMapOf<Pair<String, Int>, Long>()
         
         // 1. Fill from manual entry
@@ -107,10 +114,7 @@ fun SwimmerDetailScreen(
         swimmer.pb400mLagenMillis?.let { pbs["Lagen" to 400] = it }
         
         // 2. Override with better times from history
-        val swimmerSessionsForPb = allSessions.filter { sessionWithLaps ->
-            sessionWithLaps.laps.any { it.swimmerId == swimmer.id }
-        }
-        swimmerSessionsForPb.forEach { sessionLaps ->
+        swimmerSessions.forEach { sessionLaps ->
             val s = sessionLaps.session
             val laps = sessionLaps.laps.filter { it.swimmerId == swimmer.id }.sortedBy { it.lapIndex }
             
@@ -130,13 +134,6 @@ fun SwimmerDetailScreen(
             }
         }
         pbs
-    }
-
-    // Filter sessions that have laps for this swimmer
-    val swimmerSessions = remember(allSessions, swimmer.id) {
-        allSessions.filter { sessionWithLaps ->
-            sessionWithLaps.laps.any { it.swimmerId == swimmer.id }
-        }
     }
 
     Box(

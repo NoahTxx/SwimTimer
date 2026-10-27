@@ -59,6 +59,9 @@ import com.example.ui.theme.AquaPrimary
 import com.example.ui.theme.OceanSurface
 import com.example.ui.theme.TextWhite
 
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
+
 private val TEAM_COLORS = listOf(
     Color(0xFF00E5FF),
     Color(0xFFFF5252),
@@ -66,6 +69,14 @@ private val TEAM_COLORS = listOf(
     Color(0xFF00E676),
     Color(0xFFFF4081),
     Color(0xFF7C4DFF),
+)
+
+private val teamsSaver = Saver<List<List<String>>, String>(
+    save = { teams -> teams.joinToString(";") { team -> team.joinToString(",") } },
+    restore = { str ->
+        if (str.isEmpty()) emptyList()
+        else str.split(";").map { teamStr -> if (teamStr.isEmpty()) emptyList() else teamStr.split(",") }
+    }
 )
 
 @Composable
@@ -88,7 +99,7 @@ fun RelayRandomizerComponent(
         dbSwimmers.mapNotNull { it.groupName?.trim() }.filter { it.isNotBlank() }.groupingBy { it.lowercase() }.eachCount()
     }
 
-    var selectedGroup by remember { mutableStateOf<String?>(null) }
+    var selectedGroup by rememberSaveable { mutableStateOf<String?>(null) }
 
     val groupSwimmers = remember(dbSwimmers, selectedGroup) {
         if (selectedGroup == null) dbSwimmers
@@ -101,9 +112,9 @@ fun RelayRandomizerComponent(
         selectedSwimmerIds = groupSwimmers.map { it.id }.toSet()
     }
 
-    var manualInputText by remember { mutableStateOf("") }
-    var teamCount by remember { mutableIntStateOf(2) }
-    var generatedTeams by remember { mutableStateOf<List<List<String>>>(emptyList()) }
+    var manualInputText by rememberSaveable { mutableStateOf("") }
+    var teamCount by rememberSaveable { mutableIntStateOf(2) }
+    var generatedTeams by rememberSaveable(stateSaver = teamsSaver) { mutableStateOf<List<List<String>>>(emptyList()) }
 
     fun drawTeams() {
         focusManager.clearFocus()

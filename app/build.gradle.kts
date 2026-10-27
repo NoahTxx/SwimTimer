@@ -8,6 +8,10 @@ plugins {
   alias(libs.plugins.google.services)
 }
 
+composeCompiler {
+  stabilityConfigurationFiles.add(project.layout.projectDirectory.file("compose_compiler_config.conf"))
+}
+
 android {
   namespace = "com.example"
   compileSdk = 37

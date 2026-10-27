@@ -41,7 +41,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -76,15 +75,13 @@ fun DrillQuickfinderComponent(
     var selectedSpecificFocusFilter by rememberSaveable { mutableStateOf("Alle") }
 
     // Dynamic specific focus list based on selected stroke / focus area
-    val availableSpecificFocuses by remember(selectedStrokeFilter, selectedFocusAreaFilter) {
-        derivedStateOf {
-            val filtered = ALL_DRILLS.filter { drill ->
-                val matchesStroke = (selectedStrokeFilter == "Alle") || drill.stroke.equals(selectedStrokeFilter, ignoreCase = true)
-                val matchesFocusArea = (selectedFocusAreaFilter == "Alle") || drill.focusArea.equals(selectedFocusAreaFilter, ignoreCase = true)
-                matchesStroke && matchesFocusArea
-            }
-            listOf("Alle") + filtered.mapNotNull { it.specificFocus }.distinct().sorted()
+    val availableSpecificFocuses = remember(selectedStrokeFilter, selectedFocusAreaFilter) {
+        val filtered = ALL_DRILLS.filter { drill ->
+            val matchesStroke = (selectedStrokeFilter == "Alle") || drill.stroke.equals(selectedStrokeFilter, ignoreCase = true)
+            val matchesFocusArea = (selectedFocusAreaFilter == "Alle") || drill.focusArea.equals(selectedFocusAreaFilter, ignoreCase = true)
+            matchesStroke && matchesFocusArea
         }
+        listOf("Alle") + filtered.mapNotNull { it.specificFocus }.distinct().sorted()
     }
 
     LaunchedEffect(selectedStrokeFilter, selectedFocusAreaFilter, availableSpecificFocuses) {
@@ -93,22 +90,20 @@ fun DrillQuickfinderComponent(
         }
     }
 
-    val filteredDrills by remember(searchQuery, selectedStrokeFilter, selectedFocusAreaFilter, selectedSpecificFocusFilter) {
-        derivedStateOf {
-            ALL_DRILLS.filter { drill ->
-                val matchesStroke = (selectedStrokeFilter == "Alle") || drill.stroke.equals(selectedStrokeFilter, ignoreCase = true)
-                val matchesFocusArea = (selectedFocusAreaFilter == "Alle") || drill.focusArea.equals(selectedFocusAreaFilter, ignoreCase = true)
-                val matchesSpecificFocus = (selectedSpecificFocusFilter == "Alle") || drill.specificFocus.equals(selectedSpecificFocusFilter, ignoreCase = true)
-                val matchesQuery = searchQuery.isEmpty() ||
-                        drill.title.contains(searchQuery, ignoreCase = true) ||
-                        drill.stroke.contains(searchQuery, ignoreCase = true) ||
-                        drill.focusArea.contains(searchQuery, ignoreCase = true) ||
-                        (drill.specificFocus?.contains(searchQuery, ignoreCase = true) == true) ||
-                        drill.tips.any { it.contains(searchQuery, ignoreCase = true) } ||
-                        drill.goal.contains(searchQuery, ignoreCase = true)
+    val filteredDrills = remember(searchQuery, selectedStrokeFilter, selectedFocusAreaFilter, selectedSpecificFocusFilter) {
+        ALL_DRILLS.filter { drill ->
+            val matchesStroke = (selectedStrokeFilter == "Alle") || drill.stroke.equals(selectedStrokeFilter, ignoreCase = true)
+            val matchesFocusArea = (selectedFocusAreaFilter == "Alle") || drill.focusArea.equals(selectedFocusAreaFilter, ignoreCase = true)
+            val matchesSpecificFocus = (selectedSpecificFocusFilter == "Alle") || drill.specificFocus.equals(selectedSpecificFocusFilter, ignoreCase = true)
+            val matchesQuery = searchQuery.isEmpty() ||
+                    drill.title.contains(searchQuery, ignoreCase = true) ||
+                    drill.stroke.contains(searchQuery, ignoreCase = true) ||
+                    drill.focusArea.contains(searchQuery, ignoreCase = true) ||
+                    (drill.specificFocus?.contains(searchQuery, ignoreCase = true) == true) ||
+                    drill.tips.any { it.contains(searchQuery, ignoreCase = true) } ||
+                    drill.goal.contains(searchQuery, ignoreCase = true)
 
-                matchesStroke && matchesFocusArea && matchesSpecificFocus && matchesQuery
-            }
+            matchesStroke && matchesFocusArea && matchesSpecificFocus && matchesQuery
         }
     }
 

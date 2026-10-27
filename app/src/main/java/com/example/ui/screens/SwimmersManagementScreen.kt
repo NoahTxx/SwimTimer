@@ -81,7 +81,6 @@ import com.example.util.TimeFormatter
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 @Composable
@@ -172,7 +171,7 @@ fun SwimmersManagementScreen(
                     FilledTonalIconButton(
                         onClick = {
                             if (allSwimmers.isNotEmpty()) {
-                                coroutineScope.launch(Dispatchers.IO) {
+                                coroutineScope.launch {
                                     ExportHelper.shareSwimmersExport(context, allSwimmers)
                                 }
                             }

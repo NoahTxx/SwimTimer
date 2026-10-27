@@ -51,6 +51,8 @@ import com.example.ui.theme.TextWhite
 import com.example.util.TimeFormatter
 
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.saveable.rememberSaveable
 
 @Immutable
 data class RepetitionSplit(
@@ -66,13 +68,13 @@ fun IntervalSplitLoggerComponent(
 ) {
     val focusManager = LocalFocusManager.current
 
-    var repCountText by remember { mutableStateOf("8") }
-    var distanceMetersText by remember { mutableStateOf("50") }
-    var targetInputText by remember { mutableStateOf("") }
-    var restPauseText by remember { mutableStateOf("20") }
+    var repCountText by rememberSaveable { mutableStateOf("8") }
+    var distanceMetersText by rememberSaveable { mutableStateOf("50") }
+    var targetInputText by rememberSaveable { mutableStateOf("") }
+    var restPauseText by rememberSaveable { mutableStateOf("20") }
 
-    var targetMillis by remember(targetInputText) {
-        mutableStateOf(TimeFormatter.parseTimeInputToMillis(targetInputText))
+    val targetMillis = remember(targetInputText) {
+        TimeFormatter.parseTimeInputToMillis(targetInputText)
     }
 
     val restSeconds = remember(restPauseText) {
@@ -89,10 +91,22 @@ fun IntervalSplitLoggerComponent(
         distanceMetersText.toIntOrNull()?.coerceIn(25, 1500) ?: 50
     }
 
-    val repSplits = remember(repCount, targetMillis) {
-        mutableStateListOf<RepetitionSplit>().apply {
-            for (i in 1..repCount) {
-                add(RepetitionSplit(repIndex = i, targetMillis = targetMillis))
+    val repSplits = remember { mutableStateListOf<RepetitionSplit>() }
+
+    LaunchedEffect(repCount, targetMillis) {
+        for (i in 0 until repSplits.size) {
+            val current = repSplits[i]
+            if (current.targetMillis != targetMillis) {
+                repSplits[i] = current.copy(targetMillis = targetMillis)
+            }
+        }
+        if (repSplits.size < repCount) {
+            for (i in (repSplits.size + 1)..repCount) {
+                repSplits.add(RepetitionSplit(repIndex = i, targetMillis = targetMillis))
+            }
+        } else if (repSplits.size > repCount) {
+            while (repSplits.size > repCount) {
+                repSplits.removeAt(repSplits.lastIndex)
             }
         }
     }
@@ -247,10 +261,7 @@ fun IntervalSplitLoggerComponent(
 
                     OutlinedTextField(
                         value = targetInputText,
-                        onValueChange = {
-                            targetInputText = it
-                            targetMillis = TimeFormatter.parseTimeInputToMillis(it)
-                        },
+                        onValueChange = { targetInputText = it },
                         label = { Text("Soll-Zeit (optional)", fontSize = 11.sp, color = Color.LightGray) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),

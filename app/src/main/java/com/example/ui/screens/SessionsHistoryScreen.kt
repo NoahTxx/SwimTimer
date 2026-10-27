@@ -69,7 +69,6 @@ import com.example.util.TimeFormatter
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 @Composable
@@ -120,7 +119,7 @@ fun SessionsHistoryScreen(
                 FilledTonalIconButton(
                     onClick = {
                         if (sessions.isNotEmpty()) {
-                            coroutineScope.launch(Dispatchers.IO) {
+                            coroutineScope.launch {
                                 ExportHelper.shareSessionsExport(context, sessions)
                             }
                         }
@@ -200,7 +199,12 @@ fun SessionsHistoryScreen(
                         key = { sessionWithLaps -> sessionWithLaps.session.id },
                         contentType = { "SessionHistoryCard" }
                     ) { item ->
-                        val onShare = remember(context, item) { { ExportHelper.shareSession(context, item) } }
+                        val onShare = remember(context, item, coroutineScope) {
+                            {
+                                coroutineScope.launch { ExportHelper.shareSession(context, item) }
+                                Unit
+                            }
+                        }
                         val onDeleteRequest = remember(item) { { sessionToDelete = item } }
 
                         SessionHistoryCard(
