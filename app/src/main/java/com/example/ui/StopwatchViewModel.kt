@@ -1,6 +1,5 @@
 package com.example.ui
 
-import android.content.Context
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -10,8 +9,8 @@ import com.example.data.model.SessionEntity
 import com.example.data.model.SessionWithLaps
 import com.example.data.model.SwimmerEntity
 import com.example.data.repository.SwimRepository
+import com.example.data.repository.UserPreferencesRepository
 import com.example.util.ExportHelper
-import com.example.util.HapticUtil
 import com.example.util.SoundUtil
 import com.example.util.TimeFormatter
 import com.example.util.AndroidMonotonicClock
@@ -150,11 +149,9 @@ data class SwimmerCardUiModel(
 
 class StopwatchViewModel(
     private val repository: SwimRepository,
-    context: Context? = null,
+    private val preferencesRepository: UserPreferencesRepository? = null,
     private val clock: MonotonicClock = AndroidMonotonicClock()
 ) : ViewModel() {
-
-    private val prefs = context?.applicationContext?.getSharedPreferences("swim_timer_preferences", Context.MODE_PRIVATE)
 
     private val _uiState = MutableStateFlow(StopwatchUiState())
     val uiState: StateFlow<StopwatchUiState> = _uiState.asStateFlow()
@@ -225,7 +222,7 @@ class StopwatchViewModel(
     init {
         viewModelScope.launch(Dispatchers.IO) {
             loadSavedPreferences()
-            if (prefs == null) {
+            if (preferencesRepository == null) {
                 initializeLanes(4)
             }
         }
@@ -297,7 +294,7 @@ class StopwatchViewModel(
     }
 
     private fun saveGroups() {
-        prefs?.edit()?.putStringSet("customGroups", _customGroups.value)?.apply()
+        preferencesRepository?.saveCustomGroups(_customGroups.value)
     }
 
     private fun validateDistances(targetMeters: Int, splitMeters: Int) {
@@ -309,25 +306,25 @@ class StopwatchViewModel(
     }
 
     private fun loadSavedPreferences() {
-        if (prefs == null) return
-        val poolRaw = prefs.getInt("poolLengthMeters", 50)
+        val prefsRepo = preferencesRepository ?: return
+        val poolRaw = prefsRepo.getPoolLengthMeters()
         val pool = poolRaw.coerceIn(10, 100)
 
-        val distRaw = prefs.getInt("targetDistanceMeters", 100)
+        val distRaw = prefsRepo.getTargetDistanceMeters()
         val dist = distRaw.coerceIn(25, 10000)
 
-        val splitRaw = prefs.getInt("splitDistanceMeters", 50)
+        val splitRaw = prefsRepo.getSplitDistanceMeters()
         var split = splitRaw.coerceIn(25, dist)
         if (dist % split != 0) {
             split = if (dist % 50 == 0) 50 else dist
         }
 
-        val stroke = prefs.getString("strokeType", "Freistil") ?: "Freistil"
-        val startModeStr = prefs.getString("startMode", "MASS") ?: "MASS"
-        val intervalRaw = prefs.getInt("intervalOffsetSeconds", 5)
+        val stroke = prefsRepo.getStrokeType()
+        val startModeStr = prefsRepo.getStartMode()
+        val intervalRaw = prefsRepo.getIntervalOffsetSeconds()
         val interval = intervalRaw.coerceIn(1, 120)
 
-        val countRaw = prefs.getInt("laneCount", 4)
+        val countRaw = prefsRepo.getLaneCount()
         val count = countRaw.coerceIn(1, 15)
 
         val startModeVal = try {
@@ -349,23 +346,22 @@ class StopwatchViewModel(
             )
         }
         
-        val savedGroups = prefs.getStringSet("customGroups", emptySet()) ?: emptySet()
+        val savedGroups = prefsRepo.getCustomGroups()
         _customGroups.value = savedGroups
         
         initializeLanes(count)
     }
 
     private fun savePreferences() {
-        prefs?.edit()?.apply {
-            putInt("poolLengthMeters", _uiState.value.poolLengthMeters)
-            putInt("targetDistanceMeters", _uiState.value.targetDistanceMeters)
-            putInt("splitDistanceMeters", _uiState.value.splitDistanceMeters)
-            putString("strokeType", _uiState.value.strokeType)
-            putString("startMode", _uiState.value.startMode.name)
-            putInt("intervalOffsetSeconds", _uiState.value.intervalOffsetSeconds)
-            putInt("laneCount", _uiState.value.laneCount)
-            apply()
-        }
+        preferencesRepository?.savePreferences(
+            poolLengthMeters = _uiState.value.poolLengthMeters,
+            targetDistanceMeters = _uiState.value.targetDistanceMeters,
+            splitDistanceMeters = _uiState.value.splitDistanceMeters,
+            strokeType = _uiState.value.strokeType,
+            startMode = _uiState.value.startMode.name,
+            intervalOffsetSeconds = _uiState.value.intervalOffsetSeconds,
+            laneCount = _uiState.value.laneCount
+        )
     }
 
     fun initializeLanes(count: Int) {
@@ -406,9 +402,9 @@ class StopwatchViewModel(
                     break
                 }
                 if (hasCountdown) {
-                    delay(10.milliseconds) // High precision for countdown beep timing
+                    delay(50.milliseconds)
                 } else {
-                    delay(200.milliseconds) // Only needed for general status updates if no countdowns
+                    delay(200.milliseconds)
                 }
             }
             tickerJob = null
@@ -450,8 +446,9 @@ class StopwatchViewModel(
                                 countdownRemainingSeconds = 0
                             )
                         } else {
-                            val remainingSec = (((laneStartTarget - now) / 1000) + 1).toInt()
-                            if (remainingSec != lane.countdownRemainingSeconds && remainingSec <= 3) {
+                            val remainingMs = (laneStartTarget - now).coerceAtLeast(0L)
+                            val remainingSec = ((remainingMs + 999L) / 1000L).toInt()
+                            if (remainingSec != lane.countdownRemainingSeconds && remainingSec in 1..3) {
                                 SoundUtil.playCountdownBeep()
                             }
                             lane.copy(countdownRemainingSeconds = remainingSec)
@@ -474,8 +471,7 @@ class StopwatchViewModel(
 
     // --- Time Control Actions ---
 
-    fun onStartAll(context: Context? = null) {
-        context?.let { HapticUtil.vibrateHeavy(it) }
+    fun onStartAll() {
         SoundUtil.playStartSignal()
         val now = clock.nowMillis()
 
@@ -520,8 +516,7 @@ class StopwatchViewModel(
         startTicker()
     }
 
-    fun onStartSingleLane(laneNumber: Int, context: Context? = null) {
-        context?.let { HapticUtil.vibrateHeavy(it) }
+    fun onStartSingleLane(laneNumber: Int) {
         SoundUtil.playStartSignal()
         val now = clock.nowMillis()
         
@@ -561,8 +556,7 @@ class StopwatchViewModel(
      * (z. B. staggerIntervalMillis = 5_000L für +5s Wellen-Start).
      */
     @Suppress("unused")
-    fun startStaggeredWave(staggerIntervalMillis: Long = 5_000L, context: Context? = null) {
-        context?.let { HapticUtil.vibrateHeavy(it) }
+    fun startStaggeredWave(staggerIntervalMillis: Long = 5_000L) {
         SoundUtil.playStartSignal()
         val baseStartRealtime = clock.nowMillis()
         var waveIndex = 0
@@ -645,8 +639,7 @@ class StopwatchViewModel(
         }
     }
 
-    fun onStopAll(context: Context? = null) {
-        context?.let { HapticUtil.vibrateHeavy(it) }
+    fun onStopAll() {
         val now = clock.nowMillis()
         pushUndo(UndoAction.BulkStop(_uiState.value.lanes))
 
@@ -710,8 +703,7 @@ class StopwatchViewModel(
         stopTickerIfAllIdle()
     }
 
-    fun onPauseLane(laneNumber: Int, context: Context? = null) {
-        context?.let { HapticUtil.vibrateClick(it) }
+    fun onPauseLane(laneNumber: Int) {
         val now = clock.nowMillis()
         var anyRunning = false
         _uiState.update { currentState ->
@@ -735,8 +727,7 @@ class StopwatchViewModel(
         if (!anyRunning) stopTickerIfAllIdle()
     }
 
-    fun onResumeLane(laneNumber: Int, context: Context? = null) {
-        context?.let { HapticUtil.vibrateClick(it) }
+    fun onResumeLane(laneNumber: Int) {
         val now = clock.nowMillis()
         
         _uiState.update { currentState ->
@@ -757,11 +748,9 @@ class StopwatchViewModel(
         startTicker()
     }
 
-    fun onLapLane(laneNumber: Int, exactRealtime: Long = clock.nowMillis(), context: Context? = null) {
+    fun onLapLane(laneNumber: Int, exactRealtime: Long = clock.nowMillis()) {
         val now = exactRealtime
 
-        var vibrateHeavy = false
-        var vibrateClick = false
         var pushedUndo: UndoAction? = null
 
         _uiState.update { currentState ->
@@ -783,12 +772,6 @@ class StopwatchViewModel(
             val newLapIndex = lane.laps.size + 1
             val totalSplitsNeeded = (lane.targetDistanceMeters / lane.splitDistanceMeters).coerceAtLeast(1)
             val isFinalLap = newLapIndex >= totalSplitsNeeded
-
-            if (isFinalLap) {
-                vibrateHeavy = true
-            } else {
-                vibrateClick = true
-            }
 
             val newLap = LapItem(
                 lapIndex = newLapIndex,
@@ -826,15 +809,10 @@ class StopwatchViewModel(
             )
         }
 
-        context?.let {
-            if (vibrateHeavy) HapticUtil.vibrateHeavy(it)
-            else if (vibrateClick) HapticUtil.vibrateClick(it)
-        }
         pushedUndo?.let { pushUndo(it) }
     }
 
-    fun onFinishLane(laneNumber: Int, exactRealtime: Long = clock.nowMillis(), context: Context? = null) {
-        context?.let { HapticUtil.vibrateHeavy(it) }
+    fun onFinishLane(laneNumber: Int, exactRealtime: Long = clock.nowMillis()) {
         val now = exactRealtime
         
         var pushedUndo: UndoAction? = null
@@ -886,9 +864,8 @@ class StopwatchViewModel(
     }
 
     @Suppress("unused")
-    fun onLapAllRunning(context: Context? = null) {
+    fun onLapAllRunning() {
         val now = clock.nowMillis()
-        context?.let { HapticUtil.vibrateClick(it) }
         
         pushUndo(UndoAction.BulkStop(_uiState.value.lanes)) // Snapshot before bulk action
 
@@ -941,8 +918,7 @@ class StopwatchViewModel(
         }
     }
 
-    fun onResetAll(context: Context? = null) {
-        context?.let { HapticUtil.vibrateHeavy(it) }
+    fun onResetAll() {
         tickerJob?.cancel()
         tickerJob = null
         undoStack.clear()
@@ -980,9 +956,8 @@ class StopwatchViewModel(
         _uiState.update { it.copy(canUndo = true) }
     }
 
-    fun performUndo(context: Context? = null) {
+    fun performUndo() {
         if (undoStack.isEmpty()) return
-        context?.let { HapticUtil.vibrateClick(it) }
 
         when (val action = undoStack.pop()) {
             is UndoAction.LapAdded -> {
@@ -1078,7 +1053,7 @@ class StopwatchViewModel(
         initializeLanes(count)
     }
 
-    fun addLane(context: Context? = null) {
+    fun addLane() {
         val currentLanes = _uiState.value.lanes
         if (currentLanes.size >= 15) {
             _uiState.update { it.copy(
@@ -1086,7 +1061,6 @@ class StopwatchViewModel(
             ) }
             return
         }
-        context?.let { HapticUtil.vibrateClick(it) }
         undoStack.clear()
         _uiState.update { it.copy(canUndo = false) }
         
@@ -1107,7 +1081,7 @@ class StopwatchViewModel(
         savePreferences()
     }
 
-    fun removeLane(laneNumber: Int, context: Context? = null) {
+    fun removeLane(laneNumber: Int) {
         val currentLanes = _uiState.value.lanes
         if (currentLanes.size <= 1) {
             _uiState.update { it.copy(
@@ -1115,7 +1089,6 @@ class StopwatchViewModel(
             ) }
             return
         }
-        context?.let { HapticUtil.vibrateClick(it) }
         val index = currentLanes.indexOfFirst { it.laneNumber == laneNumber }
         if (index == -1) return
         val removedLane = currentLanes[index]
@@ -1131,7 +1104,7 @@ class StopwatchViewModel(
     }
 
     @Suppress("unused")
-    fun removeLastLane(context: Context? = null) {
+    fun removeLastLane() {
         val currentLanes = _uiState.value.lanes
         if (currentLanes.size <= 1) {
             _uiState.update { it.copy(
@@ -1139,7 +1112,7 @@ class StopwatchViewModel(
             ) }
             return
         }
-        removeLane(currentLanes.last().laneNumber, context)
+        removeLane(currentLanes.last().laneNumber)
     }
 
     fun setStartMode(mode: StartMode) {
@@ -1348,7 +1321,7 @@ class StopwatchViewModel(
 
     // --- Save Session to Room Database & Automatic PB Update ---
 
-    fun saveCurrentSession(context: Context? = null) {
+    fun saveCurrentSession() {
         if (_uiState.value.isCurrentRunSaved) return
         _uiState.update { it.copy(isCurrentRunSaved = true) } // Set early to prevent double tap
 
@@ -1705,7 +1678,6 @@ class StopwatchViewModel(
                 "Trainingseinheit erfolgreich gespeichert!"
             }
 
-            context?.let { HapticUtil.vibrateHeavy(it) }
             _uiState.update { it.copy(
                 isSessionSavedSuccess = true,
                 isCurrentRunSaved = true,
@@ -1790,12 +1762,9 @@ class StopwatchViewModel(
         }
     }
 
-    fun importSessionsFromContent(context: Context, uri: android.net.Uri, onComplete: (Int) -> Unit) {
+    fun importSessionsFromJson(jsonString: String, onComplete: (Int) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             val count = try {
-                val jsonString = context.contentResolver.openInputStream(uri)?.use { stream ->
-                    stream.bufferedReader(Charsets.UTF_8).readText()
-                } ?: ""
                 val importedSessions = ExportHelper.importSessionsFromJson(jsonString)
                 if (importedSessions.isNotEmpty()) {
                     repository.importSessionsWithLaps(importedSessions)
@@ -2006,10 +1975,10 @@ class StopwatchViewModel(
 
 class StopwatchViewModelFactory(
     private val repository: SwimRepository,
-    private val context: Context? = null
+    private val preferencesRepository: UserPreferencesRepository? = null
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        return StopwatchViewModel(repository, context) as T
+        return StopwatchViewModel(repository, preferencesRepository) as T
     }
 }

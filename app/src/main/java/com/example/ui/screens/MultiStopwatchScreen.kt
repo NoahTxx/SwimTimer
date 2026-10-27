@@ -63,6 +63,7 @@ import com.example.ui.components.IntervalConfigDialog
 import com.example.ui.components.LaneTimerCard
 import com.example.ui.components.StrokeRateCalculatorDialog
 import com.example.ui.components.SwimPaceCalculatorDialog
+import com.example.util.HapticUtil
 import com.example.ui.components.TargetPaceDialog
 import com.example.ui.theme.AquaPrimary
 import com.example.ui.theme.DeepOceanBackground
@@ -207,14 +208,14 @@ fun MultiStopwatchScreen(
                     contentType = { "LaneTimerCard" }
                 ) { lane ->
                     val laneNum = lane.laneNumber
-                    val onLapClick = remember(laneNum, context) { { exactTime: Long -> viewModel.onLapLane(laneNum, exactTime, context) } }
-                    val onFinishClick = remember(laneNum, context) { { exactTime: Long -> viewModel.onFinishLane(laneNum, exactTime, context) } }
+                    val onLapClick = remember(laneNum, context) { { exactTime: Long -> HapticUtil.vibrateClick(context); viewModel.onLapLane(laneNum, exactTime) } }
+                    val onFinishClick = remember(laneNum, context) { { exactTime: Long -> HapticUtil.vibrateHeavy(context); viewModel.onFinishLane(laneNum, exactTime) } }
                     val onAssignSwimmerClick = remember(laneNum) { { viewModel.openAssignSwimmerDialog(laneNum) } }
                     val onTargetPaceClick = remember(laneNum) { { viewModel.openTargetPaceDialog(laneNum) } }
-                    val onRemoveLaneClick = remember(laneNum, context) { { viewModel.removeLane(laneNum, context) } }
-                    val onStartSingleLaneClick = remember(laneNum, context) { { viewModel.onStartSingleLane(laneNum, context) } }
-                    val onPauseClick = remember(laneNum, context) { { viewModel.onPauseLane(laneNum, context) } }
-                    val onResumeClick = remember(laneNum, context) { { viewModel.onResumeLane(laneNum, context) } }
+                    val onRemoveLaneClick = remember(laneNum, context) { { HapticUtil.vibrateClick(context); viewModel.removeLane(laneNum) } }
+                    val onStartSingleLaneClick = remember(laneNum, context) { { HapticUtil.vibrateHeavy(context); viewModel.onStartSingleLane(laneNum) } }
+                    val onPauseClick = remember(laneNum, context) { { HapticUtil.vibrateClick(context); viewModel.onPauseLane(laneNum) } }
+                    val onResumeClick = remember(laneNum, context) { { HapticUtil.vibrateClick(context); viewModel.onResumeLane(laneNum) } }
                     val onStrokeRateTap = remember(laneNum) { { viewModel.onTapStrokeRate(laneNum) } }
 
                     LaneTimerCard(
@@ -244,7 +245,7 @@ fun MultiStopwatchScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             FilledIconButton(
-                                onClick = { viewModel.addLane(context) },
+                                onClick = { HapticUtil.vibrateClick(context); viewModel.addLane() },
                                 shape = CircleShape,
                                 colors = IconButtonDefaults.filledIconButtonColors(
                                     containerColor = AquaPrimary,
@@ -302,7 +303,8 @@ fun MultiStopwatchScreen(
                             if (anyLapsRecorded && !uiState.isCurrentRunSaved) {
                                 isResetConfirmOpen = true
                             } else {
-                                viewModel.onResetAll(context)
+                                HapticUtil.vibrateHeavy(context)
+                                viewModel.onResetAll()
                             }
                         },
                         enabled = !anyRunning && anyHasTimes,
@@ -315,7 +317,7 @@ fun MultiStopwatchScreen(
                         ),
                         contentPadding = PaddingValues(0.dp),
                         modifier = Modifier
-                            .size(52.dp)
+                            .size(56.dp)
                             .testTag("master_reset_button")
                     ) {
                         Icon(Icons.Default.Refresh, contentDescription = "Reset", modifier = Modifier.size(22.dp))
@@ -335,7 +337,8 @@ fun MultiStopwatchScreen(
                             confirmButton = {
                                 Button(
                                     onClick = {
-                                        viewModel.onResetAll(context)
+                                        HapticUtil.vibrateHeavy(context)
+                                        viewModel.onResetAll()
                                         isResetConfirmOpen = false
                                     },
                                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252))
@@ -357,7 +360,7 @@ fun MultiStopwatchScreen(
                     if (uiState.canUndo) {
                         Spacer(modifier = Modifier.width(6.dp))
                         FilledTonalButton(
-                            onClick = { viewModel.performUndo(context) },
+                            onClick = { HapticUtil.vibrateClick(context); viewModel.performUndo() },
                             shape = RoundedCornerShape(14.dp),
                             colors = ButtonDefaults.filledTonalButtonColors(
                                 containerColor = OceanSurface,
@@ -365,7 +368,7 @@ fun MultiStopwatchScreen(
                             ),
                             contentPadding = PaddingValues(0.dp),
                             modifier = Modifier
-                                .size(52.dp)
+                                .size(56.dp)
                                 .testTag("undo_button")
                         ) {
                             Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "Rückgängig", modifier = Modifier.size(20.dp))
@@ -376,7 +379,7 @@ fun MultiStopwatchScreen(
                 // Center: LARGER START / STOP BUTTON IN THE MIDDLE
                 if (!anyRunning) {
                     Button(
-                        onClick = { viewModel.onStartAll(context) },
+                        onClick = { HapticUtil.vibrateHeavy(context); viewModel.onStartAll() },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = PaceGreen,
                             contentColor = Color.Black
@@ -402,7 +405,7 @@ fun MultiStopwatchScreen(
                     }
                 } else {
                     Button(
-                        onClick = { viewModel.onStopAll(context) },
+                        onClick = { HapticUtil.vibrateHeavy(context); viewModel.onStopAll() },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = PaceRed,
                             contentColor = Color.White
@@ -433,7 +436,7 @@ fun MultiStopwatchScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Button(
-                        onClick = { viewModel.saveCurrentSession(context) },
+                        onClick = { HapticUtil.vibrateHeavy(context); viewModel.saveCurrentSession() },
                         enabled = anyLapsRecorded && !uiState.isCurrentRunSaved,
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(

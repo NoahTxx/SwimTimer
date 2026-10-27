@@ -185,9 +185,10 @@ class ExampleRobolectricTest {
     val context = ApplicationProvider.getApplicationContext<Context>()
     val db = com.example.data.db.AppDatabase.getInstance(context)
     val repository = com.example.data.repository.SwimRepository(db)
+    val prefsRepo = com.example.data.repository.UserPreferencesRepository(context)
 
     // Instance 1: User changes settings
-    val vm1 = com.example.ui.StopwatchViewModel(repository, context)
+    val vm1 = com.example.ui.StopwatchViewModel(repository, prefsRepo)
     kotlinx.coroutines.runBlocking { kotlinx.coroutines.delay(200) }
     vm1.setSessionMeta("Test Session", "Brust", 25, 200, 25)
     vm1.setStartMode(com.example.ui.StartMode.INTERVAL)
@@ -195,7 +196,7 @@ class ExampleRobolectricTest {
     vm1.initializeLanes(6)
 
     // Instance 2: Simulates reopening app
-    val vm2 = com.example.ui.StopwatchViewModel(repository, context)
+    val vm2 = com.example.ui.StopwatchViewModel(repository, prefsRepo)
     kotlinx.coroutines.runBlocking { kotlinx.coroutines.delay(200) }
     val state2 = vm2.uiState.value
 
@@ -271,8 +272,9 @@ class ExampleRobolectricTest {
     val context = ApplicationProvider.getApplicationContext<Context>()
     val db = com.example.data.db.AppDatabase.getInstance(context)
     val repository = com.example.data.repository.SwimRepository(db)
+    val prefsRepo = com.example.data.repository.UserPreferencesRepository(context)
 
-    val vm = com.example.ui.StopwatchViewModel(repository, context)
+    val vm = com.example.ui.StopwatchViewModel(repository, prefsRepo)
     vm.initializeLanes(4)
     vm.setTargetPaceForLane(1, 30_000L)
     vm.setTargetPaceForLane(2, 35_000L)

@@ -84,8 +84,13 @@ fun SessionsHistoryScreen(
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
     ) { uri ->
-        uri?.let {
-            viewModel.importSessionsFromContent(context, it) { _ -> }
+        uri?.let { selectedUri ->
+            val jsonString = context.contentResolver.openInputStream(selectedUri)?.use { stream ->
+                stream.bufferedReader(Charsets.UTF_8).readText()
+            }
+            if (!jsonString.isNullOrEmpty()) {
+                viewModel.importSessionsFromJson(jsonString) { _ -> }
+            }
         }
     }
 

@@ -275,28 +275,23 @@ private fun DigitalTimerDisplay(
     laneStartTimeRealtime: Long?,
     finishTimeMillis: Long?
 ) {
-    var currentTimeRealtime by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
+    var displayMillis by remember { mutableLongStateOf(0L) }
 
-    LaunchedEffect(status, laneStartTimeRealtime) {
+    LaunchedEffect(status, laneStartTimeRealtime, pausedElapsedMillis, finishTimeMillis) {
         if (status == LaneStatus.RUNNING && laneStartTimeRealtime != null) {
             while (true) {
-                withFrameMillis {
-                    currentTimeRealtime = SystemClock.elapsedRealtime()
+                withFrameMillis { frameTime ->
+                    displayMillis = (frameTime - laneStartTimeRealtime).coerceAtLeast(0L)
                 }
             }
+        } else {
+            displayMillis = when (status) {
+                LaneStatus.PAUSED -> pausedElapsedMillis
+                LaneStatus.FINISHED -> finishTimeMillis ?: pausedElapsedMillis
+                LaneStatus.COUNTDOWN -> -(countdownRemainingSeconds * 1000L)
+                else -> 0L
+            }
         }
-    }
-
-    val displayMillis = when (status) {
-        LaneStatus.RUNNING -> {
-            if (laneStartTimeRealtime != null) {
-                (currentTimeRealtime - laneStartTimeRealtime).coerceAtLeast(0L)
-            } else 0L
-        }
-        LaneStatus.PAUSED -> pausedElapsedMillis
-        LaneStatus.FINISHED -> finishTimeMillis ?: pausedElapsedMillis
-        LaneStatus.COUNTDOWN -> -(countdownRemainingSeconds * 1000L)
-        LaneStatus.IDLE -> 0L
     }
 
     val displayColor = when (status) {

@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.db.AppDatabase
 import com.example.data.repository.SwimRepository
+import com.example.data.repository.UserPreferencesRepository
 import com.example.ui.StopwatchViewModel
 import com.example.ui.StopwatchViewModelFactory
 import com.example.ui.screens.CoachingToolsScreen
@@ -74,8 +75,9 @@ class MainActivity : ComponentActivity() {
 
     private val database by lazy { AppDatabase.getInstance(applicationContext) }
     private val repository by lazy { SwimRepository(database) }
+    private val preferencesRepository by lazy { UserPreferencesRepository(applicationContext) }
     private val viewModel: StopwatchViewModel by viewModels {
-        StopwatchViewModelFactory(repository, applicationContext)
+        StopwatchViewModelFactory(repository, preferencesRepository)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
