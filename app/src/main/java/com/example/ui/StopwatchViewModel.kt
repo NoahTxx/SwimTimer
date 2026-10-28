@@ -1477,9 +1477,9 @@ class StopwatchViewModel(
 
                         val runs = lane.allLaps.groupBy { it.seriesIndex }.values
                         runs.forEach { seriesLaps ->
-                            val completedFullDistance = seriesLaps.size >= expectedSplitsForFullDistance
+                            val completedFullDistance = (seriesLaps.size >= expectedSplitsForFullDistance) || (lane.status == LaneStatus.FINISHED && seriesLaps.isNotEmpty())
                             val finishTime = if (completedFullDistance) {
-                                seriesLaps[expectedSplitsForFullDistance - 1].splitTimeMillis
+                                seriesLaps.lastOrNull()?.splitTimeMillis
                             } else null
 
                             // Helper to find exact cumulative split time at a specific distance (e.g. 25m, 50m, 100m)
@@ -1491,21 +1491,21 @@ class StopwatchViewModel(
 
                             // Non-Lagen: Check 25m, 50m, and 100m PBs (both full distance and exact intermediate splits)
                             if (state.strokeType != "Lagen" && isSameStroke(state.strokeType, swimmer.favoriteStroke)) {
-                                val timeAt25m = getCumulativeSplitAtMeters(25)
+                                val timeAt25m = if (state.targetDistanceMeters == 25) finishTime else getCumulativeSplitAtMeters(25)
                                 if (timeAt25m != null && (updatedPb25 == null || timeAt25m < updatedPb25)) {
                                     updatedPb25 = timeAt25m
                                     hasImproved = true
                                     pbAchievements.add("${swimmer.name} 25m ${swimmer.favoriteStroke}: ${TimeFormatter.formatMillis(timeAt25m, shortFormat = true)}")
                                 }
 
-                                val timeAt50m = getCumulativeSplitAtMeters(50)
+                                val timeAt50m = if (state.targetDistanceMeters == 50) finishTime else getCumulativeSplitAtMeters(50)
                                 if (timeAt50m != null && (updatedPb50 == null || timeAt50m < updatedPb50)) {
                                     updatedPb50 = timeAt50m
                                     hasImproved = true
                                     pbAchievements.add("${swimmer.name} 50m ${swimmer.favoriteStroke}: ${TimeFormatter.formatMillis(timeAt50m, shortFormat = true)}")
                                 }
 
-                                val timeAt100m = getCumulativeSplitAtMeters(100)
+                                val timeAt100m = if (state.targetDistanceMeters == 100) finishTime else getCumulativeSplitAtMeters(100)
                                 if (timeAt100m != null && (updatedPb100 == null || timeAt100m < updatedPb100)) {
                                     updatedPb100 = timeAt100m
                                     hasImproved = true

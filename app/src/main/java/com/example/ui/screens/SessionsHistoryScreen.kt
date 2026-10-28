@@ -489,8 +489,17 @@ private fun SessionHistoryCard(
                                             maxLines = 1
                                         )
                                     } else if (lap.deltaTargetMillis == null) {
+                                        val totalLapsForLane = laneLaps.size
+                                        val isLastLap = (lap == laneLaps.last())
+                                        val lapDistance = if (totalLapsForLane == 1 && isLastLap) {
+                                            s.targetDistanceMeters
+                                        } else if (isLastLap && s.targetDistanceMeters > (totalLapsForLane - 1) * s.splitDistanceMeters) {
+                                            s.targetDistanceMeters - ((totalLapsForLane - 1) * s.splitDistanceMeters)
+                                        } else {
+                                            s.splitDistanceMeters
+                                        }
                                         Text(
-                                            text = TimeFormatter.formatPacePer100m(lap.lapTimeMillis, s.splitDistanceMeters),
+                                            text = TimeFormatter.formatPacePer100m(lap.lapTimeMillis, lapDistance),
                                             style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
                                             color = AquaPrimary,
                                             maxLines = 1

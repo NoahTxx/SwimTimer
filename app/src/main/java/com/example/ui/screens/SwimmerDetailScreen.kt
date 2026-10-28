@@ -41,7 +41,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -123,7 +122,7 @@ fun SwimmerDetailScreen(
             
             // Check if full distance was swum
             val totalSplitsNeeded = (s.targetDistanceMeters / s.splitDistanceMeters).coerceAtLeast(1)
-            val completedFullDistance = laps.size >= totalSplitsNeeded
+            val completedFullDistance = laps.size >= totalSplitsNeeded || laps.isNotEmpty()
 
             val finishTime = if (completedFullDistance) laps.lastOrNull()?.splitTimeMillis ?: 0L else 0L
             if (finishTime > 0) {
@@ -714,6 +713,15 @@ private fun SwimmerSessionHistoryCard(
                 Column(modifier = Modifier.padding(top = 12.dp)) {
                     HorizontalDivider(color = Color(0xFF1E2D40), modifier = Modifier.padding(bottom = 8.dp))
                     swimmerLaps.forEach { lap ->
+                        val totalLaps = swimmerLaps.size
+                        val isLastLap = (lap == swimmerLaps.last())
+                        val lapDist = if (totalLaps == 1 && isLastLap) {
+                            s.targetDistanceMeters
+                        } else if (isLastLap && s.targetDistanceMeters > (totalLaps - 1) * s.splitDistanceMeters) {
+                            s.targetDistanceMeters - ((totalLaps - 1) * s.splitDistanceMeters)
+                        } else {
+                            s.splitDistanceMeters
+                        }
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -722,7 +730,7 @@ private fun SwimmerSessionHistoryCard(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Split ${lap.lapIndex}",
+                                text = "Split ${lap.lapIndex} (${lapDist}m)",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color.LightGray
                             )
