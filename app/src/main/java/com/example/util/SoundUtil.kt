@@ -22,27 +22,31 @@ object SoundUtil {
     }
 
     /**
-     * Pleasant, clean start signal (clear 250ms start beep)
+     * Clear, energetic high-pitched start signal (bright 350ms start beep)
      */
     fun playStartSignal() {
         executor.execute {
             try {
                 val gen = getOrCreateGenerator() ?: return@execute
                 try {
-                    gen.startTone(ToneGenerator.TONE_PROP_BEEP, 250)
+                    gen.startTone(ToneGenerator.TONE_DTMF_D, 350)
                 } catch (_: Exception) {
-                    gen.startTone(ToneGenerator.TONE_DTMF_0, 250)
+                    try {
+                        gen.startTone(ToneGenerator.TONE_DTMF_9, 350)
+                    } catch (_: Exception) {
+                        gen.startTone(ToneGenerator.TONE_DTMF_0, 350)
+                    }
                 }
             } catch (_: Exception) {}
         }
     }
 
     /**
-     * Multi-stage countdown beep based on remaining seconds:
-     * 3 seconds left -> Low pitch beep
-     * 2 seconds left -> Medium pitch beep
-     * 1 second left -> High-mid pitch beep
-     * 0 seconds left -> Start signal
+     * Multi-stage countdown warning beep based on remaining seconds (3s, 2s, 1s):
+     * 3 seconds left -> Short low-mid pitch warning beep (100ms)
+     * 2 seconds left -> Short mid pitch warning beep (100ms)
+     * 1 second left -> Short mid-high pitch warning beep (100ms)
+     * 0 seconds left -> High-pitched long start signal
      */
     fun playCountdownBeep(remainingSec: Int = 1) {
         if (remainingSec <= 0) {
@@ -54,14 +58,14 @@ object SoundUtil {
                 val gen = getOrCreateGenerator() ?: return@execute
                 try {
                     val tone = when (remainingSec) {
-                        3 -> ToneGenerator.TONE_PROP_BEEP
-                        2 -> ToneGenerator.TONE_PROP_BEEP2
-                        1 -> ToneGenerator.TONE_CDMA_PIP
-                        else -> ToneGenerator.TONE_PROP_BEEP
+                        3 -> ToneGenerator.TONE_DTMF_1
+                        2 -> ToneGenerator.TONE_DTMF_5
+                        1 -> ToneGenerator.TONE_DTMF_9
+                        else -> ToneGenerator.TONE_DTMF_0
                     }
-                    gen.startTone(tone, 120)
+                    gen.startTone(tone, 100)
                 } catch (_: Exception) {
-                    gen.startTone(ToneGenerator.TONE_PROP_BEEP, 100)
+                    gen.startTone(ToneGenerator.TONE_DTMF_0, 100)
                 }
             } catch (_: Exception) {}
         }

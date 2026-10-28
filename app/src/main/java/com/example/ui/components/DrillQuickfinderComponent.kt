@@ -324,6 +324,7 @@ private fun TechDrillCard(
         "Delfin" -> Color(0xFFFF5252)
         "Rücken" -> Color(0xFFFFD600)
         "Brust" -> Color(0xFF00E676)
+        "Wenden / Starts" -> Color(0xFFFF9100)
         else -> Color(0xFF80D8FF)
     }
 
