@@ -34,6 +34,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import com.example.ui.SeriesConfig
+import com.example.ui.SeriesModeType
 import com.example.ui.StartMode
 import com.example.ui.theme.AquaPrimary
 import com.example.ui.theme.TextWhite
@@ -57,8 +61,17 @@ fun IntervalConfigDialog(
     currentDistance: Int,
     currentSplitDistance: Int = 50,
     currentStroke: String,
+    currentSeriesConfig: SeriesConfig = SeriesConfig(),
     onDismiss: () -> Unit,
-    onSave: (mode: StartMode, intervalSec: Int, poolLength: Int, distance: Int, splitDistance: Int, stroke: String) -> Unit,
+    onSave: (
+        mode: StartMode,
+        intervalSec: Int,
+        poolLength: Int,
+        distance: Int,
+        splitDistance: Int,
+        stroke: String,
+        seriesConfig: SeriesConfig
+    ) -> Unit,
 ) {
     var mode by remember { mutableStateOf(currentStartMode) }
     var intervalSec by remember { mutableIntStateOf(currentIntervalSec) }
@@ -66,6 +79,22 @@ fun IntervalConfigDialog(
     var stroke by remember { mutableStateOf(currentStroke) }
     var distance by remember { mutableIntStateOf(currentDistance) }
     var splitDistance by remember { mutableIntStateOf(currentSplitDistance) }
+
+    // Series Config state
+    var seriesMode by remember { mutableStateOf(currentSeriesConfig.mode) }
+    var restDurationSec by remember { mutableIntStateOf(currentSeriesConfig.restDurationSeconds) }
+    var sendOffDurationSec by remember { mutableIntStateOf(currentSeriesConfig.sendOffDurationSeconds) }
+    var maxSeriesCount by remember { mutableStateOf(currentSeriesConfig.maxSeriesCount) }
+
+    val restPresets = listOf(10, 15, 20, 30, 45, 60)
+    val sendOffPresets = listOf(
+        45 to "0:45",
+        60 to "1:00",
+        75 to "1:15",
+        90 to "1:30",
+        120 to "2:00"
+    )
+    val maxSeriesPresets = listOf<Int?>(null, 4, 6, 8, 10, 12)
 
     val intervalOptions = listOf(5, 10, 15, 20)
     val poolOptions = listOf(25, 50)
@@ -289,7 +318,7 @@ fun IntervalConfigDialog(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Split / Lap interval (Requested feature: 25er Zeiten bei ALLEN Distanzen)
+                // Split / Lap interval
                 Text(
                     text = "Zwischenzeiten (Splits alle):",
                     style = MaterialTheme.typography.labelMedium,
@@ -328,6 +357,133 @@ fun IntervalConfigDialog(
                     modifier = Modifier.padding(top = 4.dp)
                 )
 
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // --- SERIEN-MODUS SECTION ---
+                Text(
+                    text = "Serien-Modus:",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                    color = Color(0xFFFFD600),
+                    maxLines = 1
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    FilterChip(
+                        selected = seriesMode == SeriesModeType.MANUAL,
+                        onClick = { seriesMode = SeriesModeType.MANUAL },
+                        label = { Text("Manuell", maxLines = 1) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = AquaPrimary,
+                            selectedLabelColor = Color.Black
+                        )
+                    )
+                    FilterChip(
+                        selected = seriesMode == SeriesModeType.FIXED_REST,
+                        onClick = { seriesMode = SeriesModeType.FIXED_REST },
+                        label = { Text("Feste Pause", maxLines = 1) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = AquaPrimary,
+                            selectedLabelColor = Color.Black
+                        )
+                    )
+                    FilterChip(
+                        selected = seriesMode == SeriesModeType.SEND_OFF,
+                        onClick = { seriesMode = SeriesModeType.SEND_OFF },
+                        label = { Text("Abgangszeit", maxLines = 1) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = AquaPrimary,
+                            selectedLabelColor = Color.Black
+                        )
+                    )
+                }
+
+                if (seriesMode == SeriesModeType.FIXED_REST) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "Pausenzeit:",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.LightGray,
+                        maxLines = 1
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        restPresets.forEach { sec ->
+                            FilterChip(
+                                selected = restDurationSec == sec,
+                                onClick = { restDurationSec = sec },
+                                label = { Text("${sec}s", maxLines = 1) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = AquaPrimary,
+                                    selectedLabelColor = Color.Black
+                                )
+                            )
+                        }
+                    }
+                }
+
+                if (seriesMode == SeriesModeType.SEND_OFF) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "Abgangszeit (Zyklus):",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.LightGray,
+                        maxLines = 1
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        sendOffPresets.forEach { (sec, label) ->
+                            FilterChip(
+                                selected = sendOffDurationSec == sec,
+                                onClick = { sendOffDurationSec = sec },
+                                label = { Text(label, maxLines = 1) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = AquaPrimary,
+                                    selectedLabelColor = Color.Black
+                                )
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = "Maximale Serien-Anzahl:",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color.LightGray,
+                    maxLines = 1
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    maxSeriesPresets.forEach { count ->
+                        val labelText = if (count == null) "Unbegrenzt" else "${count}x"
+                        FilterChip(
+                            selected = maxSeriesCount == count,
+                            onClick = { maxSeriesCount = count },
+                            label = { Text(labelText, maxLines = 1) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = AquaPrimary,
+                                selectedLabelColor = Color.Black
+                            )
+                        )
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(22.dp))
 
                 Row(
@@ -344,7 +500,13 @@ fun IntervalConfigDialog(
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = {
-                            onSave(mode, intervalSec, poolLength, distance, effectiveSplitDistance, stroke)
+                            val newConfig = SeriesConfig(
+                                mode = seriesMode,
+                                restDurationSeconds = restDurationSec,
+                                sendOffDurationSeconds = sendOffDurationSec,
+                                maxSeriesCount = maxSeriesCount
+                            )
+                            onSave(mode, intervalSec, poolLength, distance, effectiveSplitDistance, stroke, newConfig)
                             onDismiss()
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = AquaPrimary)

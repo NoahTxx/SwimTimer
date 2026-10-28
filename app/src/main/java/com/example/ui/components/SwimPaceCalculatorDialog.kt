@@ -87,7 +87,7 @@ fun SwimPaceCalculatorDialog(
     initialStroke: String = "Freistil",
     initialSplitDistance: Int = 25,
     onDismiss: () -> Unit,
-    onApplyTargetPaceToAllLanes: (averageLapMillis: Long) -> Unit,
+    @Suppress("UNUSED_PARAMETER") onApplyTargetPaceToAllLanes: ((averageLapMillis: Long) -> Unit)? = null,
 ) {
     var stroke by remember { mutableStateOf(initialStroke) }
     var distance by remember { mutableIntStateOf(if ((initialStroke == "Lagen") && (initialDistance < 100)) 100 else initialDistance) }
@@ -587,48 +587,17 @@ fun SwimPaceCalculatorDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Apply to Lanes Action Button
-                val avgSplitMillis = if (calculatedSplits.isNotEmpty()) {
-                    parsedTargetMillis / calculatedSplits.size
-                } else null
-
+                // Action Button
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.Center
                 ) {
                     Button(
                         onClick = onDismiss,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("Schließen", color = Color.LightGray)
-                    }
-
-                    Button(
-                        onClick = {
-                            if (avgSplitMillis != null && avgSplitMillis > 0) {
-                                onApplyTargetPaceToAllLanes(avgSplitMillis)
-                            }
-                        },
-                        enabled = avgSplitMillis != null && avgSplitMillis > 0,
                         colors = ButtonDefaults.buttonColors(containerColor = AquaPrimary),
-                        modifier = Modifier.weight(1.8f).testTag("apply_pace_to_lanes_button")
+                        modifier = Modifier.fillMaxWidth().height(48.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = null,
-                            tint = Color.Black,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Als Soll-Pace setzen",
-                            color = Color.Black,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
-                        )
+                        Text("Schließen", color = Color.Black, fontWeight = FontWeight.Bold)
                     }
                 }
             }

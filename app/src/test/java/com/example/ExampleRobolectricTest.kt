@@ -290,7 +290,7 @@ class ExampleRobolectricTest {
   }
 
   @Test
-  fun `test master reset clears target lap pace for all lanes`() {
+  fun `test series mode fixed rest transitions lane to rest countdown`() {
     val context = ApplicationProvider.getApplicationContext<Context>()
     val db = com.example.data.db.AppDatabase.getInstance(context)
     val repository = com.example.data.repository.SwimRepository(db)
@@ -298,18 +298,29 @@ class ExampleRobolectricTest {
 
     val vm = com.example.ui.StopwatchViewModel(repository, prefsRepo)
     vm.initializeLanes(4)
-    vm.setTargetPaceForLane(1, 30_000L)
-    vm.setTargetPaceForLane(2, 35_000L)
+    vm.setSeriesConfig(
+      com.example.ui.SeriesConfig(
+        mode = com.example.ui.SeriesModeType.FIXED_REST,
+        restDurationSeconds = 20,
+        maxSeriesCount = 4
+      )
+    )
 
-    assertEquals(30_000L, vm.uiState.value.lanes.first { it.laneNumber == 1 }.targetLapMillis)
-    assertEquals(35_000L, vm.uiState.value.lanes.first { it.laneNumber == 2 }.targetLapMillis)
+    vm.onStartSingleLane(1)
+    assertEquals(com.example.ui.LaneStatus.RUNNING, vm.uiState.value.lanes.first { it.laneNumber == 1 }.status)
 
+    // Swimmer finishes 100m
+    vm.onFinishLane(1, exactRealtime = System.currentTimeMillis())
+
+    val lane1 = vm.uiState.value.lanes.first { it.laneNumber == 1 }
+    assertEquals(com.example.ui.LaneStatus.REST_COUNTDOWN, lane1.status)
+    assertEquals(20, lane1.restRemainingSeconds)
+
+    // Perform manual reset
     vm.onResetAll()
-
-    val resetLanes = vm.uiState.value.lanes
-    org.junit.Assert.assertNull(resetLanes.first { it.laneNumber == 1 }.targetLapMillis)
-    org.junit.Assert.assertNull(resetLanes.first { it.laneNumber == 2 }.targetLapMillis)
-    org.junit.Assert.assertTrue(resetLanes.all { it.targetLapMillis == null })
+    val resetLane = vm.uiState.value.lanes.first { it.laneNumber == 1 }
+    assertEquals(com.example.ui.LaneStatus.IDLE, resetLane.status)
+    assertEquals(1, resetLane.seriesCount)
   }
 
   @Test

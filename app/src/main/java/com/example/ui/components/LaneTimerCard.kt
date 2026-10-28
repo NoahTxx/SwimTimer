@@ -71,14 +71,18 @@ import com.example.ui.theme.TextWhite
 import com.example.util.TimeFormatter
 import java.util.Locale
 
+import com.example.ui.SeriesModeType
+
 @Composable
 fun LaneTimerCard(
     lane: LaneState,
     onLapClick: (Long) -> Unit,
     onFinishClick: (Long) -> Unit,
     onAssignSwimmerClick: () -> Unit,
-    onTargetPaceClick: () -> Unit,
     modifier: Modifier = Modifier,
+    maxSeriesCount: Int? = null,
+    seriesMode: SeriesModeType = SeriesModeType.MANUAL,
+    sendOffDurationSec: Int = 0,
     onRemoveLaneClick: (() -> Unit)? = null,
     onStartSingleLaneClick: (() -> Unit)? = null,
     onPauseClick: (() -> Unit)? = null,
@@ -95,7 +99,7 @@ fun LaneTimerCard(
         when (lane.status) {
             LaneStatus.RUNNING -> laneAccentColor
             LaneStatus.PAUSED -> Color(0xFFF57C00)
-            LaneStatus.COUNTDOWN -> Color(0xFFFFD600)
+            LaneStatus.COUNTDOWN, LaneStatus.REST_COUNTDOWN -> Color(0xFFFFD600)
             LaneStatus.FINISHED -> Color(0xFF78909C)
             LaneStatus.IDLE -> OceanBorder
         }
@@ -116,11 +120,10 @@ fun LaneTimerCard(
                 laneNumber = lane.laneNumber,
                 swimmerName = lane.swimmerName,
                 seriesCount = lane.seriesCount,
+                maxSeriesCount = maxSeriesCount,
                 status = lane.status,
-                targetLapMillis = lane.targetLapMillis,
                 laneAccentColor = laneAccentColor,
                 onAssignSwimmerClick = onAssignSwimmerClick,
-                onTargetPaceClick = onTargetPaceClick,
                 onRemoveLaneClick = onRemoveLaneClick
             )
 
@@ -129,10 +132,14 @@ fun LaneTimerCard(
             DigitalTimerDisplay(
                 status = lane.status,
                 countdownRemainingSeconds = lane.countdownRemainingSeconds,
+                restRemainingSeconds = lane.restRemainingSeconds,
+                restTargetRealtime = lane.restTargetRealtime,
                 pausedElapsedMillis = lane.currentElapsedMillis,
                 laneStartTimeRealtime = lane.laneStartTimeRealtime,
                 finishTimeMillis = lane.finishTimeMillis,
-                finishRealtimeMillis = lane.finishRealtimeMillis
+                finishRealtimeMillis = lane.finishRealtimeMillis,
+                seriesMode = seriesMode,
+                sendOffDurationSec = sendOffDurationSec
             )
 
             LaneProgressAndLaps(
@@ -177,11 +184,10 @@ private fun LaneHeader(
     laneNumber: Int,
     swimmerName: String,
     seriesCount: Int,
+    maxSeriesCount: Int? = null,
     status: LaneStatus,
-    targetLapMillis: Long?,
     laneAccentColor: Color,
     onAssignSwimmerClick: () -> Unit,
-    onTargetPaceClick: () -> Unit,
     onRemoveLaneClick: (() -> Unit)?
 ) {
     Row(
@@ -241,8 +247,9 @@ private fun LaneHeader(
                 shape = RoundedCornerShape(8.dp),
                 border = BorderStroke(1.dp, AquaPrimary.copy(alpha = 0.5f))
             ) {
+                val seriesLabel = if (maxSeriesCount != null) "Serie $seriesCount/$maxSeriesCount" else "Serie $seriesCount"
                 Text(
-                    text = "Serie $seriesCount",
+                    text = seriesLabel,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = AquaPrimary,
@@ -252,44 +259,17 @@ private fun LaneHeader(
             }
         }
 
-        Spacer(modifier = Modifier.width(10.dp))
-
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            SuggestionChip(
-                onClick = onTargetPaceClick,
-                label = {
-                    Text(
-                        text = if (targetLapMillis != null && targetLapMillis > 0) {
-                            "Ziel: ${TimeFormatter.formatForInput(targetLapMillis)}"
-                        } else {
-                            "Zielpace"
-                        },
-                        fontSize = 11.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                },
-                colors = SuggestionChipDefaults.suggestionChipColors(
-                    containerColor = OceanSurface,
-                    labelColor = AquaPrimary
-                ),
-                border = SuggestionChipDefaults.suggestionChipBorder(
-                    enabled = true,
-                    borderColor = AquaPrimary.copy(alpha = 0.5f)
+        if (onRemoveLaneClick != null && (status == LaneStatus.IDLE || status == LaneStatus.FINISHED)) {
+            Spacer(modifier = Modifier.width(10.dp))
+            IconButton(
+                onClick = onRemoveLaneClick,
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Bahn entfernen",
+                    tint = TextWhite.copy(alpha = 0.6f)
                 )
-            )
-
-            if (onRemoveLaneClick != null && (status == LaneStatus.IDLE || status == LaneStatus.FINISHED)) {
-                IconButton(
-                    onClick = onRemoveLaneClick,
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Bahn entfernen",
-                        tint = TextWhite.copy(alpha = 0.6f)
-                    )
-                }
             }
         }
     }
@@ -299,15 +279,19 @@ private fun LaneHeader(
 private fun DigitalTimerDisplay(
     status: LaneStatus,
     countdownRemainingSeconds: Int,
+    restRemainingSeconds: Int = 0,
+    restTargetRealtime: Long? = null,
     pausedElapsedMillis: Long,
     laneStartTimeRealtime: Long?,
     finishTimeMillis: Long?,
-    finishRealtimeMillis: Long? = null
+    finishRealtimeMillis: Long? = null,
+    seriesMode: SeriesModeType = SeriesModeType.MANUAL,
+    sendOffDurationSec: Int = 0
 ) {
     var displayMillis by remember { mutableLongStateOf(0L) }
     var restElapsedMillis by remember { mutableLongStateOf(0L) }
 
-    LaunchedEffect(status, laneStartTimeRealtime, pausedElapsedMillis, finishTimeMillis, finishRealtimeMillis) {
+    LaunchedEffect(status, laneStartTimeRealtime, pausedElapsedMillis, finishTimeMillis, finishRealtimeMillis, restTargetRealtime) {
         if (status == LaneStatus.RUNNING && laneStartTimeRealtime != null) {
             while (true) {
                 withFrameMillis {
@@ -321,10 +305,17 @@ private fun DigitalTimerDisplay(
                     restElapsedMillis = (SystemClock.elapsedRealtime() - finishRealtimeMillis).coerceAtLeast(0L)
                 }
             }
+        } else if (status == LaneStatus.REST_COUNTDOWN && restTargetRealtime != null) {
+            displayMillis = finishTimeMillis ?: pausedElapsedMillis
+            while (true) {
+                withFrameMillis {
+                    restElapsedMillis = (restTargetRealtime - SystemClock.elapsedRealtime()).coerceAtLeast(0L)
+                }
+            }
         } else {
             displayMillis = when (status) {
                 LaneStatus.PAUSED -> pausedElapsedMillis
-                LaneStatus.FINISHED -> finishTimeMillis ?: pausedElapsedMillis
+                LaneStatus.FINISHED, LaneStatus.REST_COUNTDOWN -> finishTimeMillis ?: pausedElapsedMillis
                 LaneStatus.COUNTDOWN -> -(countdownRemainingSeconds * 1000L)
                 else -> 0L
             }
@@ -335,10 +326,17 @@ private fun DigitalTimerDisplay(
     val displayColor = when (status) {
         LaneStatus.RUNNING -> TextWhite
         LaneStatus.PAUSED -> Color(0xFFFFB74D)
-        LaneStatus.COUNTDOWN -> Color(0xFFFFD600)
+        LaneStatus.COUNTDOWN, LaneStatus.REST_COUNTDOWN -> Color(0xFFFFD600)
         LaneStatus.FINISHED -> AquaPrimary
         LaneStatus.IDLE -> TextWhite.copy(alpha = 0.5f)
     }
+
+    val isOverrunning = status == LaneStatus.RUNNING &&
+            seriesMode == SeriesModeType.SEND_OFF &&
+            sendOffDurationSec > 0 &&
+            displayMillis > (sendOffDurationSec * 1000L)
+
+    val overrunMillis = if (isOverrunning) displayMillis - (sendOffDurationSec * 1000L) else 0L
 
     Box(
         modifier = Modifier
@@ -358,15 +356,39 @@ private fun DigitalTimerDisplay(
                     TimeFormatter.formatMillis(displayMillis)
                 },
                 fontFamily = FontFamily.Monospace,
-                fontSize = if (status == LaneStatus.FINISHED && finishRealtimeMillis != null) 34.sp else 38.sp,
+                fontSize = if ((status == LaneStatus.FINISHED && finishRealtimeMillis != null) || status == LaneStatus.REST_COUNTDOWN || isOverrunning) 32.sp else 38.sp,
                 fontWeight = FontWeight.Bold,
-                color = displayColor,
+                color = if (isOverrunning) PaceRed else displayColor,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
 
-            if (status == LaneStatus.FINISHED && finishRealtimeMillis != null) {
+            if (status == LaneStatus.REST_COUNTDOWN) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Pause,
+                        contentDescription = "Pausentimer",
+                        tint = Color(0xFFFFD600),
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Pause: ${TimeFormatter.formatMillis(restElapsedMillis)}",
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFFFD600),
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            } else if (status == LaneStatus.FINISHED && finishRealtimeMillis != null) {
                 Spacer(modifier = Modifier.height(2.dp))
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -385,6 +407,23 @@ private fun DigitalTimerDisplay(
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFFFFB74D),
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            } else if (isOverrunning) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "⚠ Overrun +${TimeFormatter.formatMillis(overrunMillis)}",
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PaceRed,
                         textAlign = TextAlign.Center,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -621,7 +660,7 @@ private fun LaneControls(
                     softWrap = false
                 )
             }
-            LaneStatus.FINISHED -> {
+            LaneStatus.FINISHED, LaneStatus.REST_COUNTDOWN -> {
                 if (onStartSingleLaneClick != null) {
                     FilledTonalButton(
                         onClick = onStartSingleLaneClick,
@@ -729,17 +768,6 @@ private fun LaneLapsHistory(
                                 text = String.format(Locale.US, "%.0f SPM", lap.strokeRateSpm),
                                 fontSize = 11.sp,
                                 color = AquaPrimary,
-                                maxLines = 1
-                            )
-                        }
-
-                        if (lap.deltaTargetMillis != null) {
-                            val deltaColor = if (lap.deltaTargetMillis <= 0) PaceGreen else PaceRed
-                            Text(
-                                text = TimeFormatter.formatDelta(lap.deltaTargetMillis),
-                                fontSize = 11.sp,
-                                color = deltaColor,
-                                fontWeight = FontWeight.Bold,
                                 maxLines = 1
                             )
                         }

@@ -37,7 +37,8 @@ enum class LaneStatus {
     COUNTDOWN,
     RUNNING,
     PAUSED,
-    FINISHED
+    FINISHED,
+    REST_COUNTDOWN
 }
 
 enum class StartMode {
@@ -45,13 +46,25 @@ enum class StartMode {
     INTERVAL    // Staffelung (z. B. alle 5s, 10s)
 }
 
+enum class SeriesModeType {
+    MANUAL,      // Manuell (Standard)
+    FIXED_REST,  // Feste Pause (Rest Interval)
+    SEND_OFF     // Feste Abgangszeit (Send-off / Zyklus)
+}
+
+@Immutable
+data class SeriesConfig(
+    val mode: SeriesModeType = SeriesModeType.MANUAL,
+    val restDurationSeconds: Int = 20,
+    val sendOffDurationSeconds: Int = 60,
+    val maxSeriesCount: Int? = null // null = Unbegrenzt
+)
+
 @Immutable
 data class LapItem(
     val lapIndex: Int,
     val splitTimeMillis: Long,
     val lapTimeMillis: Long,
-    val targetLapMillis: Long? = null,
-    val deltaTargetMillis: Long? = null,
     val strokeRateSpm: Double? = null,
     val seriesIndex: Int = 1,
 )
@@ -65,11 +78,12 @@ data class LaneState(
     val laneStartTimeRealtime: Long? = null,
     val finishTimeMillis: Long? = null,
     val finishRealtimeMillis: Long? = null,
+    val restTargetRealtime: Long? = null,
+    val restRemainingSeconds: Int = 0,
     val currentElapsedMillis: Long = 0L,
     val laps: List<LapItem> = emptyList(),
     val seriesCount: Int = 1,
     val completedSeriesLaps: List<LapItem> = emptyList(),
-    val targetLapMillis: Long? = null,
     val intervalOffsetMillis: Long = 0L,
     val countdownRemainingSeconds: Int = 0,
     val targetDistanceMeters: Int = 100,
@@ -109,6 +123,7 @@ data class StopwatchUiState(
     val masterStartTimeRealtime: Long? = null,
     val startMode: StartMode = StartMode.MASS,
     val intervalOffsetSeconds: Int = 5,
+    val seriesConfig: SeriesConfig = SeriesConfig(),
     val selectedFocusedLane: Int = 1,
     val sessionTitle: String = "Trainingseinheit",
     val poolLengthMeters: Int = 50,
@@ -122,9 +137,6 @@ data class StopwatchUiState(
     // Stroke Rate Calculator
     val isStrokeRateDialogVisible: Boolean = false,
     val strokeRateTargetLane: Int? = null,
-    // Target Pace Dialog
-    val isTargetPaceDialogVisible: Boolean = false,
-    val targetPaceLane: Int? = null,
     // Assign Swimmer Dialog
     val isAssignSwimmerDialogVisible: Boolean = false,
     val assignSwimmerLane: Int? = null,
@@ -136,10 +148,10 @@ data class StopwatchUiState(
 ) {
     @Suppress("unused")
     val hasTickingLanes: Boolean
-        get() = lanes.any { lane -> lane.status == LaneStatus.RUNNING || lane.status == LaneStatus.COUNTDOWN }
+        get() = lanes.any { lane -> lane.status == LaneStatus.RUNNING || lane.status == LaneStatus.COUNTDOWN || lane.status == LaneStatus.REST_COUNTDOWN }
 
     val hasOpenRun: Boolean
-        get() = lanes.any { (it.status == LaneStatus.RUNNING) || (it.status == LaneStatus.COUNTDOWN) || (it.status == LaneStatus.PAUSED) }
+        get() = lanes.any { (it.status == LaneStatus.RUNNING) || (it.status == LaneStatus.COUNTDOWN) || (it.status == LaneStatus.PAUSED) || (it.status == LaneStatus.REST_COUNTDOWN) }
 }
 
 @Immutable
@@ -344,6 +356,25 @@ class StopwatchViewModel(
             StartMode.MASS
         }
 
+        val seriesModeStr = prefsRepo.getSeriesMode()
+        val seriesRest = prefsRepo.getSeriesRestSec()
+        val seriesSendOff = prefsRepo.getSeriesSendOffSec()
+        val seriesMaxRaw = prefsRepo.getSeriesMaxCount()
+        val seriesMax = if (seriesMaxRaw > 0) seriesMaxRaw else null
+
+        val seriesModeVal = try {
+            SeriesModeType.valueOf(seriesModeStr)
+        } catch (_: Exception) {
+            SeriesModeType.MANUAL
+        }
+
+        val loadedSeriesConfig = SeriesConfig(
+            mode = seriesModeVal,
+            restDurationSeconds = seriesRest,
+            sendOffDurationSeconds = seriesSendOff,
+            maxSeriesCount = seriesMax
+        )
+
         _uiState.update { currentState ->
             currentState.copy(
                 poolLengthMeters = pool,
@@ -352,6 +383,7 @@ class StopwatchViewModel(
                 strokeType = stroke,
                 startMode = startModeVal,
                 intervalOffsetSeconds = interval,
+                seriesConfig = loadedSeriesConfig,
                 laneCount = count,
                 sessionTitle = "${dist}m $stroke"
             )
@@ -373,6 +405,17 @@ class StopwatchViewModel(
             intervalOffsetSeconds = _uiState.value.intervalOffsetSeconds,
             laneCount = _uiState.value.laneCount
         )
+        preferencesRepository?.saveSeriesConfig(
+            mode = _uiState.value.seriesConfig.mode.name,
+            restSec = _uiState.value.seriesConfig.restDurationSeconds,
+            sendOffSec = _uiState.value.seriesConfig.sendOffDurationSeconds,
+            maxCount = _uiState.value.seriesConfig.maxSeriesCount ?: -1
+        )
+    }
+
+    fun setSeriesConfig(config: SeriesConfig) {
+        _uiState.update { it.copy(seriesConfig = config) }
+        savePreferences()
     }
 
     fun initializeLanes(count: Int) {
@@ -407,7 +450,7 @@ class StopwatchViewModel(
         tickerJob = viewModelScope.launch {
             while (isActive) {
                 updateTick()
-                val hasCountdown = _uiState.value.lanes.any { it.status == LaneStatus.COUNTDOWN }
+                val hasCountdown = _uiState.value.lanes.any { it.status == LaneStatus.COUNTDOWN || it.status == LaneStatus.REST_COUNTDOWN }
                 val hasRunning = _uiState.value.lanes.any { it.status == LaneStatus.RUNNING }
                 if (!hasCountdown && !hasRunning) {
                     break
@@ -426,6 +469,7 @@ class StopwatchViewModel(
         val anyActiveOrFinished = _uiState.value.lanes.any {
             it.status == LaneStatus.RUNNING ||
                 it.status == LaneStatus.COUNTDOWN ||
+                it.status == LaneStatus.REST_COUNTDOWN ||
                 it.status == LaneStatus.FINISHED
         }
         if (!anyActiveOrFinished) {
@@ -442,15 +486,18 @@ class StopwatchViewModel(
 
     private fun updateTick() {
         val now = clock.nowMillis()
+        var playStartSignalThisTick = false
+        var lowestCountdownBeepThisTick: Int? = null
+
         _uiState.update { currentState ->
-            val masterStart = currentState.masterStartTimeRealtime ?: return@update currentState
+            val masterStart = currentState.masterStartTimeRealtime ?: now
 
             val updatedLanes = currentState.lanes.map { lane ->
                 when (lane.status) {
                     LaneStatus.COUNTDOWN -> {
                         val laneStartTarget = masterStart + lane.intervalOffsetMillis
                         if (now >= laneStartTarget) {
-                            SoundUtil.playStartSignal()
+                            playStartSignalThisTick = true
                             lane.copy(
                                 status = LaneStatus.RUNNING,
                                 laneStartTimeRealtime = laneStartTarget,
@@ -460,9 +507,35 @@ class StopwatchViewModel(
                             val remainingMs = (laneStartTarget - now).coerceAtLeast(0L)
                             val remainingSec = ((remainingMs + 999L) / 1000L).toInt()
                             if (remainingSec != lane.countdownRemainingSeconds && remainingSec in 1..3) {
-                                SoundUtil.playCountdownBeep(remainingSec)
+                                lowestCountdownBeepThisTick = minOf(lowestCountdownBeepThisTick ?: remainingSec, remainingSec)
                             }
                             lane.copy(countdownRemainingSeconds = remainingSec)
+                        }
+                    }
+                    LaneStatus.REST_COUNTDOWN -> {
+                        val restTarget = lane.restTargetRealtime
+                        if (restTarget == null || now >= restTarget) {
+                            playStartSignalThisTick = true
+                            val (newCompletedLaps, newSeriesCount) = lane.preservePreviousSeriesIfAny()
+                            lane.copy(
+                                status = LaneStatus.RUNNING,
+                                laneStartTimeRealtime = restTarget ?: now,
+                                finishTimeMillis = null,
+                                finishRealtimeMillis = null,
+                                restTargetRealtime = null,
+                                restRemainingSeconds = 0,
+                                currentElapsedMillis = 0L,
+                                laps = emptyList(),
+                                completedSeriesLaps = newCompletedLaps,
+                                seriesCount = newSeriesCount
+                            )
+                        } else {
+                            val remainingMs = (restTarget - now).coerceAtLeast(0L)
+                            val remainingSec = ((remainingMs + 999L) / 1000L).toInt()
+                            if (remainingSec != lane.restRemainingSeconds && remainingSec in 1..3) {
+                                lowestCountdownBeepThisTick = minOf(lowestCountdownBeepThisTick ?: remainingSec, remainingSec)
+                            }
+                            lane.copy(restRemainingSeconds = remainingSec)
                         }
                     }
                     LaneStatus.RUNNING -> lane
@@ -477,6 +550,12 @@ class StopwatchViewModel(
             } else {
                 currentState
             }
+        }
+
+        if (playStartSignalThisTick) {
+            SoundUtil.playStartSignal()
+        } else if (lowestCountdownBeepThisTick != null) {
+            SoundUtil.playCountdownBeep(lowestCountdownBeepThisTick!!)
         }
     }
 
@@ -672,6 +751,82 @@ class StopwatchViewModel(
         }
     }
 
+    private fun resolveFinishLaneState(
+        lane: LaneState,
+        updatedLaps: List<LapItem>,
+        exactRealtime: Long,
+        seriesConfig: SeriesConfig
+    ): LaneState {
+        val maxCount = seriesConfig.maxSeriesCount
+        val isMaxReached = maxCount != null && lane.seriesCount >= maxCount
+
+        if (isMaxReached || seriesConfig.mode == SeriesModeType.MANUAL) {
+            val finalTime = updatedLaps.lastOrNull()?.splitTimeMillis ?: 0L
+            return lane.copy(
+                status = LaneStatus.FINISHED,
+                finishTimeMillis = finalTime,
+                finishRealtimeMillis = exactRealtime,
+                currentElapsedMillis = finalTime,
+                laps = updatedLaps,
+                restTargetRealtime = null,
+                restRemainingSeconds = 0
+            )
+        }
+
+        if (seriesConfig.mode == SeriesModeType.FIXED_REST) {
+            val finalTime = updatedLaps.lastOrNull()?.splitTimeMillis ?: 0L
+            val restTarget = exactRealtime + (seriesConfig.restDurationSeconds * 1000L)
+            return lane.copy(
+                status = LaneStatus.REST_COUNTDOWN,
+                finishTimeMillis = finalTime,
+                finishRealtimeMillis = exactRealtime,
+                currentElapsedMillis = finalTime,
+                laps = updatedLaps,
+                restTargetRealtime = restTarget,
+                restRemainingSeconds = seriesConfig.restDurationSeconds
+            )
+        }
+
+        // SEND_OFF mode
+        val sendOffMs = seriesConfig.sendOffDurationSeconds * 1000L
+        val cycleStart = lane.laneStartTimeRealtime ?: exactRealtime
+        val cycleTarget = cycleStart + sendOffMs
+
+        if (exactRealtime < cycleTarget) {
+            // Normalfall: swimmer finished before send-off cycle expired
+            val finalTime = updatedLaps.lastOrNull()?.splitTimeMillis ?: 0L
+            val restSec = (((cycleTarget - exactRealtime) + 999L) / 1000L).toInt()
+            return lane.copy(
+                status = LaneStatus.REST_COUNTDOWN,
+                finishTimeMillis = finalTime,
+                finishRealtimeMillis = exactRealtime,
+                currentElapsedMillis = finalTime,
+                laps = updatedLaps,
+                restTargetRealtime = cycleTarget,
+                restRemainingSeconds = restSec
+            )
+        } else {
+            // OVERRUN FALL: swimmer finished after send-off cycle expired!
+            // Clean series transition immediately
+            val taggedLaps = updatedLaps.map { it.copy(seriesIndex = lane.seriesCount) }
+            val newCompletedLaps = lane.completedSeriesLaps + taggedLaps
+            val newSeriesCount = lane.seriesCount + 1
+            SoundUtil.playStartSignal()
+            return lane.copy(
+                status = LaneStatus.RUNNING,
+                laneStartTimeRealtime = exactRealtime,
+                finishTimeMillis = null,
+                finishRealtimeMillis = null,
+                restTargetRealtime = null,
+                restRemainingSeconds = 0,
+                currentElapsedMillis = 0L,
+                laps = emptyList(),
+                completedSeriesLaps = newCompletedLaps,
+                seriesCount = newSeriesCount
+            )
+        }
+    }
+
     fun onStopAll() {
         val now = clock.nowMillis()
         pushUndo(UndoAction.BulkStop(_uiState.value.lanes))
@@ -681,7 +836,6 @@ class StopwatchViewModel(
             val newLanes = currentLanes.map { lane ->
                 when (lane.status) {
                     LaneStatus.COUNTDOWN -> {
-                        // Lane hasn't started swimming yet -> reset cleanly to IDLE instead of 00:00.00 FINISHED
                         lane.copy(
                             status = LaneStatus.IDLE,
                             laneStartTimeRealtime = null,
@@ -696,15 +850,11 @@ class StopwatchViewModel(
                         val lapTime = (exactFinalTime - previousSplit).coerceAtLeast(0L)
                         val totalSplitsNeeded = (lane.targetDistanceMeters / lane.splitDistanceMeters).coerceAtLeast(1)
 
-                        // Only append a final lap if not already at required split count
                         val finishLap = if (exactFinalTime > 0L && lane.laps.size < totalSplitsNeeded) {
-                            val deltaTarget = lane.targetLapMillis?.let { lapTime - it }
                             LapItem(
                                 lapIndex = totalSplitsNeeded,
                                 splitTimeMillis = exactFinalTime,
                                 lapTimeMillis = lapTime,
-                                targetLapMillis = lane.targetLapMillis,
-                                deltaTargetMillis = deltaTarget,
                                 strokeRateSpm = lane.currentSpm,
                                 seriesIndex = lane.seriesCount
                             )
@@ -726,6 +876,16 @@ class StopwatchViewModel(
                             status = LaneStatus.FINISHED,
                             finishTimeMillis = finalTime,
                             finishRealtimeMillis = now
+                        )
+                    }
+                    LaneStatus.REST_COUNTDOWN -> {
+                        val finalTime = lane.finishTimeMillis ?: lane.currentElapsedMillis
+                        lane.copy(
+                            status = LaneStatus.FINISHED,
+                            finishTimeMillis = finalTime,
+                            finishRealtimeMillis = now,
+                            restTargetRealtime = null,
+                            restRemainingSeconds = 0
                         )
                     }
                     else -> lane
@@ -758,7 +918,7 @@ class StopwatchViewModel(
                 currentElapsedMillis = elapsed
             )
 
-            anyRunning = lanes.any { it.status == LaneStatus.RUNNING || it.status == LaneStatus.COUNTDOWN || it.status == LaneStatus.PAUSED }
+            anyRunning = lanes.any { it.status == LaneStatus.RUNNING || it.status == LaneStatus.COUNTDOWN || it.status == LaneStatus.PAUSED || it.status == LaneStatus.REST_COUNTDOWN }
             currentState.copy(lanes = lanes)
         }
         if (!anyRunning) stopTickerIfAllIdle()
@@ -802,7 +962,6 @@ class StopwatchViewModel(
             val previousSplit = lane.laps.lastOrNull()?.splitTimeMillis ?: 0L
             val lapTime = (splitTime - previousSplit).coerceAtLeast(0L)
 
-            val deltaTarget = lane.targetLapMillis?.let { lapTime - it }
             val newLapIndex = lane.laps.size + 1
             val totalSplitsNeeded = (lane.targetDistanceMeters / lane.splitDistanceMeters).coerceAtLeast(1)
             val isFinalLap = newLapIndex >= totalSplitsNeeded
@@ -811,8 +970,6 @@ class StopwatchViewModel(
                 lapIndex = newLapIndex,
                 splitTimeMillis = splitTime,
                 lapTimeMillis = lapTime,
-                targetLapMillis = lane.targetLapMillis,
-                deltaTargetMillis = deltaTarget,
                 strokeRateSpm = lane.currentSpm,
                 seriesIndex = lane.seriesCount
             )
@@ -826,13 +983,7 @@ class StopwatchViewModel(
             )
 
             lanes[index] = if (isFinalLap) {
-                lane.copy(
-                    status = LaneStatus.FINISHED,
-                    finishTimeMillis = splitTime,
-                    finishRealtimeMillis = exactRealtime,
-                    currentElapsedMillis = splitTime,
-                    laps = lane.laps + newLap
-                )
+                resolveFinishLaneState(lane, lane.laps + newLap, exactRealtime, currentState.seriesConfig)
             } else {
                 lane.copy(
                     currentElapsedMillis = splitTime,
@@ -848,6 +999,7 @@ class StopwatchViewModel(
         }
 
         pushedUndo?.let { pushUndo(it) }
+        startTicker()
     }
 
     fun onFinishLane(laneNumber: Int, exactRealtime: Long = clock.nowMillis()) {
@@ -869,15 +1021,11 @@ class StopwatchViewModel(
             val nextLapIndex = lane.laps.size + 1
             val finishLapIndex = if (nextLapIndex >= totalSplitsNeeded) totalSplitsNeeded else nextLapIndex
 
-            // Only create a new lap if we haven't already recorded all splits
             val finishLap = if (finalTime > 0L && lane.laps.size < totalSplitsNeeded) {
-                val deltaTarget = lane.targetLapMillis?.let { lapTime - it }
                 LapItem(
                     lapIndex = finishLapIndex,
                     splitTimeMillis = finalTime,
                     lapTimeMillis = lapTime,
-                    targetLapMillis = lane.targetLapMillis,
-                    deltaTargetMillis = deltaTarget,
                     strokeRateSpm = lane.currentSpm,
                     seriesIndex = lane.seriesCount
                 )
@@ -893,13 +1041,7 @@ class StopwatchViewModel(
                 removedFinishLap = finishLap
             )
 
-            lanes[index] = lane.copy(
-                status = LaneStatus.FINISHED,
-                finishTimeMillis = finalTime,
-                finishRealtimeMillis = exactRealtime,
-                currentElapsedMillis = finalTime,
-                laps = updatedLaps
-            )
+            lanes[index] = resolveFinishLaneState(lane, updatedLaps, exactRealtime, currentState.seriesConfig)
 
             currentState.copy(
                 lanes = lanes,
@@ -909,6 +1051,7 @@ class StopwatchViewModel(
         }
         
         pushedUndo?.let { pushUndo(it) }
+        startTicker()
     }
 
     @Suppress("unused")
@@ -929,7 +1072,6 @@ class StopwatchViewModel(
                 val previousSplit = lane.laps.lastOrNull()?.splitTimeMillis ?: 0L
                 val lapTime = (splitTime - previousSplit).coerceAtLeast(0L)
 
-                val deltaTarget = lane.targetLapMillis?.let { lapTime - it }
                 val newLapIndex = lane.laps.size + 1
                 val totalSplitsNeeded = (lane.targetDistanceMeters / lane.splitDistanceMeters).coerceAtLeast(1)
                 val isFinalLap = newLapIndex >= totalSplitsNeeded
@@ -938,20 +1080,12 @@ class StopwatchViewModel(
                     lapIndex = newLapIndex,
                     splitTimeMillis = splitTime,
                     lapTimeMillis = lapTime,
-                    targetLapMillis = lane.targetLapMillis,
-                    deltaTargetMillis = deltaTarget,
                     strokeRateSpm = lane.currentSpm,
                     seriesIndex = lane.seriesCount
                 )
 
                 if (isFinalLap) {
-                    lane.copy(
-                        status = LaneStatus.FINISHED,
-                        finishTimeMillis = splitTime,
-                        finishRealtimeMillis = now,
-                        currentElapsedMillis = splitTime,
-                        laps = lane.laps + newLap
-                    )
+                    resolveFinishLaneState(lane, lane.laps + newLap, now, currentState.seriesConfig)
                 } else {
                     lane.copy(
                         currentElapsedMillis = splitTime,
@@ -979,11 +1113,12 @@ class StopwatchViewModel(
                     laneStartTimeRealtime = null,
                     finishTimeMillis = null,
                     finishRealtimeMillis = null,
+                    restTargetRealtime = null,
+                    restRemainingSeconds = 0,
                     currentElapsedMillis = 0L,
                     laps = emptyList(),
                     completedSeriesLaps = emptyList(),
                     seriesCount = 1,
-                    targetLapMillis = null,
                     spmTapStartRealtime = null,
                     currentSpm = null,
                     countdownRemainingSeconds = 0
@@ -1263,45 +1398,6 @@ class StopwatchViewModel(
         savePreferences()
     }
 
-    fun setTargetPaceForLane(laneNumber: Int, paceMillis: Long?) {
-        val lanes = _uiState.value.lanes.map {
-            if (it.laneNumber == laneNumber) it.copy(targetLapMillis = paceMillis) else it
-        }
-        _uiState.update { it.copy(
-            lanes = lanes,
-            isTargetPaceDialogVisible = false
-        ) }
-    }
-
-    fun setTargetPaceForAllLanes(
-        paceMillis: Long?,
-        stroke: String? = null,
-        distance: Int? = null,
-        splitDistance: Int? = null
-    ) {
-        val newStroke = stroke ?: _uiState.value.strokeType
-        val rawDist = distance ?: _uiState.value.targetDistanceMeters
-        val newDist = if (newStroke == "Lagen" && rawDist < 100) 100 else rawDist
-        val rawSplit = splitDistance ?: _uiState.value.splitDistanceMeters
-        val newSplit = if (rawSplit > newDist) newDist else rawSplit
-
-        val lanes = _uiState.value.lanes.map {
-            it.copy(
-                targetLapMillis = paceMillis,
-                strokeType = newStroke,
-                targetDistanceMeters = newDist,
-                splitDistanceMeters = newSplit
-            )
-        }
-        _uiState.update { it.copy(
-            strokeType = newStroke,
-            targetDistanceMeters = newDist,
-            splitDistanceMeters = newSplit,
-            lanes = lanes,
-            isPaceCalculatorVisible = false
-        ) }
-    }
-
     @Suppress("unused")
     fun openPaceCalculator() {
         _uiState.update { it.copy(isPaceCalculatorVisible = true) }
@@ -1309,17 +1405,6 @@ class StopwatchViewModel(
 
     fun closePaceCalculator() {
         _uiState.update { it.copy(isPaceCalculatorVisible = false) }
-    }
-
-    fun openTargetPaceDialog(laneNumber: Int) {
-        _uiState.update { it.copy(
-            isTargetPaceDialogVisible = true,
-            targetPaceLane = laneNumber
-        ) }
-    }
-
-    fun closeTargetPaceDialog() {
-        _uiState.update { it.copy(isTargetPaceDialogVisible = false) }
     }
 
     fun openAssignSwimmerDialog(laneNumber: Int) {
@@ -1429,8 +1514,8 @@ class StopwatchViewModel(
                             lapIndex = globalIndex + 1,
                             splitTimeMillis = lap.splitTimeMillis,
                             lapTimeMillis = lap.lapTimeMillis,
-                            targetLapMillis = lap.targetLapMillis,
-                            deltaTargetMillis = lap.deltaTargetMillis,
+                            targetLapMillis = null,
+                            deltaTargetMillis = null,
                             strokeRateSpm = lap.strokeRateSpm
                         )
                     )

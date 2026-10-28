@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.LaneStatus
+import com.example.ui.SeriesModeType
 import com.example.ui.StartMode
 import com.example.ui.StopwatchViewModel
 import com.example.ui.components.AssignSwimmerDialog
@@ -64,7 +65,7 @@ import com.example.ui.components.LaneTimerCard
 import com.example.ui.components.StrokeRateCalculatorDialog
 import com.example.ui.components.SwimPaceCalculatorDialog
 import com.example.util.HapticUtil
-import com.example.ui.components.TargetPaceDialog
+import com.example.util.TimeFormatter
 import com.example.ui.theme.AquaPrimary
 import com.example.ui.theme.DeepOceanBackground
 import com.example.ui.theme.OceanSurface
@@ -160,11 +161,19 @@ fun MultiStopwatchScreen(
                                 )
                             }
                             Spacer(modifier = Modifier.height(2.dp))
+                            val seriesLabel = when (uiState.seriesConfig.mode) {
+                                SeriesModeType.MANUAL -> "Serie Manuell"
+                                SeriesModeType.FIXED_REST -> "Pause ${uiState.seriesConfig.restDurationSeconds}s"
+                                SeriesModeType.SEND_OFF -> "Abgang ${TimeFormatter.formatSeconds(uiState.seriesConfig.sendOffDurationSeconds.toLong())}"
+                            } + if (uiState.seriesConfig.maxSeriesCount != null) " (${uiState.seriesConfig.maxSeriesCount}x)" else ""
+
+                            val startLabel = if (uiState.startMode == StartMode.INTERVAL) "Intervall (+${uiState.intervalOffsetSeconds}s)" else "Massenstart"
+
                             Text(
                                 text = if (uiState.strokeType == "Lagen") {
-                                    "Splits alle ${uiState.splitDistanceMeters}m • 1. Schmett • 2. Rücken • 3. Brust • 4. Kraul"
+                                    "Splits alle ${uiState.splitDistanceMeters}m • $seriesLabel • 1. Schmett • 2. Rücken • 3. Brust • 4. Kraul"
                                 } else {
-                                    "Splits alle ${uiState.splitDistanceMeters}m • ${if (uiState.startMode == StartMode.INTERVAL) "Intervall (+${uiState.intervalOffsetSeconds}s)" else "Massenstart"}"
+                                    "Splits alle ${uiState.splitDistanceMeters}m • $startLabel • $seriesLabel"
                                 },
                                 style = MaterialTheme.typography.labelSmall,
                                 color = if (uiState.strokeType == "Lagen") Color(0xFFFFD600) else Color.LightGray,
@@ -212,7 +221,6 @@ fun MultiStopwatchScreen(
                     val onLapClick = remember(laneNum, context) { { exactTime: Long -> HapticUtil.vibrateClick(context); viewModel.onLapLane(laneNum, exactTime) } }
                     val onFinishClick = remember(laneNum, context) { { exactTime: Long -> HapticUtil.vibrateHeavy(context); viewModel.onFinishLane(laneNum, exactTime) } }
                     val onAssignSwimmerClick = remember(laneNum) { { viewModel.openAssignSwimmerDialog(laneNum) } }
-                    val onTargetPaceClick = remember(laneNum) { { viewModel.openTargetPaceDialog(laneNum) } }
                     val onRemoveLaneClick = remember(laneNum, context) { { HapticUtil.vibrateClick(context); viewModel.removeLane(laneNum) } }
                     val onStartSingleLaneClick = remember(laneNum, context) { { HapticUtil.vibrateHeavy(context); viewModel.onStartSingleLane(laneNum) } }
                     val onPauseClick = remember(laneNum, context) { { HapticUtil.vibrateClick(context); viewModel.onPauseLane(laneNum) } }
@@ -224,7 +232,9 @@ fun MultiStopwatchScreen(
                         onLapClick = onLapClick,
                         onFinishClick = onFinishClick,
                         onAssignSwimmerClick = onAssignSwimmerClick,
-                        onTargetPaceClick = onTargetPaceClick,
+                        maxSeriesCount = uiState.seriesConfig.maxSeriesCount,
+                        seriesMode = uiState.seriesConfig.mode,
+                        sendOffDurationSec = uiState.seriesConfig.sendOffDurationSeconds,
                         onRemoveLaneClick = onRemoveLaneClick,
                         onStartSingleLaneClick = onStartSingleLaneClick,
                         onPauseClick = onPauseClick,
@@ -503,28 +513,14 @@ fun MultiStopwatchScreen(
                 currentDistance = uiState.targetDistanceMeters,
                 currentSplitDistance = uiState.splitDistanceMeters,
                 currentStroke = uiState.strokeType,
+                currentSeriesConfig = uiState.seriesConfig,
                 onDismiss = { isConfigDialogOpen = false }
-            ) { mode, interval, pool, dist, splitDist, stroke ->
+            ) { mode, interval, pool, dist, splitDist, stroke, seriesConfig ->
                 viewModel.setStartMode(mode)
                 viewModel.setIntervalOffsetSeconds(interval)
+                viewModel.setSeriesConfig(seriesConfig)
                 viewModel.setSessionMeta("${dist}m $stroke", stroke, pool, dist, splitDist)
             }
-        }
-
-        if (uiState.isTargetPaceDialogVisible && (uiState.targetPaceLane != null)) {
-            val laneNum = uiState.targetPaceLane!!
-            val targetLane = uiState.lanes.firstOrNull { it.laneNumber == laneNum }
-            val currentPace = targetLane?.targetLapMillis
-            val assignedSwimmer = swimmers.firstOrNull { it.id == targetLane?.swimmerId }
-            TargetPaceDialog(
-                laneNumber = laneNum,
-                currentPaceMillis = currentPace,
-                assignedSwimmer = assignedSwimmer,
-                targetDistanceMeters = uiState.targetDistanceMeters,
-                splitDistanceMeters = uiState.splitDistanceMeters,
-                strokeType = uiState.strokeType,
-                onDismiss = { viewModel.closeTargetPaceDialog() },
-            ) { newPace -> viewModel.setTargetPaceForLane(laneNum, newPace) }
         }
 
         if (uiState.isAssignSwimmerDialogVisible && (uiState.assignSwimmerLane != null)) {
@@ -558,10 +554,7 @@ fun MultiStopwatchScreen(
                 initialDistance = uiState.targetDistanceMeters,
                 initialStroke = uiState.strokeType,
                 initialSplitDistance = uiState.splitDistanceMeters,
-                onDismiss = { viewModel.closePaceCalculator() },
-                onApplyTargetPaceToAllLanes = { avgMillis ->
-                    viewModel.setTargetPaceForAllLanes(avgMillis)
-                }
+                onDismiss = { viewModel.closePaceCalculator() }
             )
         }
     }
