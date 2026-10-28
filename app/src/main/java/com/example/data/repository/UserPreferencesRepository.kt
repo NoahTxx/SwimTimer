@@ -16,6 +16,7 @@ class UserPreferencesRepository(context: Context) {
     fun getLaneCount(default: Int = 4): Int = prefs.getInt("laneCount", default)
     fun getCustomGroups(): Set<String> = prefs.getStringSet("customGroups", emptySet()) ?: emptySet()
 
+    fun getSeriesEnabled(default: Boolean = false): Boolean = prefs.getBoolean("seriesEnabled", default)
     fun getSeriesMode(default: String = "MANUAL"): String = prefs.getString("seriesMode", default) ?: default
     fun getSeriesRestSec(default: Int = 20): Int = prefs.getInt("seriesRestSec", default)
     fun getSeriesSendOffSec(default: Int = 60): Int = prefs.getInt("seriesSendOffSec", default)
@@ -42,8 +43,9 @@ class UserPreferencesRepository(context: Context) {
         }
     }
 
-    fun saveSeriesConfig(mode: String, restSec: Int, sendOffSec: Int, maxCount: Int) {
+    fun saveSeriesConfig(isEnabled: Boolean, mode: String, restSec: Int, sendOffSec: Int, maxCount: Int) {
         prefs.edit().apply {
+            putBoolean("seriesEnabled", isEnabled)
             putString("seriesMode", mode)
             putInt("seriesRestSec", restSec)
             putInt("seriesSendOffSec", sendOffSec)

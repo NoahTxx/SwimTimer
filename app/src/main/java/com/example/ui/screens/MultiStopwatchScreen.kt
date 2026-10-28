@@ -161,19 +161,21 @@ fun MultiStopwatchScreen(
                                 )
                             }
                             Spacer(modifier = Modifier.height(2.dp))
-                            val seriesLabel = when (uiState.seriesConfig.mode) {
-                                SeriesModeType.MANUAL -> "Serie Manuell"
-                                SeriesModeType.FIXED_REST -> "Pause ${uiState.seriesConfig.restDurationSeconds}s"
-                                SeriesModeType.SEND_OFF -> "Abgang ${TimeFormatter.formatSeconds(uiState.seriesConfig.sendOffDurationSeconds.toLong())}"
-                            } + if (uiState.seriesConfig.maxSeriesCount != null) " (${uiState.seriesConfig.maxSeriesCount}x)" else ""
+                            val seriesLabel = if (uiState.seriesConfig.isEnabled) {
+                                " • " + (when (uiState.seriesConfig.mode) {
+                                    SeriesModeType.MANUAL -> "Serie Manuell"
+                                    SeriesModeType.FIXED_REST -> "Pause ${uiState.seriesConfig.restDurationSeconds}s"
+                                    SeriesModeType.SEND_OFF -> "Abgang ${TimeFormatter.formatSeconds(uiState.seriesConfig.sendOffDurationSeconds.toLong())}"
+                                } + if (uiState.seriesConfig.maxSeriesCount != null) " (${uiState.seriesConfig.maxSeriesCount}x)" else "")
+                            } else ""
 
                             val startLabel = if (uiState.startMode == StartMode.INTERVAL) "Intervall (+${uiState.intervalOffsetSeconds}s)" else "Massenstart"
 
                             Text(
                                 text = if (uiState.strokeType == "Lagen") {
-                                    "Splits alle ${uiState.splitDistanceMeters}m • $seriesLabel • 1. Schmett • 2. Rücken • 3. Brust • 4. Kraul"
+                                    "Splits alle ${uiState.splitDistanceMeters}m$seriesLabel • 1. Schmett • 2. Rücken • 3. Brust • 4. Kraul"
                                 } else {
-                                    "Splits alle ${uiState.splitDistanceMeters}m • $startLabel • $seriesLabel"
+                                    "Splits alle ${uiState.splitDistanceMeters}m • $startLabel$seriesLabel"
                                 },
                                 style = MaterialTheme.typography.labelSmall,
                                 color = if (uiState.strokeType == "Lagen") Color(0xFFFFD600) else Color.LightGray,
@@ -232,6 +234,7 @@ fun MultiStopwatchScreen(
                         onLapClick = onLapClick,
                         onFinishClick = onFinishClick,
                         onAssignSwimmerClick = onAssignSwimmerClick,
+                        isSeriesEnabled = uiState.seriesConfig.isEnabled,
                         maxSeriesCount = uiState.seriesConfig.maxSeriesCount,
                         seriesMode = uiState.seriesConfig.mode,
                         sendOffDurationSec = uiState.seriesConfig.sendOffDurationSeconds,

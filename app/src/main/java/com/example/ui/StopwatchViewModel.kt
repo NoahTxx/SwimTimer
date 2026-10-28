@@ -54,6 +54,7 @@ enum class SeriesModeType {
 
 @Immutable
 data class SeriesConfig(
+    val isEnabled: Boolean = false,
     val mode: SeriesModeType = SeriesModeType.MANUAL,
     val restDurationSeconds: Int = 20,
     val sendOffDurationSeconds: Int = 60,
@@ -356,6 +357,7 @@ class StopwatchViewModel(
             StartMode.MASS
         }
 
+        val isSeriesEnabled = prefsRepo.getSeriesEnabled(false)
         val seriesModeStr = prefsRepo.getSeriesMode()
         val seriesRest = prefsRepo.getSeriesRestSec()
         val seriesSendOff = prefsRepo.getSeriesSendOffSec()
@@ -369,6 +371,7 @@ class StopwatchViewModel(
         }
 
         val loadedSeriesConfig = SeriesConfig(
+            isEnabled = isSeriesEnabled,
             mode = seriesModeVal,
             restDurationSeconds = seriesRest,
             sendOffDurationSeconds = seriesSendOff,
@@ -406,6 +409,7 @@ class StopwatchViewModel(
             laneCount = _uiState.value.laneCount
         )
         preferencesRepository?.saveSeriesConfig(
+            isEnabled = _uiState.value.seriesConfig.isEnabled,
             mode = _uiState.value.seriesConfig.mode.name,
             restSec = _uiState.value.seriesConfig.restDurationSeconds,
             sendOffSec = _uiState.value.seriesConfig.sendOffDurationSeconds,
@@ -760,7 +764,7 @@ class StopwatchViewModel(
         val maxCount = seriesConfig.maxSeriesCount
         val isMaxReached = maxCount != null && lane.seriesCount >= maxCount
 
-        if (isMaxReached || seriesConfig.mode == SeriesModeType.MANUAL) {
+        if (!seriesConfig.isEnabled || isMaxReached || seriesConfig.mode == SeriesModeType.MANUAL) {
             val finalTime = updatedLaps.lastOrNull()?.splitTimeMillis ?: 0L
             return lane.copy(
                 status = LaneStatus.FINISHED,
@@ -1018,12 +1022,9 @@ class StopwatchViewModel(
             val lapTime = (finalTime - previousSplit).coerceAtLeast(0L)
             val totalSplitsNeeded = (lane.targetDistanceMeters / lane.splitDistanceMeters).coerceAtLeast(1)
 
-            val nextLapIndex = lane.laps.size + 1
-            val finishLapIndex = if (nextLapIndex >= totalSplitsNeeded) totalSplitsNeeded else nextLapIndex
-
             val finishLap = if (finalTime > 0L && lane.laps.size < totalSplitsNeeded) {
                 LapItem(
-                    lapIndex = finishLapIndex,
+                    lapIndex = totalSplitsNeeded,
                     splitTimeMillis = finalTime,
                     lapTimeMillis = lapTime,
                     strokeRateSpm = lane.currentSpm,
@@ -1570,8 +1571,9 @@ class StopwatchViewModel(
                             // Helper to find exact cumulative split time at a specific distance (e.g. 25m, 50m, 100m)
                             fun getCumulativeSplitAtMeters(meters: Int): Long? {
                                 if (meters % state.splitDistanceMeters != 0) return null
-                                val lapIdx = (meters / state.splitDistanceMeters) - 1
-                                return seriesLaps.getOrNull(lapIdx)?.splitTimeMillis?.takeIf { it > 0L }
+                                val expectedLapIndex = meters / state.splitDistanceMeters
+                                val lap = seriesLaps.find { it.lapIndex == expectedLapIndex }
+                                return lap?.splitTimeMillis?.takeIf { it > 0L }
                             }
 
                             // Non-Lagen: Check 25m, 50m, and 100m PBs (both full distance and exact intermediate splits)

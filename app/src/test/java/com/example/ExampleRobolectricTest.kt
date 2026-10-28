@@ -300,6 +300,7 @@ class ExampleRobolectricTest {
     vm.initializeLanes(4)
     vm.setSeriesConfig(
       com.example.ui.SeriesConfig(
+        isEnabled = true,
         mode = com.example.ui.SeriesModeType.FIXED_REST,
         restDurationSeconds = 20,
         maxSeriesCount = 4
@@ -451,5 +452,61 @@ class ExampleRobolectricTest {
     assertEquals(1, lane1Series2Finished.allLaps[0].seriesIndex)
     assertEquals(1, lane1Series2Finished.allLaps[1].seriesIndex)
     assertEquals(2, lane1Series2Finished.allLaps[2].seriesIndex)
+  }
+
+  @Test
+  fun `test early finish tap without intermediate splits sets lapIndex to totalSplitsNeeded`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = com.example.data.db.AppDatabase.getInstance(context)
+    val repository = com.example.data.repository.SwimRepository(db)
+    val prefsRepo = com.example.data.repository.UserPreferencesRepository(context)
+
+    val vm = com.example.ui.StopwatchViewModel(repository, prefsRepo)
+    kotlinx.coroutines.runBlocking { kotlinx.coroutines.delay(200) }
+    vm.setSessionMeta("Test 100m", "Freistil", 50, 100, 50) // target = 100m, split = 50m -> totalSplitsNeeded = 2
+    vm.initializeLanes(1)
+
+    vm.onStartSingleLane(1)
+    val startRealtime = vm.uiState.value.lanes.first { it.laneNumber == 1 }.laneStartTimeRealtime!!
+    // User skipped 50m split, pressed Ziel at 100m directly (elapsed = 62.50s)
+    vm.onFinishLane(1, exactRealtime = startRealtime + 62_500L)
+
+    val lane = vm.uiState.value.lanes.first { it.laneNumber == 1 }
+    assertEquals(com.example.ui.LaneStatus.FINISHED, lane.status)
+    assertEquals(1, lane.laps.size)
+
+    val finishLap = lane.laps.first()
+    assertEquals(2, finishLap.lapIndex) // lapIndex must be 2 (totalSplitsNeeded = 100/50 = 2)
+    assertEquals(62_500L, finishLap.splitTimeMillis)
+    assertEquals(62_500L, finishLap.lapTimeMillis)
+  }
+
+  @Test
+  fun `test series enabled state persistence`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = com.example.data.db.AppDatabase.getInstance(context)
+    val repository = com.example.data.repository.SwimRepository(db)
+    val prefsRepo = com.example.data.repository.UserPreferencesRepository(context)
+
+    val vm = com.example.ui.StopwatchViewModel(repository, prefsRepo)
+    kotlinx.coroutines.runBlocking { kotlinx.coroutines.delay(200) }
+    org.junit.Assert.assertFalse(vm.uiState.value.seriesConfig.isEnabled)
+
+    // Enable series mode
+    val newConfig = com.example.ui.SeriesConfig(
+      isEnabled = true,
+      mode = com.example.ui.SeriesModeType.SEND_OFF,
+      sendOffDurationSeconds = 75
+    )
+    vm.setSeriesConfig(newConfig)
+    org.junit.Assert.assertTrue(vm.uiState.value.seriesConfig.isEnabled)
+    assertEquals(com.example.ui.SeriesModeType.SEND_OFF, vm.uiState.value.seriesConfig.mode)
+
+    // Re-instantiate ViewModel -> loads from preferences
+    val vmReloaded = com.example.ui.StopwatchViewModel(repository, prefsRepo)
+    kotlinx.coroutines.runBlocking { kotlinx.coroutines.delay(200) }
+    org.junit.Assert.assertTrue(vmReloaded.uiState.value.seriesConfig.isEnabled)
+    assertEquals(com.example.ui.SeriesModeType.SEND_OFF, vmReloaded.uiState.value.seriesConfig.mode)
+    assertEquals(75, vmReloaded.uiState.value.seriesConfig.sendOffDurationSeconds)
   }
 }

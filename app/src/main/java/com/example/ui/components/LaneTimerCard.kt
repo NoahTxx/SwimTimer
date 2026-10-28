@@ -80,6 +80,7 @@ fun LaneTimerCard(
     onFinishClick: (Long) -> Unit,
     onAssignSwimmerClick: () -> Unit,
     modifier: Modifier = Modifier,
+    isSeriesEnabled: Boolean = false,
     maxSeriesCount: Int? = null,
     seriesMode: SeriesModeType = SeriesModeType.MANUAL,
     sendOffDurationSec: Int = 0,
@@ -121,6 +122,7 @@ fun LaneTimerCard(
                 swimmerName = lane.swimmerName,
                 seriesCount = lane.seriesCount,
                 maxSeriesCount = maxSeriesCount,
+                isSeriesEnabled = isSeriesEnabled,
                 status = lane.status,
                 laneAccentColor = laneAccentColor,
                 onAssignSwimmerClick = onAssignSwimmerClick,
@@ -138,6 +140,7 @@ fun LaneTimerCard(
                 laneStartTimeRealtime = lane.laneStartTimeRealtime,
                 finishTimeMillis = lane.finishTimeMillis,
                 finishRealtimeMillis = lane.finishRealtimeMillis,
+                isSeriesEnabled = isSeriesEnabled,
                 seriesMode = seriesMode,
                 sendOffDurationSec = sendOffDurationSec
             )
@@ -150,6 +153,7 @@ fun LaneTimerCard(
                 currentRunLaps = lane.laps,
                 allLaps = lane.allLaps,
                 seriesCount = lane.seriesCount,
+                isSeriesEnabled = isSeriesEnabled,
                 isExpanded = isExpanded,
                 onExpandClick = { isExpanded = !isExpanded }
             )
@@ -158,6 +162,7 @@ fun LaneTimerCard(
 
             LaneControls(
                 status = lane.status,
+                isSeriesEnabled = isSeriesEnabled,
                 onLapClick = onLapClick,
                 onFinishClick = onFinishClick,
                 onPauseClick = onPauseClick,
@@ -173,6 +178,7 @@ fun LaneTimerCard(
                 isExpanded = isExpanded,
                 allLaps = lane.allLaps,
                 seriesCount = lane.seriesCount,
+                isSeriesEnabled = isSeriesEnabled,
                 splitDistanceMeters = lane.splitDistanceMeters
             )
         }
@@ -185,6 +191,7 @@ private fun LaneHeader(
     swimmerName: String,
     seriesCount: Int,
     maxSeriesCount: Int? = null,
+    isSeriesEnabled: Boolean = false,
     status: LaneStatus,
     laneAccentColor: Color,
     onAssignSwimmerClick: () -> Unit,
@@ -240,22 +247,24 @@ private fun LaneHeader(
                 )
             }
 
-            Spacer(modifier = Modifier.width(6.dp))
+            if (isSeriesEnabled) {
+                Spacer(modifier = Modifier.width(6.dp))
 
-            Surface(
-                color = Color(0xFF1B2E46),
-                shape = RoundedCornerShape(8.dp),
-                border = BorderStroke(1.dp, AquaPrimary.copy(alpha = 0.5f))
-            ) {
-                val seriesLabel = if (maxSeriesCount != null) "Serie $seriesCount/$maxSeriesCount" else "Serie $seriesCount"
-                Text(
-                    text = seriesLabel,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = AquaPrimary,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                    maxLines = 1
-                )
+                Surface(
+                    color = Color(0xFF1B2E46),
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, AquaPrimary.copy(alpha = 0.5f))
+                ) {
+                    val seriesLabel = if (maxSeriesCount != null) "Serie $seriesCount/$maxSeriesCount" else "Serie $seriesCount"
+                    Text(
+                        text = seriesLabel,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = AquaPrimary,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        maxLines = 1
+                    )
+                }
             }
         }
 
@@ -285,17 +294,25 @@ private fun DigitalTimerDisplay(
     laneStartTimeRealtime: Long?,
     finishTimeMillis: Long?,
     finishRealtimeMillis: Long? = null,
+    isSeriesEnabled: Boolean = false,
     seriesMode: SeriesModeType = SeriesModeType.MANUAL,
     sendOffDurationSec: Int = 0
 ) {
     var displayMillis by remember { mutableLongStateOf(0L) }
     var restElapsedMillis by remember { mutableLongStateOf(0L) }
 
-    LaunchedEffect(status, laneStartTimeRealtime, pausedElapsedMillis, finishTimeMillis, finishRealtimeMillis, restTargetRealtime) {
+    LaunchedEffect(status, laneStartTimeRealtime, pausedElapsedMillis, finishTimeMillis, finishRealtimeMillis, restTargetRealtime, isSeriesEnabled, seriesMode, sendOffDurationSec) {
         if (status == LaneStatus.RUNNING && laneStartTimeRealtime != null) {
+            val sendOffMs = sendOffDurationSec * 1000L
+            val isSendOff = isSeriesEnabled && seriesMode == SeriesModeType.SEND_OFF && sendOffMs > 0
             while (true) {
                 withFrameMillis {
-                    displayMillis = (SystemClock.elapsedRealtime() - laneStartTimeRealtime).coerceAtLeast(0L)
+                    val elapsed = (SystemClock.elapsedRealtime() - laneStartTimeRealtime).coerceAtLeast(0L)
+                    displayMillis = if (isSendOff) {
+                        if (elapsed <= sendOffMs) sendOffMs - elapsed else 0L
+                    } else {
+                        elapsed
+                    }
                 }
             }
         } else if (status == LaneStatus.FINISHED && finishRealtimeMillis != null) {
@@ -331,12 +348,14 @@ private fun DigitalTimerDisplay(
         LaneStatus.IDLE -> TextWhite.copy(alpha = 0.5f)
     }
 
-    val isOverrunning = status == LaneStatus.RUNNING &&
-            seriesMode == SeriesModeType.SEND_OFF &&
-            sendOffDurationSec > 0 &&
-            displayMillis > (sendOffDurationSec * 1000L)
+    val sendOffMs = sendOffDurationSec * 1000L
+    val isSendOffMode = isSeriesEnabled && seriesMode == SeriesModeType.SEND_OFF && sendOffMs > 0
+    val rawElapsedMillis = if (status == LaneStatus.RUNNING && laneStartTimeRealtime != null) {
+        (SystemClock.elapsedRealtime() - laneStartTimeRealtime).coerceAtLeast(0L)
+    } else displayMillis
 
-    val overrunMillis = if (isOverrunning) displayMillis - (sendOffDurationSec * 1000L) else 0L
+    val isOverrunning = status == LaneStatus.RUNNING && isSendOffMode && rawElapsedMillis > sendOffMs
+    val overrunMillis = if (isOverrunning) rawElapsedMillis - sendOffMs else 0L
 
     Box(
         modifier = Modifier
@@ -443,6 +462,7 @@ private fun LaneProgressAndLaps(
     currentRunLaps: List<LapItem>,
     allLaps: List<LapItem>,
     seriesCount: Int,
+    isSeriesEnabled: Boolean = false,
     isExpanded: Boolean,
     onExpandClick: () -> Unit
 ) {
@@ -503,7 +523,7 @@ private fun LaneProgressAndLaps(
                 modifier = Modifier.clickable { onExpandClick() }
             ) {
                 Text(
-                    text = if (seriesCount > 1) "${allLaps.size} Laps ($seriesCount S.)" else "${allLaps.size} Laps",
+                    text = if (isSeriesEnabled && seriesCount > 1) "${allLaps.size} Laps ($seriesCount S.)" else "${allLaps.size} Laps",
                     fontSize = 12.sp,
                     color = TextWhite.copy(alpha = 0.7f),
                     maxLines = 1
@@ -522,6 +542,7 @@ private fun LaneProgressAndLaps(
 @Composable
 private fun LaneControls(
     status: LaneStatus,
+    isSeriesEnabled: Boolean = false,
     onLapClick: (Long) -> Unit,
     onFinishClick: (Long) -> Unit,
     onPauseClick: (() -> Unit)?,
@@ -661,7 +682,7 @@ private fun LaneControls(
                 )
             }
             LaneStatus.FINISHED, LaneStatus.REST_COUNTDOWN -> {
-                if (onStartSingleLaneClick != null) {
+                if (onStartSingleLaneClick != null && (isSeriesEnabled || status == LaneStatus.REST_COUNTDOWN)) {
                     FilledTonalButton(
                         onClick = onStartSingleLaneClick,
                         modifier = Modifier
@@ -701,6 +722,7 @@ private fun LaneLapsHistory(
     isExpanded: Boolean,
     allLaps: List<LapItem>,
     seriesCount: Int,
+    isSeriesEnabled: Boolean = false,
     splitDistanceMeters: Int
 ) {
     val totalSplitsNeeded = (targetDistanceMeters / splitDistanceMeters).coerceAtLeast(1)
@@ -735,7 +757,7 @@ private fun LaneLapsHistory(
                         modifier = Modifier.weight(1f),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        if (seriesCount > 1) {
+                        if (isSeriesEnabled && seriesCount > 1) {
                             Surface(
                                 color = Color(0xFF1B2E46),
                                 shape = RoundedCornerShape(4.dp),
