@@ -493,6 +493,102 @@ fun SwimmerDetailScreen(
                     }
                 }
 
+                // Langstrecke Card (Accordion)
+                item(key = "langstrecke_card", contentType = "LangstreckeCard") {
+                    var isLangstreckeExpanded by remember { mutableStateOf(false) }
+
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = OceanSurface),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { isLangstreckeExpanded = !isLangstreckeExpanded },
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Timer,
+                                        contentDescription = null,
+                                        tint = AquaPrimary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Langstrecke (400m, 800m, 1500m)",
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 15.sp),
+                                        color = TextWhite
+                                    )
+                                }
+                                Icon(
+                                    imageVector = if (isLangstreckeExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                    contentDescription = null,
+                                    tint = AquaPrimary
+                                )
+                            }
+
+                            AnimatedVisibility(visible = isLangstreckeExpanded) {
+                                Column(modifier = Modifier.padding(top = 12.dp)) {
+                                    HorizontalDivider(color = Color(0xFF1B2E46), modifier = Modifier.padding(bottom = 12.dp))
+
+                                    val longDistanceItems = listOf(
+                                        "400m Freistil" to ("Freistil" to 400),
+                                        "800m Freistil" to ("Freistil" to 800),
+                                        "1500m Freistil" to ("Freistil" to 1500),
+                                        "400m Lagen" to ("Lagen" to 400)
+                                    )
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        longDistanceItems.take(2).forEach { (label, key) ->
+                                            Surface(
+                                                shape = RoundedCornerShape(12.dp),
+                                                color = Color(0xFF0F1E2E),
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                Column(modifier = Modifier.padding(10.dp)) {
+                                                    Text(label, style = MaterialTheme.typography.labelSmall, color = Color.LightGray, maxLines = 1)
+                                                    val pbMillis = dynamicPbs[key]
+                                                    val t = pbMillis?.let { TimeFormatter.formatMillis(it) } ?: "--:--"
+                                                    Text(t, style = MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 14.sp), color = AquaPrimary, maxLines = 1)
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        longDistanceItems.drop(2).forEach { (label, key) ->
+                                            Surface(
+                                                shape = RoundedCornerShape(12.dp),
+                                                color = Color(0xFF0F1E2E),
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                Column(modifier = Modifier.padding(10.dp)) {
+                                                    Text(label, style = MaterialTheme.typography.labelSmall, color = Color.LightGray, maxLines = 1)
+                                                    val pbMillis = dynamicPbs[key]
+                                                    val t = pbMillis?.let { TimeFormatter.formatMillis(it) } ?: "--:--"
+                                                    Text(t, style = MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 14.sp), color = AquaPrimary, maxLines = 1)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // History Title Header
                 item(key = "history_header", contentType = "HistoryHeader") {
                     Row(
@@ -790,6 +886,10 @@ private fun EditSwimmerDialog(
     var fly25Text by remember { mutableStateOf(existingPbs["Schmetterling" to 25]?.let { TimeFormatter.formatForInput(it) } ?: (if (swimmer.favoriteStroke == "Schmetterling") swimmer.pb25mMillis?.let { TimeFormatter.formatForInput(it) } ?: "" else "")) }
     var fly50Text by remember { mutableStateOf(existingPbs["Schmetterling" to 50]?.let { TimeFormatter.formatForInput(it) } ?: (if (swimmer.favoriteStroke == "Schmetterling") swimmer.pb50mMillis?.let { TimeFormatter.formatForInput(it) } ?: "" else "")) }
     var fly100Text by remember { mutableStateOf(existingPbs["Schmetterling" to 100]?.let { TimeFormatter.formatForInput(it) } ?: (if (swimmer.favoriteStroke == "Schmetterling") swimmer.pb100mMillis?.let { TimeFormatter.formatForInput(it) } ?: "" else "")) }
+
+    var free400Text by remember { mutableStateOf(existingPbs["Freistil" to 400]?.let { TimeFormatter.formatForInput(it) } ?: "") }
+    var free800Text by remember { mutableStateOf(existingPbs["Freistil" to 800]?.let { TimeFormatter.formatForInput(it) } ?: "") }
+    var free1500Text by remember { mutableStateOf(existingPbs["Freistil" to 1500]?.let { TimeFormatter.formatForInput(it) } ?: "") }
 
     var pb100LagenText by remember { mutableStateOf(existingPbs["Lagen" to 100]?.let { TimeFormatter.formatForInput(it) } ?: swimmer.pb100mLagenMillis?.let { TimeFormatter.formatForInput(it) } ?: "") }
     var pb200LagenText by remember { mutableStateOf(existingPbs["Lagen" to 200]?.let { TimeFormatter.formatForInput(it) } ?: swimmer.pb200mLagenMillis?.let { TimeFormatter.formatForInput(it) } ?: "") }
@@ -1169,6 +1269,95 @@ private fun EditSwimmerDialog(
                     }
                 }
 
+                // --- ABSCHNITT 4: LANGSTRECKE (AUFKLAPPBAR) ---
+                Spacer(modifier = Modifier.height(12.dp))
+
+                var isLangstreckeEditExpanded by remember { mutableStateOf(false) }
+
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFF142436),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { isLangstreckeEditExpanded = !isLangstreckeEditExpanded }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = if (isLangstreckeEditExpanded) "Langstrecken verbergen" else "Langstrecken eintragen (400m, 800m, 1500m)",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = AquaPrimary
+                        )
+                        Icon(
+                            imageVector = if (isLangstreckeEditExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = null,
+                            tint = AquaPrimary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                if (isLangstreckeEditExpanded) {
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(text = "Freistil Langstrecke & 400m Lagen:", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFF00E5FF))
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        OutlinedTextField(
+                            value = free400Text,
+                            onValueChange = { free400Text = it },
+                            label = { Text("400m Freistil", fontSize = 11.sp) },
+                            placeholder = { Text("4:35.00") },
+                            singleLine = true,
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { focusManager.clearFocus() }),
+                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E5FF), unfocusedBorderColor = Color(0xFF1B2E46)),
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = free800Text,
+                            onValueChange = { free800Text = it },
+                            label = { Text("800m Freistil", fontSize = 11.sp) },
+                            placeholder = { Text("9:20.00") },
+                            singleLine = true,
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { focusManager.clearFocus() }),
+                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E5FF), unfocusedBorderColor = Color(0xFF1B2E46)),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        OutlinedTextField(
+                            value = free1500Text,
+                            onValueChange = { free1500Text = it },
+                            label = { Text("1500m Freistil", fontSize = 11.sp) },
+                            placeholder = { Text("18:10.00") },
+                            singleLine = true,
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { focusManager.clearFocus() }),
+                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E5FF), unfocusedBorderColor = Color(0xFF1B2E46)),
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = pb400LagenText,
+                            onValueChange = { pb400LagenText = it },
+                            label = { Text("400m Lagen", fontSize = 11.sp) },
+                            placeholder = { Text("4:55.00") },
+                            singleLine = true,
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { focusManager.clearFocus() }),
+                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFAB47BC), unfocusedBorderColor = Color(0xFF1B2E46)),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(20.dp))
 
                 Row(
@@ -1194,6 +1383,9 @@ private fun EditSwimmerDialog(
                                 addMapPb("Freistil", 25, free25Text)
                                 addMapPb("Freistil", 50, free50Text)
                                 addMapPb("Freistil", 100, free100Text)
+                                addMapPb("Freistil", 400, free400Text)
+                                addMapPb("Freistil", 800, free800Text)
+                                addMapPb("Freistil", 1500, free1500Text)
 
                                 addMapPb("Brust", 25, breast25Text)
                                 addMapPb("Brust", 50, breast50Text)

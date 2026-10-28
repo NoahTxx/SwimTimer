@@ -154,6 +154,7 @@ object ExportHelper {
                 put("colorHex", swimmer.colorHex)
                 put("notes", swimmer.notes)
                 swimmer.groupName?.let { put("groupName", it) }
+                swimmer.customPbsJson?.let { put("customPbsJson", it) }
             }
             jsonArray.put(obj)
         }
@@ -197,7 +198,8 @@ object ExportHelper {
                     pb400mLagenFreeSplitMillis = optLongNullable("pb400mLagenFreeSplitMillis"),
                     colorHex = obj.optLong("colorHex", 0xFF00E5FF),
                     notes = obj.optString("notes", "").trim(),
-                    groupName = safeGroupName
+                    groupName = safeGroupName,
+                    customPbsJson = optStringNullable("customPbsJson")
                 )
             )
         }

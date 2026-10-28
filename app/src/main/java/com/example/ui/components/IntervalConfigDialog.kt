@@ -12,12 +12,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -26,6 +28,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -34,8 +37,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -78,6 +84,9 @@ fun IntervalConfigDialog(
         seriesConfig: SeriesConfig
     ) -> Unit,
 ) {
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+
     var mode by remember { mutableStateOf(currentStartMode) }
     var intervalSec by remember { mutableIntStateOf(currentIntervalSec) }
     var poolLength by remember { mutableIntStateOf(currentPoolLength) }
@@ -114,7 +123,6 @@ fun IntervalConfigDialog(
 
     val availableSplitOptions = remember(distance) { getAvailableSplitOptions(distance) }
     val effectiveSplitDistance = if (splitDistance in availableSplitOptions) splitDistance else availableSplitOptions.first()
-    val expectedLaps = (distance / effectiveSplitDistance).coerceAtLeast(1)
 
     val cardColor = Color(0xFF162536)
     val cardBorder = BorderStroke(1.dp, Color(0xFF22384F))
@@ -170,29 +178,31 @@ fun IntervalConfigDialog(
                             maxLines = 1
                         )
                         Spacer(modifier = Modifier.height(6.dp))
-                        FlowRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            FilterChip(
-                                selected = mode == StartMode.MASS,
-                                onClick = { mode = StartMode.MASS },
-                                label = { Text("Gemeinsam", maxLines = 1) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = AquaPrimary,
-                                    selectedLabelColor = Color.Black
+                        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                            FlowRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                FilterChip(
+                                    selected = mode == StartMode.MASS,
+                                    onClick = { focusManager.clearFocus(); mode = StartMode.MASS },
+                                    label = { Text("Gemeinsam", maxLines = 1) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = AquaPrimary,
+                                        selectedLabelColor = Color.Black
+                                    )
                                 )
-                            )
-                            FilterChip(
-                                selected = mode == StartMode.INTERVAL,
-                                onClick = { mode = StartMode.INTERVAL },
-                                label = { Text("Intervall-Start", maxLines = 1) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = AquaPrimary,
-                                    selectedLabelColor = Color.Black
+                                FilterChip(
+                                    selected = mode == StartMode.INTERVAL,
+                                    onClick = { focusManager.clearFocus(); mode = StartMode.INTERVAL },
+                                    label = { Text("Intervall-Start", maxLines = 1) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = AquaPrimary,
+                                        selectedLabelColor = Color.Black
+                                    )
                                 )
-                            )
+                            }
                         }
 
                         if (mode == StartMode.INTERVAL) {
@@ -204,21 +214,23 @@ fun IntervalConfigDialog(
                                 maxLines = 1
                             )
                             Spacer(modifier = Modifier.height(6.dp))
-                            FlowRow(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                intervalOptions.forEach { sec ->
-                                    FilterChip(
-                                        selected = intervalSec == sec,
-                                        onClick = { intervalSec = sec },
-                                        label = { Text("${sec}s", maxLines = 1) },
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = AquaPrimary,
-                                            selectedLabelColor = Color.Black
+                            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                                FlowRow(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    intervalOptions.forEach { sec ->
+                                        FilterChip(
+                                            selected = intervalSec == sec,
+                                            onClick = { focusManager.clearFocus(); intervalSec = sec },
+                                            label = { Text("${sec}s", maxLines = 1) },
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = AquaPrimary,
+                                                selectedLabelColor = Color.Black
+                                            )
                                         )
-                                    )
+                                    }
                                 }
                             }
                         }
@@ -232,21 +244,23 @@ fun IntervalConfigDialog(
                             maxLines = 1
                         )
                         Spacer(modifier = Modifier.height(6.dp))
-                        FlowRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            poolOptions.forEach { length ->
-                                FilterChip(
-                                    selected = poolLength == length,
-                                    onClick = { poolLength = length },
-                                    label = { Text("${length}m Bahn", maxLines = 1) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = AquaPrimary,
-                                        selectedLabelColor = Color.Black
+                        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                            FlowRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                poolOptions.forEach { length ->
+                                    FilterChip(
+                                        selected = poolLength == length,
+                                        onClick = { focusManager.clearFocus(); poolLength = length },
+                                        label = { Text("${length}m Bahn", maxLines = 1) },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = AquaPrimary,
+                                            selectedLabelColor = Color.Black
+                                        )
                                     )
-                                )
+                                }
                             }
                         }
                     }
@@ -278,33 +292,36 @@ fun IntervalConfigDialog(
                             maxLines = 1
                         )
                         Spacer(modifier = Modifier.height(6.dp))
-                        FlowRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            strokeOptions.forEach { s ->
-                                FilterChip(
-                                    selected = stroke == s,
-                                    onClick = {
-                                        stroke = s
-                                        var newDist = distance
-                                        if (s == "Lagen") {
-                                            if (newDist < 100) newDist = 100
-                                            if (newDist > 400) newDist = 400
-                                        }
-                                        distance = newDist
-                                        val newSplits = getAvailableSplitOptions(newDist)
-                                        if (splitDistance !in newSplits) {
-                                            splitDistance = newSplits.first()
-                                        }
-                                    },
-                                    label = { Text(s, maxLines = 1) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = AquaPrimary,
-                                        selectedLabelColor = Color.Black
+                        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                            FlowRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                strokeOptions.forEach { s ->
+                                    FilterChip(
+                                        selected = stroke == s,
+                                        onClick = {
+                                            focusManager.clearFocus()
+                                            stroke = s
+                                            var newDist = distance
+                                            if (s == "Lagen") {
+                                                if (newDist < 100) newDist = 100
+                                                if (newDist > 400) newDist = 400
+                                            }
+                                            distance = newDist
+                                            val newSplits = getAvailableSplitOptions(newDist)
+                                            if (splitDistance !in newSplits) {
+                                                splitDistance = newSplits.first()
+                                            }
+                                        },
+                                        label = { Text(s, maxLines = 1) },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = AquaPrimary,
+                                            selectedLabelColor = Color.Black
+                                        )
                                     )
-                                )
+                                }
                             }
                         }
 
@@ -333,27 +350,30 @@ fun IntervalConfigDialog(
                             maxLines = 1
                         )
                         Spacer(modifier = Modifier.height(6.dp))
-                        FlowRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            distanceOptions.forEach { d ->
-                                FilterChip(
-                                    selected = distance == d,
-                                    onClick = {
-                                        distance = d
-                                        val newSplits = getAvailableSplitOptions(d)
-                                        if (splitDistance !in newSplits) {
-                                            splitDistance = newSplits.first()
-                                        }
-                                    },
-                                    label = { Text("${d}m", maxLines = 1) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = AquaPrimary,
-                                        selectedLabelColor = Color.Black
+                        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                            FlowRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                distanceOptions.forEach { d ->
+                                    FilterChip(
+                                        selected = distance == d,
+                                        onClick = {
+                                            focusManager.clearFocus()
+                                            distance = d
+                                            val newSplits = getAvailableSplitOptions(d)
+                                            if (splitDistance !in newSplits) {
+                                                splitDistance = newSplits.first()
+                                            }
+                                        },
+                                        label = { Text("${d}m", maxLines = 1) },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = AquaPrimary,
+                                            selectedLabelColor = Color.Black
+                                        )
                                     )
-                                )
+                                }
                             }
                         }
 
@@ -366,36 +386,26 @@ fun IntervalConfigDialog(
                             maxLines = 1
                         )
                         Spacer(modifier = Modifier.height(6.dp))
-                        FlowRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            availableSplitOptions.forEach { sDist ->
-                                val labelText = if (sDist == distance) "Nur Ziel (${sDist}m)" else "Alle ${sDist}m"
-                                FilterChip(
-                                    selected = effectiveSplitDistance == sDist,
-                                    onClick = { splitDistance = sDist },
-                                    label = { Text(labelText, maxLines = 1) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = AquaPrimary,
-                                        selectedLabelColor = Color.Black
+                        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                            FlowRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                availableSplitOptions.forEach { sDist ->
+                                    val labelText = if (sDist == distance) "Nur Ziel (${sDist}m)" else "Alle ${sDist}m"
+                                    FilterChip(
+                                        selected = effectiveSplitDistance == sDist,
+                                        onClick = { focusManager.clearFocus(); splitDistance = sDist },
+                                        label = { Text(labelText, maxLines = 1) },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = AquaPrimary,
+                                            selectedLabelColor = Color.Black
+                                        )
                                     )
-                                )
+                                }
                             }
                         }
-                        val splitInfoText = when {
-                            (stroke == "Lagen") && (effectiveSplitDistance == 25) -> "25m Splits aktiv: Erfasst 1. Schmett, 2. Rücken, 3. Brust, 4. Freistil separat als Bestzeiten!"
-                            effectiveSplitDistance < distance -> "Splits alle ${effectiveSplitDistance}m • $expectedLaps Laps bis Ziel (${distance}m)"
-                            else -> "Nur Endzeit wird gestoppt (1 Lap)"
-                        }
-                        Text(
-                            text = splitInfoText,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = AquaPrimary,
-                            maxLines = 2,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
                     }
                 }
 
@@ -422,7 +432,7 @@ fun IntervalConfigDialog(
                             )
                             Switch(
                                 checked = isSeriesEnabled,
-                                onCheckedChange = { isSeriesEnabled = it },
+                                onCheckedChange = { focusManager.clearFocus(); isSeriesEnabled = it },
                                 colors = SwitchDefaults.colors(
                                     checkedThumbColor = Color.Black,
                                     checkedTrackColor = AquaPrimary,
@@ -442,38 +452,40 @@ fun IntervalConfigDialog(
                                 maxLines = 1
                             )
                             Spacer(modifier = Modifier.height(6.dp))
-                            FlowRow(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                FilterChip(
-                                    selected = seriesMode == SeriesModeType.MANUAL,
-                                    onClick = { seriesMode = SeriesModeType.MANUAL },
-                                    label = { Text("Manuell", maxLines = 1) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = AquaPrimary,
-                                        selectedLabelColor = Color.Black
+                            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                                FlowRow(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    FilterChip(
+                                        selected = seriesMode == SeriesModeType.MANUAL,
+                                        onClick = { focusManager.clearFocus(); seriesMode = SeriesModeType.MANUAL },
+                                        label = { Text("Manuell", maxLines = 1) },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = AquaPrimary,
+                                            selectedLabelColor = Color.Black
+                                        )
                                     )
-                                )
-                                FilterChip(
-                                    selected = seriesMode == SeriesModeType.FIXED_REST,
-                                    onClick = { seriesMode = SeriesModeType.FIXED_REST },
-                                    label = { Text("Feste Pause", maxLines = 1) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = AquaPrimary,
-                                        selectedLabelColor = Color.Black
+                                    FilterChip(
+                                        selected = seriesMode == SeriesModeType.FIXED_REST,
+                                        onClick = { focusManager.clearFocus(); seriesMode = SeriesModeType.FIXED_REST },
+                                        label = { Text("Feste Pause", maxLines = 1) },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = AquaPrimary,
+                                            selectedLabelColor = Color.Black
+                                        )
                                     )
-                                )
-                                FilterChip(
-                                    selected = seriesMode == SeriesModeType.SEND_OFF,
-                                    onClick = { seriesMode = SeriesModeType.SEND_OFF },
-                                    label = { Text("Abgangszeit", maxLines = 1) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = AquaPrimary,
-                                        selectedLabelColor = Color.Black
+                                    FilterChip(
+                                        selected = seriesMode == SeriesModeType.SEND_OFF,
+                                        onClick = { focusManager.clearFocus(); seriesMode = SeriesModeType.SEND_OFF },
+                                        label = { Text("Abgangszeit", maxLines = 1) },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = AquaPrimary,
+                                            selectedLabelColor = Color.Black
+                                        )
                                     )
-                                )
+                                }
                             }
 
                             if (seriesMode == SeriesModeType.FIXED_REST) {
@@ -485,21 +497,23 @@ fun IntervalConfigDialog(
                                     maxLines = 1
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
-                                FlowRow(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    restPresets.forEach { sec ->
-                                        FilterChip(
-                                            selected = restDurationSec == sec,
-                                            onClick = { restDurationSec = sec },
-                                            label = { Text("${sec}s", maxLines = 1) },
-                                            colors = FilterChipDefaults.filterChipColors(
-                                                selectedContainerColor = AquaPrimary,
-                                                selectedLabelColor = Color.Black
+                                CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                                    FlowRow(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        restPresets.forEach { sec ->
+                                            FilterChip(
+                                                selected = restDurationSec == sec,
+                                                onClick = { focusManager.clearFocus(); restDurationSec = sec },
+                                                label = { Text("${sec}s", maxLines = 1) },
+                                                colors = FilterChipDefaults.filterChipColors(
+                                                    selectedContainerColor = AquaPrimary,
+                                                    selectedLabelColor = Color.Black
+                                                )
                                             )
-                                        )
+                                        }
                                     }
                                 }
                             }
@@ -513,28 +527,31 @@ fun IntervalConfigDialog(
                                     maxLines = 1
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
-                                FlowRow(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    sendOffPresets.forEach { (sec, label) ->
-                                        FilterChip(
-                                            selected = sendOffDurationSec == sec,
-                                            onClick = {
-                                                sendOffDurationSec = sec
-                                                sendOffCustomText = sec.toString()
-                                            },
-                                            label = { Text(label, maxLines = 1) },
-                                            colors = FilterChipDefaults.filterChipColors(
-                                                selectedContainerColor = AquaPrimary,
-                                                selectedLabelColor = Color.Black
+                                CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                                    FlowRow(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        sendOffPresets.forEach { (sec, label) ->
+                                            FilterChip(
+                                                selected = sendOffDurationSec == sec,
+                                                onClick = {
+                                                    focusManager.clearFocus()
+                                                    sendOffDurationSec = sec
+                                                    sendOffCustomText = sec.toString()
+                                                },
+                                                label = { Text(label, maxLines = 1) },
+                                                colors = FilterChipDefaults.filterChipColors(
+                                                    selectedContainerColor = AquaPrimary,
+                                                    selectedLabelColor = Color.Black
+                                                )
                                             )
-                                        )
+                                        }
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.height(6.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
                                 OutlinedTextField(
                                     value = sendOffCustomText,
                                     onValueChange = { newValue ->
@@ -547,7 +564,19 @@ fun IntervalConfigDialog(
                                     label = { Text("Eigene Abgangszeit (Sekunden)", color = Color.LightGray, fontSize = 12.sp) },
                                     placeholder = { Text("z. B. 100 für 1:40", color = Color.Gray) },
                                     singleLine = true,
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Number,
+                                        imeAction = ImeAction.Done
+                                    ),
+                                    keyboardActions = KeyboardActions(
+                                        onDone = {
+                                            sendOffCustomText.toIntOrNull()?.let {
+                                                if (it > 0) sendOffDurationSec = it
+                                            }
+                                            focusManager.clearFocus()
+                                            keyboardController?.hide()
+                                        }
+                                    ),
                                     colors = OutlinedTextFieldDefaults.colors(
                                         focusedBorderColor = AquaPrimary,
                                         unfocusedBorderColor = Color(0xFF22384F),
@@ -574,7 +603,16 @@ fun IntervalConfigDialog(
                                 label = { Text("Serien-Anzahl (leer = unbegrenzt)", color = Color.LightGray, fontSize = 12.sp) },
                                 placeholder = { Text("z. B. 5", color = Color.Gray) },
                                 singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Number,
+                                    imeAction = ImeAction.Done
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onDone = {
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
+                                    }
+                                ),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = AquaPrimary,
                                     unfocusedBorderColor = Color(0xFF22384F),

@@ -193,13 +193,14 @@ class ExampleRobolectricTest {
   @Test
   fun `test database initially has zero example swimmers`() {
     val context = ApplicationProvider.getApplicationContext<Context>()
-    val db = com.example.data.db.AppDatabase.getInstance(context)
+    val db = androidx.room.Room.inMemoryDatabaseBuilder(context, com.example.data.db.AppDatabase::class.java).allowMainThreadQueries().build()
     val swimmerDao = db.swimmerDao()
     
     kotlinx.coroutines.runBlocking {
       val count = swimmerDao.getSwimmerCount()
       assertEquals(0, count)
     }
+    db.close()
   }
 
   @Test
@@ -508,5 +509,44 @@ class ExampleRobolectricTest {
     org.junit.Assert.assertTrue(vmReloaded.uiState.value.seriesConfig.isEnabled)
     assertEquals(com.example.ui.SeriesModeType.SEND_OFF, vmReloaded.uiState.value.seriesConfig.mode)
     assertEquals(75, vmReloaded.uiState.value.seriesConfig.sendOffDurationSeconds)
+  }
+
+  @Test
+  fun `test long distance PBs 400m 800m 1500m auto sync and export import`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = com.example.data.db.AppDatabase.getInstance(context)
+    val repository = com.example.data.repository.SwimRepository(db)
+
+    kotlinx.coroutines.runBlocking {
+      val sId = repository.insertSwimmer(
+        com.example.data.model.SwimmerEntity(name = "Long Distance Swimmer", favoriteStroke = "Freistil")
+      )
+      val swimmerBefore = repository.getSwimmerById(sId)!!
+
+      val customMap = mutableMapOf<Pair<String, Int>, Long>()
+      customMap["Freistil" to 400] = 275000L // 4:35.00
+      customMap["Freistil" to 800] = 560000L // 9:20.00
+      customMap["Freistil" to 1500] = 1090000L // 18:10.00
+
+      val swimmerUpdated = swimmerBefore.copy(
+        customPbsJson = com.example.data.model.SwimmerEntity.serializeCustomPbsMap(customMap)
+      )
+      repository.updateSwimmer(swimmerUpdated)
+
+      val swimmerLoaded = repository.getSwimmerById(sId)!!
+      val parsedPbs = swimmerLoaded.parseCustomPbsMap()
+      assertEquals(275000L, parsedPbs["Freistil" to 400])
+      assertEquals(560000L, parsedPbs["Freistil" to 800])
+      assertEquals(1090000L, parsedPbs["Freistil" to 1500])
+
+      // Test ExportHelper JSON roundtrip
+      val jsonExport = com.example.util.ExportHelper.exportSwimmersToJson(listOf(swimmerLoaded))
+      val importedSwimmers = com.example.util.ExportHelper.importSwimmersFromJson(jsonExport)
+      assertEquals(1, importedSwimmers.size)
+      val importedParsedPbs = importedSwimmers[0].parseCustomPbsMap()
+      assertEquals(275000L, importedParsedPbs["Freistil" to 400])
+      assertEquals(560000L, importedParsedPbs["Freistil" to 800])
+      assertEquals(1090000L, importedParsedPbs["Freistil" to 1500])
+    }
   }
 }

@@ -1559,6 +1559,10 @@ class StopwatchViewModel(
                         var updatedPb400Breast = swimmer.pb400mLagenBreastSplitMillis
                         var updatedPb400Free = swimmer.pb400mLagenFreeSplitMillis
 
+                        val strokeOptions = listOf("Freistil", "Brust", "Rücken", "Schmetterling", "Lagen")
+                        val matchedStroke = strokeOptions.find { isSameStroke(it, state.strokeType) } ?: state.strokeType
+                        val customPbsMap = swimmer.parseCustomPbsMap().toMutableMap()
+
                         var hasImproved = false
 
                         val runs = lane.allLaps.groupBy { it.seriesIndex }.values
@@ -1597,6 +1601,16 @@ class StopwatchViewModel(
                                     updatedPb100 = timeAt100m
                                     hasImproved = true
                                     pbAchievements.add("${swimmer.name} 100m ${swimmer.favoriteStroke}: ${TimeFormatter.formatMillis(timeAt100m)}")
+                                }
+
+                                // Long-distance & custom target distance PBs (e.g. 200m, 400m, 800m, 1500m)
+                                if (finishTime != null && finishTime > 0) {
+                                    val currentCustomPb = customPbsMap[matchedStroke to state.targetDistanceMeters]
+                                    if (currentCustomPb == null || finishTime < currentCustomPb) {
+                                        customPbsMap[matchedStroke to state.targetDistanceMeters] = finishTime
+                                        hasImproved = true
+                                        pbAchievements.add("${swimmer.name} ${state.targetDistanceMeters}m $matchedStroke: ${TimeFormatter.formatMillis(finishTime)}")
+                                    }
                                 }
                             }
 
@@ -1824,7 +1838,8 @@ class StopwatchViewModel(
                                     pb400mLagenFlySplitMillis = updatedPb400Fly,
                                     pb400mLagenBackSplitMillis = updatedPb400Back,
                                     pb400mLagenBreastSplitMillis = updatedPb400Breast,
-                                    pb400mLagenFreeSplitMillis = updatedPb400Free
+                                    pb400mLagenFreeSplitMillis = updatedPb400Free,
+                                    customPbsJson = SwimmerEntity.serializeCustomPbsMap(customPbsMap)
                                 )
                             )
                         }
