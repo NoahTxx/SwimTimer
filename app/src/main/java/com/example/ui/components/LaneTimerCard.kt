@@ -136,6 +136,7 @@ fun LaneTimerCard(
             )
 
             LaneProgressAndLaps(
+                status = lane.status,
                 targetDistanceMeters = lane.targetDistanceMeters,
                 splitDistanceMeters = lane.splitDistanceMeters,
                 strokeType = lane.strokeType,
@@ -160,6 +161,8 @@ fun LaneTimerCard(
             )
 
             LaneLapsHistory(
+                status = lane.status,
+                targetDistanceMeters = lane.targetDistanceMeters,
                 isExpanded = isExpanded,
                 allLaps = lane.allLaps,
                 seriesCount = lane.seriesCount,
@@ -394,6 +397,7 @@ private fun DigitalTimerDisplay(
 
 @Composable
 private fun LaneProgressAndLaps(
+    status: LaneStatus,
     targetDistanceMeters: Int,
     splitDistanceMeters: Int,
     strokeType: String,
@@ -403,7 +407,11 @@ private fun LaneProgressAndLaps(
     isExpanded: Boolean,
     onExpandClick: () -> Unit
 ) {
-    val completedDistance = currentRunLaps.size * splitDistanceMeters
+    val completedDistance = if (status == LaneStatus.FINISHED) {
+        targetDistanceMeters
+    } else {
+        (currentRunLaps.size * splitDistanceMeters).coerceAtMost(targetDistanceMeters)
+    }
 
     Row(
         modifier = Modifier
@@ -649,11 +657,15 @@ private fun LaneControls(
 
 @Composable
 private fun LaneLapsHistory(
+    status: LaneStatus,
+    targetDistanceMeters: Int,
     isExpanded: Boolean,
     allLaps: List<LapItem>,
     seriesCount: Int,
     splitDistanceMeters: Int
 ) {
+    val totalSplitsNeeded = (targetDistanceMeters / splitDistanceMeters).coerceAtLeast(1)
+
     AnimatedVisibility(visible = isExpanded && allLaps.isNotEmpty()) {
         Column(
             modifier = Modifier
@@ -666,6 +678,13 @@ private fun LaneLapsHistory(
             )
 
             allLaps.forEach { lap ->
+                val isLastLapInRun = lap == allLaps.lastOrNull { it.seriesIndex == lap.seriesIndex }
+                val lapCumDist = if ((status == LaneStatus.FINISHED && isLastLapInRun) || lap.lapIndex == totalSplitsNeeded) {
+                    targetDistanceMeters
+                } else {
+                    (lap.lapIndex * splitDistanceMeters).coerceAtMost(targetDistanceMeters)
+                }
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -693,7 +712,7 @@ private fun LaneLapsHistory(
                             }
                         }
                         Text(
-                            text = "Lap ${lap.lapIndex} (${lap.lapIndex * splitDistanceMeters}m)",
+                            text = "Lap ${lap.lapIndex} (${lapCumDist}m)",
                             fontSize = 12.sp,
                             color = TextWhite.copy(alpha = 0.7f),
                             maxLines = 1,

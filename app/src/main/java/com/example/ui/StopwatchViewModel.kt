@@ -316,6 +316,7 @@ class StopwatchViewModel(
     }
 
     private fun loadSavedPreferences() {
+        SoundUtil.init()
         val prefsRepo = preferencesRepository ?: return
         val poolRaw = prefsRepo.getPoolLengthMeters()
         val pool = poolRaw.coerceIn(10, 100)
@@ -787,8 +788,6 @@ class StopwatchViewModel(
     }
 
     fun onLapLane(laneNumber: Int, exactRealtime: Long = clock.nowMillis()) {
-        val now = exactRealtime
-
         var pushedUndo: UndoAction? = null
 
         _uiState.update { currentState ->
@@ -799,7 +798,7 @@ class StopwatchViewModel(
             val lane = lanes[index]
             if (lane.status != LaneStatus.RUNNING) return@update currentState
 
-            val splitTime = roundToHundredths(computeExactLaneElapsed(lane, now, currentState.masterStartTimeRealtime))
+            val splitTime = roundToHundredths(computeExactLaneElapsed(lane, exactRealtime, currentState.masterStartTimeRealtime))
             val previousSplit = lane.laps.lastOrNull()?.splitTimeMillis ?: 0L
             val lapTime = (splitTime - previousSplit).coerceAtLeast(0L)
 
@@ -830,7 +829,7 @@ class StopwatchViewModel(
                 lane.copy(
                     status = LaneStatus.FINISHED,
                     finishTimeMillis = splitTime,
-                    finishRealtimeMillis = now,
+                    finishRealtimeMillis = exactRealtime,
                     currentElapsedMillis = splitTime,
                     laps = lane.laps + newLap
                 )
@@ -852,8 +851,6 @@ class StopwatchViewModel(
     }
 
     fun onFinishLane(laneNumber: Int, exactRealtime: Long = clock.nowMillis()) {
-        val now = exactRealtime
-        
         var pushedUndo: UndoAction? = null
 
         _uiState.update { currentState ->
@@ -864,16 +861,19 @@ class StopwatchViewModel(
             val lane = lanes[index]
             if (lane.status != LaneStatus.RUNNING) return@update currentState
 
-            val finalTime = roundToHundredths(computeExactLaneElapsed(lane, now, currentState.masterStartTimeRealtime))
+            val finalTime = roundToHundredths(computeExactLaneElapsed(lane, exactRealtime, currentState.masterStartTimeRealtime))
             val previousSplit = lane.laps.lastOrNull()?.splitTimeMillis ?: 0L
             val lapTime = (finalTime - previousSplit).coerceAtLeast(0L)
             val totalSplitsNeeded = (lane.targetDistanceMeters / lane.splitDistanceMeters).coerceAtLeast(1)
+
+            val nextLapIndex = lane.laps.size + 1
+            val finishLapIndex = if (nextLapIndex >= totalSplitsNeeded) totalSplitsNeeded else nextLapIndex
 
             // Only create a new lap if we haven't already recorded all splits
             val finishLap = if (finalTime > 0L && lane.laps.size < totalSplitsNeeded) {
                 val deltaTarget = lane.targetLapMillis?.let { lapTime - it }
                 LapItem(
-                    lapIndex = totalSplitsNeeded,
+                    lapIndex = finishLapIndex,
                     splitTimeMillis = finalTime,
                     lapTimeMillis = lapTime,
                     targetLapMillis = lane.targetLapMillis,
@@ -896,7 +896,7 @@ class StopwatchViewModel(
             lanes[index] = lane.copy(
                 status = LaneStatus.FINISHED,
                 finishTimeMillis = finalTime,
-                finishRealtimeMillis = now,
+                finishRealtimeMillis = exactRealtime,
                 currentElapsedMillis = finalTime,
                 laps = updatedLaps
             )
