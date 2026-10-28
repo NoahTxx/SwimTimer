@@ -104,7 +104,7 @@ fun StrokeRateCalculatorDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(8.dp)
-                .testTag("stroke_rate_dialog")
+                .testTag("stroke_rate_dialog"),
         ) {
             Column(
                 modifier = Modifier.padding(20.dp),

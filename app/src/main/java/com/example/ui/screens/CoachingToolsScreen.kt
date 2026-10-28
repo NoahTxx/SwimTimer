@@ -73,7 +73,7 @@ fun CoachingToolsScreen(
             border = BorderStroke(1.dp, Color(0xFF1B2E46)),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 10.dp)
+                .padding(bottom = 10.dp),
         ) {
             Row(
                 modifier = Modifier

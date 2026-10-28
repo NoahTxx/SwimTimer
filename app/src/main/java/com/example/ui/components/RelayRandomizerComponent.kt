@@ -95,7 +95,7 @@ fun RelayRandomizerComponent(
         if (availableGroups.isNotEmpty()) {
             availableGroups
         } else {
-            dbSwimmers.mapNotNull { it.groupName?.trim() }.filter { it.isNotBlank() }.distinctBy { it.lowercase() }.sortedWith(String.CASE_INSENSITIVE_ORDER)
+            dbSwimmers.asSequence().mapNotNull { it.groupName?.trim() }.filter { it.isNotBlank() }.distinctBy { it.lowercase() }.sortedWith(String.CASE_INSENSITIVE_ORDER).toList()
         }
     }
 

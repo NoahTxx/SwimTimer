@@ -81,7 +81,7 @@ fun DrillQuickfinderComponent(
             val matchesFocusArea = (selectedFocusAreaFilter == "Alle") || drill.focusArea.equals(selectedFocusAreaFilter, ignoreCase = true)
             matchesStroke && matchesFocusArea
         }
-        listOf("Alle") + filtered.mapNotNull { it.specificFocus }.distinct().sorted()
+        listOf("Alle") + filtered.asSequence().mapNotNull { it.specificFocus }.distinct().sorted().toList()
     }
 
     LaunchedEffect(selectedStrokeFilter, selectedFocusAreaFilter, availableSpecificFocuses) {

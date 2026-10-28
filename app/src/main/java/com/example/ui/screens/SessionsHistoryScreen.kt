@@ -92,7 +92,7 @@ fun SessionsHistoryScreen(
         modifier = modifier
             .fillMaxSize()
             .background(DeepOceanBackground)
-            .padding(horizontal = 14.dp, vertical = 12.dp)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
         // Top Action Bar for Export/Import
         Row(
@@ -199,7 +199,7 @@ fun SessionsHistoryScreen(
                 ) {
                     items(
                         items = sessions,
-                        key = { sessionWithLaps -> sessionWithLaps.session.id },
+                        key = { (session) -> session.id },
                         contentType = { "SessionHistoryCard" }
                     ) { item ->
                         val onShare = remember(context, item, coroutineScope) {
@@ -491,7 +491,7 @@ private fun SessionHistoryCard(
                                     } else if (lap.deltaTargetMillis == null) {
                                         val totalLapsForLane = laneLaps.size
                                         val isLastLap = (lap == laneLaps.last())
-                                        val lapDistance = if (totalLapsForLane == 1 && isLastLap) {
+                                        val lapDistance = if ((totalLapsForLane == 1) && isLastLap) {
                                             s.targetDistanceMeters
                                         } else if (isLastLap && s.targetDistanceMeters > (totalLapsForLane - 1) * s.splitDistanceMeters) {
                                             s.targetDistanceMeters - ((totalLapsForLane - 1) * s.splitDistanceMeters)

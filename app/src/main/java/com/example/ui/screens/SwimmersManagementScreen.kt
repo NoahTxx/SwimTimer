@@ -106,7 +106,7 @@ fun SwimmersManagementScreen(
 
     val availableGroups by viewModel.availableGroups.collectAsStateWithLifecycle()
     val groupCounts = remember(allSwimmers) {
-        allSwimmers.mapNotNull { it.groupName?.trim() }.filter { it.isNotBlank() }.groupingBy { it.lowercase() }.eachCount()
+        allSwimmers.asSequence().mapNotNull { it.groupName?.trim() }.filter { it.isNotBlank() }.groupingBy { it.lowercase() }.eachCount()
     }
     val selectedGroup by viewModel.selectedGroupFilter.collectAsStateWithLifecycle()
 
@@ -133,7 +133,7 @@ fun SwimmersManagementScreen(
                 viewModel.deleteSwimmer(toDelete)
                 selectedSwimmerId = null
             },
-            modifier = modifier
+            modifier = modifier,
         )
         return
     }

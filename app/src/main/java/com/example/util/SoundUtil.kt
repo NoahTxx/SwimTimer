@@ -99,7 +99,7 @@ object SoundUtil {
         header[28] = (byteRate and 0xFF).toByte()
         header[29] = ((byteRate shr 8) and 0xFF).toByte()
         header[30] = ((byteRate shr 16) and 0xFF).toByte()
-        header[31] = ((byteRate shr 24) and 0xFF).toByte()
+        header[31] = 0 // Byte rate for 88.2kHz fits in 24 bits
         header[32] = 2; header[33] = 0 // Block align
         header[34] = 16; header[35] = 0 // 16 bits per sample
         header[36] = 'd'.code.toByte(); header[37] = 'a'.code.toByte(); header[38] = 't'.code.toByte(); header[39] = 'a'.code.toByte()

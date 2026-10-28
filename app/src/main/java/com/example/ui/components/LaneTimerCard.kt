@@ -35,8 +35,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SuggestionChip
-import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -65,7 +63,6 @@ import com.example.ui.theme.AquaPrimary
 import com.example.ui.theme.LaneColors
 import com.example.ui.theme.OceanBorder
 import com.example.ui.theme.OceanSurface
-import com.example.ui.theme.PaceGreen
 import com.example.ui.theme.PaceRed
 import com.example.ui.theme.TextWhite
 import com.example.util.TimeFormatter
@@ -112,7 +109,7 @@ fun LaneTimerCard(
             .testTag("lane_card_${lane.laneNumber}"),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = OceanSurface),
-        border = BorderStroke(1.5.dp, cardBorderColor)
+        border = BorderStroke(1.5.dp, cardBorderColor),
     ) {
         Column(
             modifier = Modifier.padding(14.dp)
@@ -134,7 +131,6 @@ fun LaneTimerCard(
             DigitalTimerDisplay(
                 status = lane.status,
                 countdownRemainingSeconds = lane.countdownRemainingSeconds,
-                restRemainingSeconds = lane.restRemainingSeconds,
                 restTargetRealtime = lane.restTargetRealtime,
                 pausedElapsedMillis = lane.currentElapsedMillis,
                 laneStartTimeRealtime = lane.laneStartTimeRealtime,
@@ -288,7 +284,6 @@ private fun LaneHeader(
 private fun DigitalTimerDisplay(
     status: LaneStatus,
     countdownRemainingSeconds: Int,
-    restRemainingSeconds: Int = 0,
     restTargetRealtime: Long? = null,
     pausedElapsedMillis: Long,
     laneStartTimeRealtime: Long?,

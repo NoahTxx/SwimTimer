@@ -85,14 +85,18 @@ class SwimRepository(private val database: AppDatabase) {
                         swimmerMapByNormalizedName[normalizedName] = createdEntity
                         resolvedSwimmerId = newSwimmerId
                     }
-                } else if (resolvedSwimmerId != null && resolvedSwimmerId > 0) {
+                } else if ((resolvedSwimmerId != null) && (resolvedSwimmerId > 0)) {
                     val swimmerExists = existingSwimmers.any { it.id == resolvedSwimmerId }
                     if (!swimmerExists) {
                         resolvedSwimmerId = null
                     }
                 }
 
-                val finalLap = if (resolvedSwimmerId != null) lap.copy(sessionId = newSessionId, swimmerId = resolvedSwimmerId) else lap.copy(sessionId = newSessionId, swimmerId = null)
+                val finalLap = if (resolvedSwimmerId != null) {
+                    lap.copy(sessionId = newSessionId, swimmerId = resolvedSwimmerId)
+                } else {
+                    lap.copy(sessionId = newSessionId, swimmerId = null)
+                }
                 finalLap
             }
 

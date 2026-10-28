@@ -18,7 +18,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Calculate
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -187,7 +186,7 @@ fun SwimPaceCalculatorDialog(
                         val delta = 1500L / numLaps.coerceAtLeast(2) // ~1.5s delta
                         var accumulated = 0L
                         for (lapIdx in 1..numLaps) {
-                            val lapDuration = if (lapIdx <= numLaps / 2) {
+                            val lapDuration = if (lapIdx <= (numLaps / 2)) {
                                 (baseLap + delta).toLong()
                             } else {
                                 (baseLap - delta).toLong()

@@ -58,7 +58,7 @@ data class SeriesConfig(
     val mode: SeriesModeType = SeriesModeType.MANUAL,
     val restDurationSeconds: Int = 20,
     val sendOffDurationSeconds: Int = 60,
-    val maxSeriesCount: Int? = null // null = Unbegrenzt
+    val maxSeriesCount: Int? = null, // null = Unbegrenzt
 )
 
 @Immutable
@@ -103,7 +103,7 @@ sealed interface UndoAction {
         val previousStatus: LaneStatus,
         val previousFinishTime: Long?,
         val previousFinishRealtime: Long? = null,
-        val removedLap: LapItem
+        val removedLap: LapItem,
     ) : UndoAction
     data class LaneFinished(
         val laneNumber: Int,
@@ -149,7 +149,7 @@ data class StopwatchUiState(
 ) {
     @Suppress("unused")
     val hasTickingLanes: Boolean
-        get() = lanes.any { lane -> lane.status == LaneStatus.RUNNING || lane.status == LaneStatus.COUNTDOWN || lane.status == LaneStatus.REST_COUNTDOWN }
+        get() = lanes.any { (it.status == LaneStatus.RUNNING) || (it.status == LaneStatus.COUNTDOWN) || (it.status == LaneStatus.REST_COUNTDOWN) }
 
     val hasOpenRun: Boolean
         get() = lanes.any { (it.status == LaneStatus.RUNNING) || (it.status == LaneStatus.COUNTDOWN) || (it.status == LaneStatus.PAUSED) || (it.status == LaneStatus.REST_COUNTDOWN) }
@@ -188,17 +188,17 @@ class StopwatchViewModel(
     val selectedGroupFilter = MutableStateFlow<String?>(null) // null = Alle
 
     private val _customGroups = MutableStateFlow<Set<String>>(emptySet())
-    val customGroups: StateFlow<Set<String>> = _customGroups.asStateFlow()
 
     val availableGroups: StateFlow<List<String>> = combine(
         allSwimmers,
         _customGroups
     ) { swimmers, custom ->
-        val fromSwimmers = swimmers.mapNotNull { it.groupName?.trim() }.filter { it.isNotBlank() }
-        (fromSwimmers + custom)
+        val fromSwimmers = swimmers.asSequence().mapNotNull { it.groupName?.trim() }.filter { it.isNotBlank() }
+        (fromSwimmers + custom.asSequence())
             .filter { it.isNotBlank() }
             .distinctBy { it.lowercase() }
             .sortedWith(String.CASE_INSENSITIVE_ORDER)
+            .toList()
     }
     .flowOn(Dispatchers.Default)
     .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
@@ -251,13 +251,13 @@ class StopwatchViewModel(
         }
         viewModelScope.launch(Dispatchers.IO) {
             allSwimmers.collect { swimmers ->
-                val dbGroups = swimmers.mapNotNull { it.groupName?.trim() }.filter { it.isNotBlank() }
+                val dbGroups = swimmers.asSequence().mapNotNull { it.groupName?.trim() }.filter { it.isNotBlank() }.toList()
                 if (dbGroups.isNotEmpty()) {
                     val currentCustom = _customGroups.value
                     val missing = dbGroups.filter { dbG -> currentCustom.none { it.equals(dbG, ignoreCase = true) } }
                     if (missing.isNotEmpty()) {
                         _customGroups.update { old ->
-                            (old + missing).filter { it.isNotBlank() }.distinctBy { it.lowercase() }.toSet()
+                            (old + missing).asSequence().filter { it.isNotBlank() }.distinctBy { it.lowercase() }.toSet()
                         }
                         saveGroups()
                     }
@@ -323,7 +323,7 @@ class StopwatchViewModel(
     private fun validateDistances(targetMeters: Int, splitMeters: Int) {
         require(targetMeters > 0)
         require(splitMeters > 0)
-        require(targetMeters % splitMeters == 0) {
+        require((targetMeters % splitMeters) == 0) {
             "Die Zieldistanz muss durch die Splitdistanz teilbar sein."
         }
     }
@@ -357,7 +357,7 @@ class StopwatchViewModel(
             StartMode.MASS
         }
 
-        val isSeriesEnabled = prefsRepo.getSeriesEnabled(false)
+        val isSeriesEnabled = prefsRepo.getSeriesEnabled(default = false)
         val seriesModeStr = prefsRepo.getSeriesMode()
         val seriesRest = prefsRepo.getSeriesRestSec()
         val seriesSendOff = prefsRepo.getSeriesSendOffSec()
@@ -558,8 +558,8 @@ class StopwatchViewModel(
 
         if (playStartSignalThisTick) {
             SoundUtil.playStartSignal()
-        } else if (lowestCountdownBeepThisTick != null) {
-            SoundUtil.playCountdownBeep(lowestCountdownBeepThisTick!!)
+        } else {
+            lowestCountdownBeepThisTick?.let { SoundUtil.playCountdownBeep(it) }
         }
     }
 
@@ -1943,22 +1943,7 @@ class StopwatchViewModel(
         }
     }
 
-    fun importSessionsFromJson(jsonString: String, onComplete: (Int) -> Unit) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val count = try {
-                val importedSessions = ExportHelper.importSessionsFromJson(jsonString)
-                if (importedSessions.isNotEmpty()) {
-                    repository.importSessionsWithLaps(importedSessions)
-                }
-                importedSessions.size
-            } catch (_: Exception) {
-                0
-            }
-            kotlinx.coroutines.withContext(Dispatchers.Main) {
-                onComplete(count)
-            }
-        }
-    }
+
 
     fun importSessionsFromUri(contentResolver: android.content.ContentResolver, uri: android.net.Uri, onComplete: ((Int) -> Unit)? = null) {
         viewModelScope.launch(Dispatchers.IO) {

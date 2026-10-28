@@ -102,7 +102,7 @@ object ExportHelper {
 
                 val uri = FileProvider.getUriForFile(
                     context,
-                    "${context.packageName}.fileprovider",
+                    "${com.example.BuildConfig.APPLICATION_ID}.fileprovider",
                     file,
                 )
 
@@ -217,7 +217,7 @@ object ExportHelper {
                 }
                 val uri = FileProvider.getUriForFile(
                     context,
-                    "${context.packageName}.fileprovider",
+                    "${com.example.BuildConfig.APPLICATION_ID}.fileprovider",
                     file
                 )
                 Intent(Intent.ACTION_SEND).apply {
@@ -252,7 +252,7 @@ object ExportHelper {
                 }
                 val uri = FileProvider.getUriForFile(
                     context,
-                    "${context.packageName}.fileprovider",
+                    "${com.example.BuildConfig.APPLICATION_ID}.fileprovider",
                     file
                 )
                 Intent(Intent.ACTION_SEND).apply {

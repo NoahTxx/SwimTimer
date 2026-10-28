@@ -83,7 +83,7 @@ fun IntervalConfigDialog(
         distance: Int,
         splitDistance: Int,
         stroke: String,
-        seriesConfig: SeriesConfig
+        seriesConfig: SeriesConfig,
     ) -> Unit,
 ) {
     val focusManager = LocalFocusManager.current
@@ -110,7 +110,7 @@ fun IntervalConfigDialog(
         60 to "1:00",
         75 to "1:15",
         90 to "1:30",
-        120 to "2:00"
+        120 to "2:00",
     )
 
     val intervalOptions = listOf(5, 10, 15, 20)
@@ -129,11 +129,13 @@ fun IntervalConfigDialog(
     val cardColor = Color(0xFF162536)
     val cardBorder = BorderStroke(1.dp, Color(0xFF22384F))
 
-    Dialog(onDismissRequest = {
-        keyboardController?.hide()
-        focusManager.clearFocus(force = true)
-        onDismiss()
-    }) {
+    Dialog(
+        onDismissRequest = {
+            keyboardController?.hide()
+            focusManager.clearFocus(force = true)
+            onDismiss()
+        }
+    ) {
         Surface(
             shape = RoundedCornerShape(22.dp),
             color = Color(0xFF101B2B),

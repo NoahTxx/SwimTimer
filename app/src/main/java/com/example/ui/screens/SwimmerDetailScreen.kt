@@ -41,7 +41,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -118,12 +117,12 @@ fun SwimmerDetailScreen(
         // 2. Override with better times from history
         swimmerSessions.forEach { sessionLaps ->
             val s = sessionLaps.session
-            val laps = sessionLaps.laps.filter { it.swimmerId == swimmer.id }.sortedBy { it.lapIndex }
+            val laps = sessionLaps.laps.asSequence().filter { it.swimmerId == swimmer.id }.sortedBy { it.lapIndex }.toList()
             
             // Check if full distance was swum
             val totalSplitsNeeded = (s.targetDistanceMeters / s.splitDistanceMeters).coerceAtLeast(1)
             val hasTargetLap = laps.any { it.lapIndex == totalSplitsNeeded }
-            val completedFullDistance = hasTargetLap || laps.size >= totalSplitsNeeded || laps.isNotEmpty()
+            val completedFullDistance = hasTargetLap || (laps.size >= totalSplitsNeeded) || laps.isNotEmpty()
 
             val finishTime = if (completedFullDistance) laps.find { it.lapIndex == totalSplitsNeeded }?.splitTimeMillis ?: laps.lastOrNull()?.splitTimeMillis ?: 0L else 0L
             if (finishTime > 0) {

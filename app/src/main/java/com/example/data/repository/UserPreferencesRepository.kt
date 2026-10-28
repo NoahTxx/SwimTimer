@@ -2,6 +2,7 @@ package com.example.data.repository
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.core.content.edit
 
 class UserPreferencesRepository(context: Context) {
     private val prefs: SharedPreferences =
@@ -29,9 +30,9 @@ class UserPreferencesRepository(context: Context) {
         strokeType: String,
         startMode: String,
         intervalOffsetSeconds: Int,
-        laneCount: Int
+        laneCount: Int,
     ) {
-        prefs.edit().apply {
+        prefs.edit {
             putInt("poolLengthMeters", poolLengthMeters)
             putInt("targetDistanceMeters", targetDistanceMeters)
             putInt("splitDistanceMeters", splitDistanceMeters)
@@ -39,22 +40,22 @@ class UserPreferencesRepository(context: Context) {
             putString("startMode", startMode)
             putInt("intervalOffsetSeconds", intervalOffsetSeconds)
             putInt("laneCount", laneCount)
-            apply()
         }
     }
 
     fun saveSeriesConfig(isEnabled: Boolean, mode: String, restSec: Int, sendOffSec: Int, maxCount: Int) {
-        prefs.edit().apply {
+        prefs.edit {
             putBoolean("seriesEnabled", isEnabled)
             putString("seriesMode", mode)
             putInt("seriesRestSec", restSec)
             putInt("seriesSendOffSec", sendOffSec)
             putInt("seriesMaxCount", maxCount)
-            apply()
         }
     }
 
     fun saveCustomGroups(groups: Set<String>) {
-        prefs.edit().putStringSet("customGroups", groups).apply()
+        prefs.edit {
+            putStringSet("customGroups", groups)
+        }
     }
 }

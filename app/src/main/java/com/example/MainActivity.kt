@@ -129,10 +129,10 @@ fun MainAppContent(viewModel: StopwatchViewModel) {
             .background(DeepOceanBackground)
             .statusBarsPadding()
             .pointerInput(Unit) {
-                detectTapGestures(onTap = {
+                detectTapGestures {
                     focusManager.clearFocus()
                     keyboardController?.hide()
-                })
+                }
             },
     ) {
         Box(
@@ -154,7 +154,7 @@ fun MainAppContent(viewModel: StopwatchViewModel) {
                 .navigationBarsPadding()
                 .padding(horizontal = 8.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Surface(
                 shape = RoundedCornerShape(20.dp),
