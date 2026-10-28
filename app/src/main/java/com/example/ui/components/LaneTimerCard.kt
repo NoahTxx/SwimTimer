@@ -300,23 +300,38 @@ private fun DigitalTimerDisplay(
 ) {
     var displayMillis by remember { mutableLongStateOf(0L) }
     var restElapsedMillis by remember { mutableLongStateOf(0L) }
+    var overrunMillis by remember { mutableLongStateOf(0L) }
+    var isOverrunning by remember { mutableStateOf(false) }
+
+    val sendOffMs = sendOffDurationSec * 1000L
+    val isSendOffMode = isSeriesEnabled && seriesMode == SeriesModeType.SEND_OFF && sendOffMs > 0
 
     LaunchedEffect(status, laneStartTimeRealtime, pausedElapsedMillis, finishTimeMillis, finishRealtimeMillis, restTargetRealtime, isSeriesEnabled, seriesMode, sendOffDurationSec) {
         if (status == LaneStatus.RUNNING && laneStartTimeRealtime != null) {
-            val sendOffMs = sendOffDurationSec * 1000L
-            val isSendOff = isSeriesEnabled && seriesMode == SeriesModeType.SEND_OFF && sendOffMs > 0
             while (true) {
                 withFrameMillis {
                     val elapsed = (SystemClock.elapsedRealtime() - laneStartTimeRealtime).coerceAtLeast(0L)
-                    displayMillis = if (isSendOff) {
-                        if (elapsed <= sendOffMs) sendOffMs - elapsed else 0L
+                    if (isSendOffMode) {
+                        if (elapsed <= sendOffMs) {
+                            displayMillis = sendOffMs - elapsed
+                            isOverrunning = false
+                            overrunMillis = 0L
+                        } else {
+                            displayMillis = 0L
+                            isOverrunning = true
+                            overrunMillis = elapsed - sendOffMs
+                        }
                     } else {
-                        elapsed
+                        displayMillis = elapsed
+                        isOverrunning = false
+                        overrunMillis = 0L
                     }
                 }
             }
         } else if (status == LaneStatus.FINISHED && finishRealtimeMillis != null) {
             displayMillis = finishTimeMillis ?: pausedElapsedMillis
+            isOverrunning = false
+            overrunMillis = 0L
             while (true) {
                 withFrameMillis {
                     restElapsedMillis = (SystemClock.elapsedRealtime() - finishRealtimeMillis).coerceAtLeast(0L)
@@ -324,6 +339,8 @@ private fun DigitalTimerDisplay(
             }
         } else if (status == LaneStatus.REST_COUNTDOWN && restTargetRealtime != null) {
             displayMillis = finishTimeMillis ?: pausedElapsedMillis
+            isOverrunning = false
+            overrunMillis = 0L
             while (true) {
                 withFrameMillis {
                     restElapsedMillis = (restTargetRealtime - SystemClock.elapsedRealtime()).coerceAtLeast(0L)
@@ -337,25 +354,21 @@ private fun DigitalTimerDisplay(
                 else -> 0L
             }
             restElapsedMillis = 0L
+            isOverrunning = false
+            overrunMillis = 0L
         }
     }
 
-    val displayColor = when (status) {
-        LaneStatus.RUNNING -> TextWhite
-        LaneStatus.PAUSED -> Color(0xFFFFB74D)
-        LaneStatus.COUNTDOWN, LaneStatus.REST_COUNTDOWN -> Color(0xFFFFD600)
-        LaneStatus.FINISHED -> AquaPrimary
-        LaneStatus.IDLE -> TextWhite.copy(alpha = 0.5f)
+    val displayColor = when {
+        isOverrunning -> PaceRed
+        status == LaneStatus.RUNNING && isSendOffMode -> AquaPrimary
+        status == LaneStatus.RUNNING -> TextWhite
+        status == LaneStatus.PAUSED -> Color(0xFFFFB74D)
+        status == LaneStatus.COUNTDOWN || status == LaneStatus.REST_COUNTDOWN -> Color(0xFFFFD600)
+        status == LaneStatus.FINISHED -> AquaPrimary
+        status == LaneStatus.IDLE -> TextWhite.copy(alpha = 0.5f)
+        else -> TextWhite
     }
-
-    val sendOffMs = sendOffDurationSec * 1000L
-    val isSendOffMode = isSeriesEnabled && seriesMode == SeriesModeType.SEND_OFF && sendOffMs > 0
-    val rawElapsedMillis = if (status == LaneStatus.RUNNING && laneStartTimeRealtime != null) {
-        (SystemClock.elapsedRealtime() - laneStartTimeRealtime).coerceAtLeast(0L)
-    } else displayMillis
-
-    val isOverrunning = status == LaneStatus.RUNNING && isSendOffMode && rawElapsedMillis > sendOffMs
-    val overrunMillis = if (isOverrunning) rawElapsedMillis - sendOffMs else 0L
 
     Box(
         modifier = Modifier

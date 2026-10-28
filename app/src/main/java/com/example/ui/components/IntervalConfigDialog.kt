@@ -573,8 +573,8 @@ fun IntervalConfigDialog(
                                             sendOffCustomText.toIntOrNull()?.let {
                                                 if (it > 0) sendOffDurationSec = it
                                             }
-                                            focusManager.clearFocus()
                                             keyboardController?.hide()
+                                            focusManager.clearFocus(force = true)
                                         }
                                     ),
                                     colors = OutlinedTextFieldDefaults.colors(
@@ -609,8 +609,8 @@ fun IntervalConfigDialog(
                                 ),
                                 keyboardActions = KeyboardActions(
                                     onDone = {
-                                        focusManager.clearFocus()
                                         keyboardController?.hide()
+                                        focusManager.clearFocus(force = true)
                                     }
                                 ),
                                 colors = OutlinedTextFieldDefaults.colors(

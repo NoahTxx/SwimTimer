@@ -549,4 +549,24 @@ class ExampleRobolectricTest {
       assertEquals(1090000L, importedParsedPbs["Freistil" to 1500])
     }
   }
+
+  @Test
+  fun `test 200m PBs for all stroke categories`() {
+    val customMap = mutableMapOf<Pair<String, Int>, Long>()
+    customMap["Freistil" to 200] = 122000L
+    customMap["Brust" to 200] = 142000L
+    customMap["Rücken" to 200] = 135000L
+    customMap["Schmetterling" to 200] = 130000L
+    customMap["Lagen" to 400] = 295000L
+
+    val json = com.example.data.model.SwimmerEntity.serializeCustomPbsMap(customMap)
+    val swimmer = com.example.data.model.SwimmerEntity(name = "Multi Stroke Swimmer", customPbsJson = json)
+    val parsed = swimmer.parseCustomPbsMap()
+
+    assertEquals(122000L, parsed["Freistil" to 200])
+    assertEquals(142000L, parsed["Brust" to 200])
+    assertEquals(135000L, parsed["Rücken" to 200])
+    assertEquals(130000L, parsed["Schmetterling" to 200])
+    assertEquals(295000L, parsed["Lagen" to 400])
+  }
 }

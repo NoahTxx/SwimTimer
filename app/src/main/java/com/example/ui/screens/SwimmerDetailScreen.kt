@@ -355,7 +355,7 @@ fun SwimmerDetailScreen(
                                             modifier = Modifier.weight(1f)
                                         ) {
                                             Column(modifier = Modifier.padding(10.dp)) {
-                                                Text("${dist}m Lagen", style = MaterialTheme.typography.labelSmall, color = Color.LightGray, maxLines = 1)
+                                                Text("${dist}m", style = MaterialTheme.typography.labelSmall, color = Color.LightGray, maxLines = 1)
                                                 val pbMillis = dynamicPbs["Lagen" to dist]
                                                 val t = pbMillis?.let { TimeFormatter.formatMillis(it) } ?: "--:--"
                                                 Text(t, style = MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 14.sp), color = AquaPrimary, maxLines = 1)
@@ -471,19 +471,19 @@ fun SwimmerDetailScreen(
                             } else {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
-                                    listOf(25, 50, 100).forEach { dist ->
+                                    listOf(25, 50, 100, 200).forEach { dist ->
                                         Surface(
                                             shape = RoundedCornerShape(12.dp),
                                             color = Color(0xFF0F1E2E),
                                             modifier = Modifier.weight(1f)
                                         ) {
-                                            Column(modifier = Modifier.padding(10.dp)) {
+                                            Column(modifier = Modifier.padding(8.dp)) {
                                                 Text("${dist}m", style = MaterialTheme.typography.labelSmall, color = Color.LightGray, maxLines = 1)
                                                 val pbMillis = dynamicPbs[selectedPbStroke to dist]
                                                 val t = pbMillis?.let { TimeFormatter.formatMillis(it, shortFormat = dist <= 50) } ?: "--:--"
-                                                Text(t, style = MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 15.sp), color = AquaPrimary, maxLines = 1)
+                                                Text(t, style = MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp), color = AquaPrimary, maxLines = 1)
                                             }
                                         }
                                     }
@@ -536,39 +536,16 @@ fun SwimmerDetailScreen(
                                     HorizontalDivider(color = Color(0xFF1B2E46), modifier = Modifier.padding(bottom = 12.dp))
 
                                     val longDistanceItems = listOf(
-                                        "400m Freistil" to ("Freistil" to 400),
-                                        "800m Freistil" to ("Freistil" to 800),
-                                        "1500m Freistil" to ("Freistil" to 1500),
-                                        "400m Lagen" to ("Lagen" to 400)
+                                        "400m" to ("Freistil" to 400),
+                                        "800m" to ("Freistil" to 800),
+                                        "1500m" to ("Freistil" to 1500)
                                     )
 
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        longDistanceItems.take(2).forEach { (label, key) ->
-                                            Surface(
-                                                shape = RoundedCornerShape(12.dp),
-                                                color = Color(0xFF0F1E2E),
-                                                modifier = Modifier.weight(1f)
-                                            ) {
-                                                Column(modifier = Modifier.padding(10.dp)) {
-                                                    Text(label, style = MaterialTheme.typography.labelSmall, color = Color.LightGray, maxLines = 1)
-                                                    val pbMillis = dynamicPbs[key]
-                                                    val t = pbMillis?.let { TimeFormatter.formatMillis(it) } ?: "--:--"
-                                                    Text(t, style = MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 14.sp), color = AquaPrimary, maxLines = 1)
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    Spacer(modifier = Modifier.height(8.dp))
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        longDistanceItems.drop(2).forEach { (label, key) ->
+                                        longDistanceItems.forEach { (label, key) ->
                                             Surface(
                                                 shape = RoundedCornerShape(12.dp),
                                                 color = Color(0xFF0F1E2E),
@@ -874,18 +851,22 @@ private fun EditSwimmerDialog(
     var free25Text by remember { mutableStateOf(existingPbs["Freistil" to 25]?.let { TimeFormatter.formatForInput(it) } ?: (if (swimmer.favoriteStroke == "Freistil") swimmer.pb25mMillis?.let { TimeFormatter.formatForInput(it) } ?: "" else "")) }
     var free50Text by remember { mutableStateOf(existingPbs["Freistil" to 50]?.let { TimeFormatter.formatForInput(it) } ?: (if (swimmer.favoriteStroke == "Freistil") swimmer.pb50mMillis?.let { TimeFormatter.formatForInput(it) } ?: "" else "")) }
     var free100Text by remember { mutableStateOf(existingPbs["Freistil" to 100]?.let { TimeFormatter.formatForInput(it) } ?: (if (swimmer.favoriteStroke == "Freistil") swimmer.pb100mMillis?.let { TimeFormatter.formatForInput(it) } ?: "" else "")) }
+    var free200Text by remember { mutableStateOf(existingPbs["Freistil" to 200]?.let { TimeFormatter.formatForInput(it) } ?: "") }
 
     var breast25Text by remember { mutableStateOf(existingPbs["Brust" to 25]?.let { TimeFormatter.formatForInput(it) } ?: (if (swimmer.favoriteStroke == "Brust") swimmer.pb25mMillis?.let { TimeFormatter.formatForInput(it) } ?: "" else "")) }
     var breast50Text by remember { mutableStateOf(existingPbs["Brust" to 50]?.let { TimeFormatter.formatForInput(it) } ?: (if (swimmer.favoriteStroke == "Brust") swimmer.pb50mMillis?.let { TimeFormatter.formatForInput(it) } ?: "" else "")) }
     var breast100Text by remember { mutableStateOf(existingPbs["Brust" to 100]?.let { TimeFormatter.formatForInput(it) } ?: (if (swimmer.favoriteStroke == "Brust") swimmer.pb100mMillis?.let { TimeFormatter.formatForInput(it) } ?: "" else "")) }
+    var breast200Text by remember { mutableStateOf(existingPbs["Brust" to 200]?.let { TimeFormatter.formatForInput(it) } ?: "") }
 
     var back25Text by remember { mutableStateOf(existingPbs["Rücken" to 25]?.let { TimeFormatter.formatForInput(it) } ?: (if (swimmer.favoriteStroke == "Rücken") swimmer.pb25mMillis?.let { TimeFormatter.formatForInput(it) } ?: "" else "")) }
     var back50Text by remember { mutableStateOf(existingPbs["Rücken" to 50]?.let { TimeFormatter.formatForInput(it) } ?: (if (swimmer.favoriteStroke == "Rücken") swimmer.pb50mMillis?.let { TimeFormatter.formatForInput(it) } ?: "" else "")) }
     var back100Text by remember { mutableStateOf(existingPbs["Rücken" to 100]?.let { TimeFormatter.formatForInput(it) } ?: (if (swimmer.favoriteStroke == "Rücken") swimmer.pb100mMillis?.let { TimeFormatter.formatForInput(it) } ?: "" else "")) }
+    var back200Text by remember { mutableStateOf(existingPbs["Rücken" to 200]?.let { TimeFormatter.formatForInput(it) } ?: "") }
 
     var fly25Text by remember { mutableStateOf(existingPbs["Schmetterling" to 25]?.let { TimeFormatter.formatForInput(it) } ?: (if (swimmer.favoriteStroke == "Schmetterling") swimmer.pb25mMillis?.let { TimeFormatter.formatForInput(it) } ?: "" else "")) }
     var fly50Text by remember { mutableStateOf(existingPbs["Schmetterling" to 50]?.let { TimeFormatter.formatForInput(it) } ?: (if (swimmer.favoriteStroke == "Schmetterling") swimmer.pb50mMillis?.let { TimeFormatter.formatForInput(it) } ?: "" else "")) }
     var fly100Text by remember { mutableStateOf(existingPbs["Schmetterling" to 100]?.let { TimeFormatter.formatForInput(it) } ?: (if (swimmer.favoriteStroke == "Schmetterling") swimmer.pb100mMillis?.let { TimeFormatter.formatForInput(it) } ?: "" else "")) }
+    var fly200Text by remember { mutableStateOf(existingPbs["Schmetterling" to 200]?.let { TimeFormatter.formatForInput(it) } ?: "") }
 
     var free400Text by remember { mutableStateOf(existingPbs["Freistil" to 400]?.let { TimeFormatter.formatForInput(it) } ?: "") }
     var free800Text by remember { mutableStateOf(existingPbs["Freistil" to 800]?.let { TimeFormatter.formatForInput(it) } ?: "") }
@@ -1123,7 +1104,7 @@ private fun EditSwimmerDialog(
                                         OutlinedTextField(
                                             value = pb100LagenText,
                                             onValueChange = { pb100LagenText = it },
-                                            label = { Text("100m Lagen", fontSize = 11.sp, maxLines = 1) },
+                                            label = { Text("100m", fontSize = 11.sp, maxLines = 1) },
                                             placeholder = { Text("1:03.50") },
                                             singleLine = true,
                                             colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = catColor, unfocusedBorderColor = Color(0xFF1B2E46)),
@@ -1132,7 +1113,7 @@ private fun EditSwimmerDialog(
                                         OutlinedTextField(
                                             value = pb200LagenText,
                                             onValueChange = { pb200LagenText = it },
-                                            label = { Text("200m Lagen", fontSize = 11.sp, maxLines = 1) },
+                                            label = { Text("200m", fontSize = 11.sp, maxLines = 1) },
                                             placeholder = { Text("2:18.00") },
                                             singleLine = true,
                                             colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = catColor, unfocusedBorderColor = Color(0xFF1B2E46)),
@@ -1141,7 +1122,7 @@ private fun EditSwimmerDialog(
                                         OutlinedTextField(
                                             value = pb400LagenText,
                                             onValueChange = { pb400LagenText = it },
-                                            label = { Text("400m Lagen", fontSize = 11.sp, maxLines = 1) },
+                                            label = { Text("400m", fontSize = 11.sp, maxLines = 1) },
                                             placeholder = { Text("4:55.00") },
                                             singleLine = true,
                                             colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = catColor, unfocusedBorderColor = Color(0xFF1B2E46)),
@@ -1149,44 +1130,61 @@ private fun EditSwimmerDialog(
                                         )
                                     }
                                 } else {
-                                    val (v25, set25, v50, set50, v100, set100) = when (catKey) {
-                                        "Brust" -> EditTuple6(breast25Text, { s: String -> breast25Text = s }, breast50Text, { s: String -> breast50Text = s }, breast100Text, { s: String -> breast100Text = s })
-                                        "Rücken" -> EditTuple6(back25Text, { s: String -> back25Text = s }, back50Text, { s: String -> back50Text = s }, back100Text, { s: String -> back100Text = s })
-                                        "Schmetterling" -> EditTuple6(fly25Text, { s: String -> fly25Text = s }, fly50Text, { s: String -> fly50Text = s }, fly100Text, { s: String -> fly100Text = s })
-                                        else -> EditTuple6(free25Text, { s: String -> free25Text = s }, free50Text, { s: String -> free50Text = s }, free100Text, { s: String -> free100Text = s })
+                                    val (v25, set25, v50, set50, v100, set100, v200, set200) = when (catKey) {
+                                        "Brust" -> EditTuple8(breast25Text, { s: String -> breast25Text = s }, breast50Text, { s: String -> breast50Text = s }, breast100Text, { s: String -> breast100Text = s }, breast200Text, { s: String -> breast200Text = s })
+                                        "Rücken" -> EditTuple8(back25Text, { s: String -> back25Text = s }, back50Text, { s: String -> back50Text = s }, back100Text, { s: String -> back100Text = s }, back200Text, { s: String -> back200Text = s })
+                                        "Schmetterling" -> EditTuple8(fly25Text, { s: String -> fly25Text = s }, fly50Text, { s: String -> fly50Text = s }, fly100Text, { s: String -> fly100Text = s }, fly200Text, { s: String -> fly200Text = s })
+                                        else -> EditTuple8(free25Text, { s: String -> free25Text = s }, free50Text, { s: String -> free50Text = s }, free100Text, { s: String -> free100Text = s }, free200Text, { s: String -> free200Text = s })
                                     }
 
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        OutlinedTextField(
-                                            value = v25,
-                                            onValueChange = set25,
-                                            label = { Text("25m $catKey", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                            placeholder = { Text("12.50") },
-                                            singleLine = true,
-                                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = catColor, unfocusedBorderColor = Color(0xFF1B2E46)),
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        OutlinedTextField(
-                                            value = v50,
-                                            onValueChange = set50,
-                                            label = { Text("50m $catKey", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                            placeholder = { Text("24.80") },
-                                            singleLine = true,
-                                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = catColor, unfocusedBorderColor = Color(0xFF1B2E46)),
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        OutlinedTextField(
-                                            value = v100,
-                                            onValueChange = set100,
-                                            label = { Text("100m $catKey", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                            placeholder = { Text("54.20") },
-                                            singleLine = true,
-                                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = catColor, unfocusedBorderColor = Color(0xFF1B2E46)),
-                                            modifier = Modifier.weight(1f)
-                                        )
+                                    Column {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            OutlinedTextField(
+                                                value = v25,
+                                                onValueChange = set25,
+                                                label = { Text("25m", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                                placeholder = { Text("12.50") },
+                                                singleLine = true,
+                                                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = catColor, unfocusedBorderColor = Color(0xFF1B2E46)),
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            OutlinedTextField(
+                                                value = v50,
+                                                onValueChange = set50,
+                                                label = { Text("50m", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                                placeholder = { Text("24.80") },
+                                                singleLine = true,
+                                                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = catColor, unfocusedBorderColor = Color(0xFF1B2E46)),
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            OutlinedTextField(
+                                                value = v100,
+                                                onValueChange = set100,
+                                                label = { Text("100m", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                                placeholder = { Text("54.20") },
+                                                singleLine = true,
+                                                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = catColor, unfocusedBorderColor = Color(0xFF1B2E46)),
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            OutlinedTextField(
+                                                value = v200,
+                                                onValueChange = set200,
+                                                label = { Text("200m", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                                placeholder = { Text("2:02.00") },
+                                                singleLine = true,
+                                                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = catColor, unfocusedBorderColor = Color(0xFF1B2E46)),
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -1305,13 +1303,13 @@ private fun EditSwimmerDialog(
                 if (isLangstreckeEditExpanded) {
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    Text(text = "Freistil Langstrecke & 400m Lagen:", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFF00E5FF))
+                    Text(text = "Freistil Langstrecke:", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFF00E5FF))
                     Spacer(modifier = Modifier.height(4.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         OutlinedTextField(
                             value = free400Text,
                             onValueChange = { free400Text = it },
-                            label = { Text("400m Freistil", fontSize = 11.sp) },
+                            label = { Text("400m", fontSize = 11.sp) },
                             placeholder = { Text("4:35.00") },
                             singleLine = true,
                             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
@@ -1322,7 +1320,7 @@ private fun EditSwimmerDialog(
                         OutlinedTextField(
                             value = free800Text,
                             onValueChange = { free800Text = it },
-                            label = { Text("800m Freistil", fontSize = 11.sp) },
+                            label = { Text("800m", fontSize = 11.sp) },
                             placeholder = { Text("9:20.00") },
                             singleLine = true,
                             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
@@ -1336,7 +1334,7 @@ private fun EditSwimmerDialog(
                         OutlinedTextField(
                             value = free1500Text,
                             onValueChange = { free1500Text = it },
-                            label = { Text("1500m Freistil", fontSize = 11.sp) },
+                            label = { Text("1500m", fontSize = 11.sp) },
                             placeholder = { Text("18:10.00") },
                             singleLine = true,
                             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
@@ -1344,17 +1342,7 @@ private fun EditSwimmerDialog(
                             colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E5FF), unfocusedBorderColor = Color(0xFF1B2E46)),
                             modifier = Modifier.weight(1f)
                         )
-                        OutlinedTextField(
-                            value = pb400LagenText,
-                            onValueChange = { pb400LagenText = it },
-                            label = { Text("400m Lagen", fontSize = 11.sp) },
-                            placeholder = { Text("4:55.00") },
-                            singleLine = true,
-                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
-                            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { focusManager.clearFocus() }),
-                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFAB47BC), unfocusedBorderColor = Color(0xFF1B2E46)),
-                            modifier = Modifier.weight(1f)
-                        )
+                        Spacer(modifier = Modifier.weight(1f))
                     }
                 }
 
@@ -1383,6 +1371,7 @@ private fun EditSwimmerDialog(
                                 addMapPb("Freistil", 25, free25Text)
                                 addMapPb("Freistil", 50, free50Text)
                                 addMapPb("Freistil", 100, free100Text)
+                                addMapPb("Freistil", 200, free200Text)
                                 addMapPb("Freistil", 400, free400Text)
                                 addMapPb("Freistil", 800, free800Text)
                                 addMapPb("Freistil", 1500, free1500Text)
@@ -1390,14 +1379,17 @@ private fun EditSwimmerDialog(
                                 addMapPb("Brust", 25, breast25Text)
                                 addMapPb("Brust", 50, breast50Text)
                                 addMapPb("Brust", 100, breast100Text)
+                                addMapPb("Brust", 200, breast200Text)
 
                                 addMapPb("Rücken", 25, back25Text)
                                 addMapPb("Rücken", 50, back50Text)
                                 addMapPb("Rücken", 100, back100Text)
+                                addMapPb("Rücken", 200, back200Text)
 
                                 addMapPb("Schmetterling", 25, fly25Text)
                                 addMapPb("Schmetterling", 50, fly50Text)
                                 addMapPb("Schmetterling", 100, fly100Text)
+                                addMapPb("Schmetterling", 200, fly200Text)
 
                                 addMapPb("Lagen", 100, pb100LagenText)
                                 addMapPb("Lagen", 200, pb200LagenText)
@@ -1445,6 +1437,6 @@ private fun EditSwimmerDialog(
     }
 }
 
-private data class EditTuple6<A, B, C, D, E, F>(
-    val a: A, val b: B, val c: C, val d: D, val e: E, val f: F
+private data class EditTuple8<A, B, C, D, E, F, G, H>(
+    val a: A, val b: B, val c: C, val d: D, val e: E, val f: F, val g: G, val h: H
 )

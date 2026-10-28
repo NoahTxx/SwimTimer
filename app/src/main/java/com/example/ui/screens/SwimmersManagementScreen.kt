@@ -806,18 +806,26 @@ private fun AddSwimmerDialog(
     var free25Text by remember { mutableStateOf("") }
     var free50Text by remember { mutableStateOf("") }
     var free100Text by remember { mutableStateOf("") }
+    var free200Text by remember { mutableStateOf("") }
 
     var breast25Text by remember { mutableStateOf("") }
     var breast50Text by remember { mutableStateOf("") }
     var breast100Text by remember { mutableStateOf("") }
+    var breast200Text by remember { mutableStateOf("") }
 
     var back25Text by remember { mutableStateOf("") }
     var back50Text by remember { mutableStateOf("") }
     var back100Text by remember { mutableStateOf("") }
+    var back200Text by remember { mutableStateOf("") }
 
     var fly25Text by remember { mutableStateOf("") }
     var fly50Text by remember { mutableStateOf("") }
     var fly100Text by remember { mutableStateOf("") }
+    var fly200Text by remember { mutableStateOf("") }
+
+    var free400Text by remember { mutableStateOf("") }
+    var free800Text by remember { mutableStateOf("") }
+    var free1500Text by remember { mutableStateOf("") }
 
     var pb100LagenText by remember { mutableStateOf("") }
     var pb200LagenText by remember { mutableStateOf("") }
@@ -1071,7 +1079,7 @@ private fun AddSwimmerDialog(
                                         OutlinedTextField(
                                             value = pb100LagenText,
                                             onValueChange = { pb100LagenText = it },
-                                            label = { Text("100m Lagen", fontSize = 11.sp, maxLines = 1) },
+                                            label = { Text("100m", fontSize = 11.sp, maxLines = 1) },
                                             placeholder = { Text("1:03.50") },
                                             singleLine = true,
                                             colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = catColor, unfocusedBorderColor = Color(0xFF1B2E46)),
@@ -1080,7 +1088,7 @@ private fun AddSwimmerDialog(
                                         OutlinedTextField(
                                             value = pb200LagenText,
                                             onValueChange = { pb200LagenText = it },
-                                            label = { Text("200m Lagen", fontSize = 11.sp, maxLines = 1) },
+                                            label = { Text("200m", fontSize = 11.sp, maxLines = 1) },
                                             placeholder = { Text("2:18.00") },
                                             singleLine = true,
                                             colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = catColor, unfocusedBorderColor = Color(0xFF1B2E46)),
@@ -1089,7 +1097,7 @@ private fun AddSwimmerDialog(
                                         OutlinedTextField(
                                             value = pb400LagenText,
                                             onValueChange = { pb400LagenText = it },
-                                            label = { Text("400m Lagen", fontSize = 11.sp, maxLines = 1) },
+                                            label = { Text("400m", fontSize = 11.sp, maxLines = 1) },
                                             placeholder = { Text("4:55.00") },
                                             singleLine = true,
                                             colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = catColor, unfocusedBorderColor = Color(0xFF1B2E46)),
@@ -1097,44 +1105,61 @@ private fun AddSwimmerDialog(
                                         )
                                     }
                                 } else {
-                                    val (v25, set25, v50, set50, v100, set100) = when (catKey) {
-                                        "Brust" -> Tuple6(breast25Text, { s: String -> breast25Text = s }, breast50Text, { s: String -> breast50Text = s }, breast100Text, { s: String -> breast100Text = s })
-                                        "Rücken" -> Tuple6(back25Text, { s: String -> back25Text = s }, back50Text, { s: String -> back50Text = s }, back100Text, { s: String -> back100Text = s })
-                                        "Schmetterling" -> Tuple6(fly25Text, { s: String -> fly25Text = s }, fly50Text, { s: String -> fly50Text = s }, fly100Text, { s: String -> fly100Text = s })
-                                        else -> Tuple6(free25Text, { s: String -> free25Text = s }, free50Text, { s: String -> free50Text = s }, free100Text, { s: String -> free100Text = s })
+                                    val (v25, set25, v50, set50, v100, set100, v200, set200) = when (catKey) {
+                                        "Brust" -> Tuple8(breast25Text, { s: String -> breast25Text = s }, breast50Text, { s: String -> breast50Text = s }, breast100Text, { s: String -> breast100Text = s }, breast200Text, { s: String -> breast200Text = s })
+                                        "Rücken" -> Tuple8(back25Text, { s: String -> back25Text = s }, back50Text, { s: String -> back50Text = s }, back100Text, { s: String -> back100Text = s }, back200Text, { s: String -> back200Text = s })
+                                        "Schmetterling" -> Tuple8(fly25Text, { s: String -> fly25Text = s }, fly50Text, { s: String -> fly50Text = s }, fly100Text, { s: String -> fly100Text = s }, fly200Text, { s: String -> fly200Text = s })
+                                        else -> Tuple8(free25Text, { s: String -> free25Text = s }, free50Text, { s: String -> free50Text = s }, free100Text, { s: String -> free100Text = s }, free200Text, { s: String -> free200Text = s })
                                     }
 
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        OutlinedTextField(
-                                            value = v25,
-                                            onValueChange = set25,
-                                            label = { Text("25m $catKey", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                            placeholder = { Text("12.50") },
-                                            singleLine = true,
-                                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = catColor, unfocusedBorderColor = Color(0xFF1B2E46)),
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        OutlinedTextField(
-                                            value = v50,
-                                            onValueChange = set50,
-                                            label = { Text("50m $catKey", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                            placeholder = { Text("24.80") },
-                                            singleLine = true,
-                                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = catColor, unfocusedBorderColor = Color(0xFF1B2E46)),
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        OutlinedTextField(
-                                            value = v100,
-                                            onValueChange = set100,
-                                            label = { Text("100m $catKey", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                            placeholder = { Text("54.20") },
-                                            singleLine = true,
-                                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = catColor, unfocusedBorderColor = Color(0xFF1B2E46)),
-                                            modifier = Modifier.weight(1f)
-                                        )
+                                    Column {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            OutlinedTextField(
+                                                value = v25,
+                                                onValueChange = set25,
+                                                label = { Text("25m", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                                placeholder = { Text("12.50") },
+                                                singleLine = true,
+                                                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = catColor, unfocusedBorderColor = Color(0xFF1B2E46)),
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            OutlinedTextField(
+                                                value = v50,
+                                                onValueChange = set50,
+                                                label = { Text("50m", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                                placeholder = { Text("24.80") },
+                                                singleLine = true,
+                                                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = catColor, unfocusedBorderColor = Color(0xFF1B2E46)),
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            OutlinedTextField(
+                                                value = v100,
+                                                onValueChange = set100,
+                                                label = { Text("100m", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                                placeholder = { Text("54.20") },
+                                                singleLine = true,
+                                                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = catColor, unfocusedBorderColor = Color(0xFF1B2E46)),
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            OutlinedTextField(
+                                                value = v200,
+                                                onValueChange = set200,
+                                                label = { Text("200m", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                                placeholder = { Text("2:02.00") },
+                                                singleLine = true,
+                                                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = catColor, unfocusedBorderColor = Color(0xFF1B2E46)),
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -1243,18 +1268,25 @@ private fun AddSwimmerDialog(
                                 addMapPb("Freistil", 25, free25Text)
                                 addMapPb("Freistil", 50, free50Text)
                                 addMapPb("Freistil", 100, free100Text)
+                                addMapPb("Freistil", 200, free200Text)
+                                addMapPb("Freistil", 400, free400Text)
+                                addMapPb("Freistil", 800, free800Text)
+                                addMapPb("Freistil", 1500, free1500Text)
 
                                 addMapPb("Brust", 25, breast25Text)
                                 addMapPb("Brust", 50, breast50Text)
                                 addMapPb("Brust", 100, breast100Text)
+                                addMapPb("Brust", 200, breast200Text)
 
                                 addMapPb("Rücken", 25, back25Text)
                                 addMapPb("Rücken", 50, back50Text)
                                 addMapPb("Rücken", 100, back100Text)
+                                addMapPb("Rücken", 200, back200Text)
 
                                 addMapPb("Schmetterling", 25, fly25Text)
                                 addMapPb("Schmetterling", 50, fly50Text)
                                 addMapPb("Schmetterling", 100, fly100Text)
+                                addMapPb("Schmetterling", 200, fly200Text)
 
                                 addMapPb("Lagen", 100, pb100LagenText)
                                 addMapPb("Lagen", 200, pb200LagenText)
@@ -1301,6 +1333,6 @@ private fun AddSwimmerDialog(
     }
 }
 
-private data class Tuple6<A, B, C, D, E, F>(
-    val a: A, val b: B, val c: C, val d: D, val e: E, val f: F
+private data class Tuple8<A, B, C, D, E, F, G, H>(
+    val a: A, val b: B, val c: C, val d: D, val e: E, val f: F, val g: G, val h: H
 )
