@@ -122,9 +122,10 @@ fun SwimmerDetailScreen(
             
             // Check if full distance was swum
             val totalSplitsNeeded = (s.targetDistanceMeters / s.splitDistanceMeters).coerceAtLeast(1)
-            val completedFullDistance = laps.size >= totalSplitsNeeded || laps.isNotEmpty()
+            val hasTargetLap = laps.any { it.lapIndex == totalSplitsNeeded }
+            val completedFullDistance = hasTargetLap || laps.size >= totalSplitsNeeded || laps.isNotEmpty()
 
-            val finishTime = if (completedFullDistance) laps.lastOrNull()?.splitTimeMillis ?: 0L else 0L
+            val finishTime = if (completedFullDistance) laps.find { it.lapIndex == totalSplitsNeeded }?.splitTimeMillis ?: laps.lastOrNull()?.splitTimeMillis ?: 0L else 0L
             if (finishTime > 0) {
                 val strokeOptions = listOf("Freistil", "Brust", "Rücken", "Schmetterling", "Lagen")
                 val matchedStroke = strokeOptions.find { StopwatchViewModel.isSameStroke(it, s.strokeType) } ?: s.strokeType

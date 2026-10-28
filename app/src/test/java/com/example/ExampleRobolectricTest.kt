@@ -258,13 +258,14 @@ class ExampleRobolectricTest {
         lapTimeMillis = 28500L,
       )
 
+      val initialSessions = repository.allSessionsWithLapsSync()
       val sessionId = repository.saveSessionWithLaps(session, listOf(lap))
       val savedSessions = repository.allSessionsWithLapsSync()
-      assertEquals(1, savedSessions.size)
+      assertEquals(initialSessions.size + 1, savedSessions.size)
 
       repository.deleteSessionById(sessionId)
       val remainingSessions = repository.allSessionsWithLapsSync()
-      assertEquals(0, remainingSessions.size)
+      assertEquals(initialSessions.size, remainingSessions.size)
     }
   }
 
@@ -568,5 +569,50 @@ class ExampleRobolectricTest {
     assertEquals(135000L, parsed["Rücken" to 200])
     assertEquals(130000L, parsed["Schmetterling" to 200])
     assertEquals(295000L, parsed["Lagen" to 400])
+  }
+
+  @Test
+  fun `test direct finish on 100m with 50m splits saves 100m PB and pace`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = com.example.data.db.AppDatabase.getInstance(context)
+    val repository = com.example.data.repository.SwimRepository(db)
+    val prefsRepo = com.example.data.repository.UserPreferencesRepository(context)
+
+    val vm = com.example.ui.StopwatchViewModel(repository, prefsRepo)
+    kotlinx.coroutines.runBlocking { kotlinx.coroutines.delay(200) }
+
+    vm.setTargetDistance(100)
+    vm.setSplitDistance(50)
+    vm.setStrokeType("Freistil")
+
+    kotlinx.coroutines.runBlocking {
+      val swimmerEntity = com.example.data.model.SwimmerEntity(name = "Direct Finish Swimmer", favoriteStroke = "Freistil")
+      val swimmerId = repository.insertSwimmer(swimmerEntity)
+      val savedSwimmer = repository.getSwimmerById(swimmerId)!!
+
+      val session = com.example.data.model.SessionEntity(
+        title = "100m Direct Finish Test",
+        poolLengthMeters = 50,
+        targetDistanceMeters = 100,
+        splitDistanceMeters = 50,
+        strokeType = "Freistil"
+      )
+      val lap = com.example.data.model.LapRecordEntity(
+        sessionId = 0,
+        swimmerId = savedSwimmer.id,
+        swimmerName = savedSwimmer.name,
+        laneNumber = 1,
+        lapIndex = 2, // Direct finish lap
+        splitTimeMillis = 65_000L,
+        lapTimeMillis = 65_000L
+      )
+      repository.saveSessionWithLaps(session, listOf(lap))
+      vm.recalculateSwimmerPbs(savedSwimmer.id)
+
+      val swimmerAfter = repository.getSwimmerById(swimmerId)!!
+      val parsedPbs = swimmerAfter.parseCustomPbsMap()
+      assertEquals(65_000L, parsedPbs["Freistil" to 100])
+      assertEquals(65_000L, swimmerAfter.pb100mMillis)
+    }
   }
 }

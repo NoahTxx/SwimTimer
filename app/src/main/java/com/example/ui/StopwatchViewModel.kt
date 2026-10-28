@@ -1567,20 +1567,32 @@ class StopwatchViewModel(
 
                         val runs = lane.allLaps.groupBy { it.seriesIndex }.values
                         runs.forEach { seriesLaps ->
-                            val completedFullDistance = (seriesLaps.size >= expectedSplitsForFullDistance) || (lane.status == LaneStatus.FINISHED && seriesLaps.isNotEmpty())
+                            val hasTargetLap = seriesLaps.any { it.lapIndex == expectedSplitsForFullDistance }
+                            val completedFullDistance = hasTargetLap || (seriesLaps.size >= expectedSplitsForFullDistance) || (seriesLaps.isNotEmpty() && (lane.status == LaneStatus.FINISHED || lane.status == LaneStatus.REST_COUNTDOWN || lane.finishTimeMillis != null))
                             val finishTime = if (completedFullDistance) {
-                                seriesLaps.lastOrNull()?.splitTimeMillis
+                                seriesLaps.find { it.lapIndex == expectedSplitsForFullDistance }?.splitTimeMillis ?: seriesLaps.lastOrNull()?.splitTimeMillis
                             } else null
 
                             // Helper to find exact cumulative split time at a specific distance (e.g. 25m, 50m, 100m)
                             fun getCumulativeSplitAtMeters(meters: Int): Long? {
+                                if (meters == state.targetDistanceMeters && finishTime != null && finishTime > 0) return finishTime
                                 if (meters % state.splitDistanceMeters != 0) return null
                                 val expectedLapIndex = meters / state.splitDistanceMeters
                                 val lap = seriesLaps.find { it.lapIndex == expectedLapIndex }
                                 return lap?.splitTimeMillis?.takeIf { it > 0L }
                             }
 
-                            // Non-Lagen: Check 25m, 50m, and 100m PBs (both full distance and exact intermediate splits)
+                            // Check multi-stroke PBs in customPbsMap for any stroke
+                            if (finishTime != null && finishTime > 0) {
+                                val currentCustomPb = customPbsMap[matchedStroke to state.targetDistanceMeters]
+                                if (currentCustomPb == null || finishTime < currentCustomPb) {
+                                    customPbsMap[matchedStroke to state.targetDistanceMeters] = finishTime
+                                    hasImproved = true
+                                    pbAchievements.add("${swimmer.name} ${state.targetDistanceMeters}m $matchedStroke: ${TimeFormatter.formatMillis(finishTime)}")
+                                }
+                            }
+
+                            // Non-Lagen: Check 25m, 50m, and 100m PBs for favorite stroke
                             if (state.strokeType != "Lagen" && isSameStroke(state.strokeType, swimmer.favoriteStroke)) {
                                 val timeAt25m = if (state.targetDistanceMeters == 25) finishTime else getCumulativeSplitAtMeters(25)
                                 if (timeAt25m != null && (updatedPb25 == null || timeAt25m < updatedPb25)) {
@@ -1601,16 +1613,6 @@ class StopwatchViewModel(
                                     updatedPb100 = timeAt100m
                                     hasImproved = true
                                     pbAchievements.add("${swimmer.name} 100m ${swimmer.favoriteStroke}: ${TimeFormatter.formatMillis(timeAt100m)}")
-                                }
-
-                                // Long-distance & custom target distance PBs (e.g. 200m, 400m, 800m, 1500m)
-                                if (finishTime != null && finishTime > 0) {
-                                    val currentCustomPb = customPbsMap[matchedStroke to state.targetDistanceMeters]
-                                    if (currentCustomPb == null || finishTime < currentCustomPb) {
-                                        customPbsMap[matchedStroke to state.targetDistanceMeters] = finishTime
-                                        hasImproved = true
-                                        pbAchievements.add("${swimmer.name} ${state.targetDistanceMeters}m $matchedStroke: ${TimeFormatter.formatMillis(finishTime)}")
-                                    }
                                 }
                             }
 
@@ -2041,7 +2043,7 @@ class StopwatchViewModel(
         }
     }
 
-    private suspend fun recalculateSwimmerPbs(swimmerId: Long) {
+    suspend fun recalculateSwimmerPbs(swimmerId: Long) {
         val swimmer = repository.getSwimmerById(swimmerId) ?: return
         val remainingSessions = repository.allSessionsWithLapsSync().filter { session ->
             session.laps.any { it.swimmerId == swimmerId }
@@ -2069,6 +2071,9 @@ class StopwatchViewModel(
         var best400LBreast: Long? = null
         var best400LFree: Long? = null
 
+        val strokeOptions = listOf("Freistil", "Brust", "Rücken", "Schmetterling", "Lagen")
+        val customMap = swimmer.parseCustomPbsMap().toMutableMap()
+
         remainingSessions.forEach { sessionWithLaps ->
             val s = sessionWithLaps.session
             val swimmerLaps = sessionWithLaps.laps
@@ -2078,13 +2083,24 @@ class StopwatchViewModel(
             if (swimmerLaps.isEmpty()) return@forEach
 
             val totalSplitsNeeded = (s.targetDistanceMeters / s.splitDistanceMeters).coerceAtLeast(1)
-            val completedFullDistance = swimmerLaps.size >= totalSplitsNeeded
-            val finishTime = if (completedFullDistance) swimmerLaps[totalSplitsNeeded - 1].splitTimeMillis else null
+            val hasTargetLap = swimmerLaps.any { it.lapIndex == totalSplitsNeeded }
+            val completedFullDistance = hasTargetLap || swimmerLaps.size >= totalSplitsNeeded || swimmerLaps.isNotEmpty()
+            val finishTime = if (completedFullDistance) swimmerLaps.find { it.lapIndex == totalSplitsNeeded }?.splitTimeMillis ?: swimmerLaps.lastOrNull()?.splitTimeMillis else null
+
+            if (finishTime != null && finishTime > 0) {
+                val matchedStroke = strokeOptions.find { isSameStroke(it, s.strokeType) } ?: s.strokeType
+                val curPb = customMap[matchedStroke to s.targetDistanceMeters]
+                if (curPb == null || finishTime < curPb) {
+                    customMap[matchedStroke to s.targetDistanceMeters] = finishTime
+                }
+            }
 
             fun getCumulativeSplitAt(meters: Int): Long? {
+                if (meters == s.targetDistanceMeters && finishTime != null && finishTime > 0) return finishTime
                 if (meters % s.splitDistanceMeters != 0) return null
-                val idx = (meters / s.splitDistanceMeters) - 1
-                return swimmerLaps.getOrNull(idx)?.splitTimeMillis?.takeIf { it > 0L }
+                val targetIdx = meters / s.splitDistanceMeters
+                val lap = swimmerLaps.find { it.lapIndex == targetIdx }
+                return lap?.splitTimeMillis?.takeIf { it > 0L }
             }
 
             // Non-Lagen:
@@ -2164,7 +2180,8 @@ class StopwatchViewModel(
                 pb400mLagenFlySplitMillis = best400LFly,
                 pb400mLagenBackSplitMillis = best400LBack,
                 pb400mLagenBreastSplitMillis = best400LBreast,
-                pb400mLagenFreeSplitMillis = best400LFree
+                pb400mLagenFreeSplitMillis = best400LFree,
+                customPbsJson = SwimmerEntity.serializeCustomPbsMap(customMap)
             )
         )
     }

@@ -1,6 +1,8 @@
 package com.example.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -127,13 +129,24 @@ fun IntervalConfigDialog(
     val cardColor = Color(0xFF162536)
     val cardBorder = BorderStroke(1.dp, Color(0xFF22384F))
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(onDismissRequest = {
+        keyboardController?.hide()
+        focusManager.clearFocus(force = true)
+        onDismiss()
+    }) {
         Surface(
             shape = RoundedCornerShape(22.dp),
             color = Color(0xFF101B2B),
             modifier = Modifier
                 .fillMaxWidth()
-                .testTag("interval_config_dialog"),
+                .testTag("interval_config_dialog")
+                .clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() }
+                ) {
+                    keyboardController?.hide()
+                    focusManager.clearFocus(force = true)
+                },
         ) {
             Column(
                 modifier = Modifier
@@ -633,7 +646,11 @@ fun IntervalConfigDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Button(
-                        onClick = onDismiss,
+                        onClick = {
+                            keyboardController?.hide()
+                            focusManager.clearFocus(force = true)
+                            onDismiss()
+                        },
                         colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
                     ) {
                         Text("Abbrechen", color = Color.LightGray, maxLines = 1)
@@ -641,6 +658,11 @@ fun IntervalConfigDialog(
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = {
+                            sendOffCustomText.toIntOrNull()?.let {
+                                if (it > 0) sendOffDurationSec = it
+                            }
+                            keyboardController?.hide()
+                            focusManager.clearFocus(force = true)
                             val parsedMaxCount = maxSeriesCountText.toIntOrNull()?.takeIf { it > 0 }
                             val newConfig = SeriesConfig(
                                 isEnabled = isSeriesEnabled,

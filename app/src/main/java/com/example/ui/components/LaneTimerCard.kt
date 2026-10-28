@@ -347,21 +347,39 @@ private fun DigitalTimerDisplay(
                 }
             }
         } else {
-            displayMillis = when (status) {
-                LaneStatus.PAUSED -> pausedElapsedMillis
-                LaneStatus.FINISHED, LaneStatus.REST_COUNTDOWN -> finishTimeMillis ?: pausedElapsedMillis
-                LaneStatus.COUNTDOWN -> -(countdownRemainingSeconds * 1000L)
-                else -> 0L
+            if (status == LaneStatus.PAUSED) {
+                if (isSendOffMode) {
+                    if (pausedElapsedMillis <= sendOffMs) {
+                        displayMillis = sendOffMs - pausedElapsedMillis
+                        isOverrunning = false
+                        overrunMillis = 0L
+                    } else {
+                        displayMillis = 0L
+                        isOverrunning = true
+                        overrunMillis = pausedElapsedMillis - sendOffMs
+                    }
+                } else {
+                    displayMillis = pausedElapsedMillis
+                    isOverrunning = false
+                    overrunMillis = 0L
+                }
+            } else {
+                displayMillis = when (status) {
+                    LaneStatus.FINISHED, LaneStatus.REST_COUNTDOWN -> finishTimeMillis ?: pausedElapsedMillis
+                    LaneStatus.COUNTDOWN -> -(countdownRemainingSeconds * 1000L)
+                    else -> 0L
+                }
+                isOverrunning = false
+                overrunMillis = 0L
             }
             restElapsedMillis = 0L
-            isOverrunning = false
-            overrunMillis = 0L
         }
     }
 
     val displayColor = when {
         isOverrunning -> PaceRed
         status == LaneStatus.RUNNING && isSendOffMode -> AquaPrimary
+        status == LaneStatus.PAUSED && isSendOffMode -> AquaPrimary
         status == LaneStatus.RUNNING -> TextWhite
         status == LaneStatus.PAUSED -> Color(0xFFFFB74D)
         status == LaneStatus.COUNTDOWN || status == LaneStatus.REST_COUNTDOWN -> Color(0xFFFFD600)
