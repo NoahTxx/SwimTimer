@@ -503,7 +503,7 @@ fun SwimmerDetailScreen(
 
                 // Langstrecke Card (Accordion)
                 item(key = "langstrecke_card", contentType = "LangstreckeCard") {
-                    var isLangstreckeExpanded by remember { mutableStateOf(false) }
+                    var isLangstreckeExpanded by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
 
                     Card(
                         shape = RoundedCornerShape(16.dp),
@@ -704,21 +704,24 @@ private fun SwimmerSessionHistoryCard(
     swimmer: SwimmerEntity,
     dynamicPbs: Map<Pair<String, Int>, Long>
 ) {
-    var isExpanded by remember { mutableStateOf(value = false) }
+    var isExpanded by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(value = false) }
     val s = sessionWithLaps.session
     val swimmerLaps = remember(sessionWithLaps, swimmer.id) {
         sessionWithLaps.laps
             .filter { it.swimmerId == swimmer.id }
             .sortedBy { it.lapIndex }
     }
-
-    val finishTime = remember(swimmerLaps, s.targetDistanceMeters, s.splitDistanceMeters) {
-        val totalSplitsNeeded = (s.targetDistanceMeters / s.splitDistanceMeters).coerceAtLeast(1)
-        val seriesItems = com.example.domain.PersonalBestEvaluator.splitSavedLapsIntoSeries(
+    val seriesItems = remember(swimmerLaps, s.targetDistanceMeters, s.splitDistanceMeters) {
+        com.example.domain.PersonalBestEvaluator.splitSavedLapsIntoSeries(
             laps = swimmerLaps,
             targetDistanceMeters = s.targetDistanceMeters,
             splitDistanceMeters = s.splitDistanceMeters
         )
+    }
+    val hasMultipleSeries = remember(seriesItems) { seriesItems.any { it.seriesIndex > 1 } }
+
+    val finishTime = remember(seriesItems, s.targetDistanceMeters, s.splitDistanceMeters) {
+        val totalSplitsNeeded = (s.targetDistanceMeters / s.splitDistanceMeters).coerceAtLeast(1)
         seriesItems.groupBy { it.seriesIndex }.values.mapNotNull { runLaps ->
             runLaps.find { it.lapIndex == totalSplitsNeeded }?.splitTimeMillis ?: runLaps.lastOrNull()?.splitTimeMillis
         }.filter { it > 0L }.minOrNull() ?: 0L
@@ -803,16 +806,15 @@ private fun SwimmerSessionHistoryCard(
             AnimatedVisibility(visible = isExpanded) {
                 Column(modifier = Modifier.padding(top = 12.dp)) {
                     HorizontalDivider(color = Color(0xFF1E2D40), modifier = Modifier.padding(bottom = 8.dp))
-                    swimmerLaps.forEach { lap ->
-                        val totalLaps = swimmerLaps.size
-                        val isLastLap = (lap == swimmerLaps.last())
-                        val lapDist = if (totalLaps == 1 && isLastLap) {
+                    swimmerLaps.zip(seriesItems).forEach { (lap, lapItem) ->
+                        val isLastLapInSeries = (lapItem == seriesItems.lastOrNull { it.seriesIndex == lapItem.seriesIndex })
+                        val prevCumDist = ((lapItem.lapIndex - 1) * s.splitDistanceMeters).coerceAtMost(s.targetDistanceMeters)
+                        val currentCumDist = if (isLastLapInSeries) {
                             s.targetDistanceMeters
-                        } else if (isLastLap && s.targetDistanceMeters > (totalLaps - 1) * s.splitDistanceMeters) {
-                            s.targetDistanceMeters - ((totalLaps - 1) * s.splitDistanceMeters)
                         } else {
-                            s.splitDistanceMeters
+                            (lapItem.lapIndex * s.splitDistanceMeters).coerceAtMost(s.targetDistanceMeters)
                         }
+                        val lapDist = (currentCumDist - prevCumDist).coerceAtLeast(s.splitDistanceMeters)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -821,7 +823,7 @@ private fun SwimmerSessionHistoryCard(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Split ${lap.lapIndex} (${lapDist}m)",
+                                text = if (hasMultipleSeries) "S${lapItem.seriesIndex} • Split ${lapItem.lapIndex} (${lapDist}m)" else "Split ${lapItem.lapIndex} (${lapDist}m)",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color.LightGray
                             )
@@ -849,7 +851,6 @@ private fun SwimmerSessionHistoryCard(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EditSwimmerDialog(
     swimmer: SwimmerEntity,
@@ -857,6 +858,37 @@ private fun EditSwimmerDialog(
     onDismiss: () -> Unit,
     onSave: (SwimmerEntity) -> Unit
 ) {
+    SwimmerFormDialog(
+        initialSwimmer = swimmer,
+        availableGroups = availableGroups,
+        defaultGroup = swimmer.groupName,
+        dialogTitle = "Athlet bearbeiten",
+        confirmButtonText = "Speichern",
+        dialogTestTag = "edit_swimmer_dialog",
+        onDismiss = onDismiss,
+        onConfirm = onSave
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun SwimmerFormDialog(
+    initialSwimmer: SwimmerEntity? = null,
+    availableGroups: List<String>,
+    defaultGroup: String? = null,
+    dialogTitle: String,
+    confirmButtonText: String,
+    dialogTestTag: String,
+    onDismiss: () -> Unit,
+    onConfirm: (SwimmerEntity) -> Unit
+) {
+    val swimmer = initialSwimmer ?: SwimmerEntity(
+        id = 0,
+        name = "",
+        ageGroup = "Offen",
+        favoriteStroke = "Freistil",
+        groupName = defaultGroup
+    )
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     var name by remember { mutableStateOf(swimmer.name) }
     var groupName by remember { mutableStateOf(swimmer.groupName ?: "") }
@@ -920,7 +952,7 @@ private fun EditSwimmerDialog(
             color = Color(0xFF101B2B),
             modifier = Modifier
                 .fillMaxWidth()
-                .testTag("edit_swimmer_dialog")
+                .testTag(dialogTestTag)
         ) {
             Column(
                 modifier = Modifier
@@ -928,12 +960,13 @@ private fun EditSwimmerDialog(
                     .verticalScroll(rememberScrollState())
             ) {
                 Text(
-                    text = "Athlet bearbeiten",
+                    text = dialogTitle,
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp
                     ),
-                    color = TextWhite
+                    color = TextWhite,
+                    maxLines = 1
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -951,7 +984,10 @@ private fun EditSwimmerDialog(
                     onValueChange = { name = it },
                     label = { Text("Name") },
                     singleLine = true,
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Text,
+                        imeAction = androidx.compose.ui.text.input.ImeAction.Done
+                    ),
                     keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { focusManager.clearFocus() }),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = TextWhite,
@@ -959,7 +995,9 @@ private fun EditSwimmerDialog(
                         focusedBorderColor = AquaPrimary,
                         unfocusedBorderColor = Color(0xFF1B2E46)
                     ),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("add_swimmer_name_input")
                 )
 
                 Spacer(modifier = Modifier.height(10.dp))
@@ -1034,6 +1072,7 @@ private fun EditSwimmerDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                            .testTag("stroke_dropdown_field")
                     )
 
                     ExposedDropdownMenu(
@@ -1417,7 +1456,7 @@ private fun EditSwimmerDialog(
                                 val fav50 = customMap[stroke to 50]
                                 val fav100 = customMap[stroke to 100]
 
-                                onSave(
+                                onConfirm(
                                     swimmer.copy(
                                         name = name.trim(),
                                         groupName = groupName.trim().ifEmpty { null },
@@ -1445,9 +1484,10 @@ private fun EditSwimmerDialog(
                                 )
                             }
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = AquaPrimary)
+                        colors = ButtonDefaults.buttonColors(containerColor = AquaPrimary),
+                        modifier = Modifier.testTag("submit_add_swimmer_button")
                     ) {
-                        Text("Speichern", color = Color.Black, fontWeight = FontWeight.Bold)
+                        Text(confirmButtonText, color = Color.Black, fontWeight = FontWeight.Bold, maxLines = 1)
                     }
                 }
             }

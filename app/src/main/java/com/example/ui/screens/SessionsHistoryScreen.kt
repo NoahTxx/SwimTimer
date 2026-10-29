@@ -84,7 +84,10 @@ fun SessionsHistoryScreen(
         contract = ActivityResultContracts.GetContent(),
     ) { uri ->
         uri?.let { selectedUri ->
-            viewModel.importSessionsFromUri(context.contentResolver, selectedUri)
+            viewModel.importSessionsFromUri(context.contentResolver, selectedUri) { count ->
+                val msg = if (count > 0) "$count Trainingseinheit(en) importiert" else "Keine gültigen Einheiten gefunden"
+                android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -378,7 +381,13 @@ private fun SessionHistoryCard(
                         .padding(12.dp)
                 ) {
                     sortedLanes.forEach { laneNum ->
-                        val laneLaps = groupedByLane[laneNum] ?: emptyList()
+                        val laneLaps = (groupedByLane[laneNum] ?: emptyList()).sortedBy { it.lapIndex }
+                        val seriesItems = com.example.domain.PersonalBestEvaluator.splitSavedLapsIntoSeries(
+                            laps = laneLaps,
+                            targetDistanceMeters = s.targetDistanceMeters,
+                            splitDistanceMeters = s.splitDistanceMeters
+                        )
+                        val hasMultipleSeries = seriesItems.any { it.seriesIndex > 1 }
                         val swimmer = laneLaps.firstOrNull()?.swimmerName ?: "Bahn $laneNum"
                         val finishTime = laneLaps.lastOrNull()?.splitTimeMillis ?: 0L
 
@@ -418,12 +427,14 @@ private fun SessionHistoryCard(
                         }
 
                         val isLagen = s.strokeType.equals("Lagen", ignoreCase = true)
+                        val isRelaySession = s.title.contains("Staffel", ignoreCase = true)
+                        val activeLagenShortNames = if (isRelaySession) ExportHelper.LAGEN_STAFFEL_SHORT_NAMES else ExportHelper.LAGEN_SHORT_NAMES
                         val lagenLegLength = (s.targetDistanceMeters / 4).coerceAtLeast(1)
 
-                        laneLaps.forEach { lap ->
+                        laneLaps.zip(seriesItems).forEach { (lap, lapItem) ->
                             val lapLagenStroke = if (isLagen) {
-                                val legIdx = (((lap.lapIndex - 1) * s.splitDistanceMeters) / lagenLegLength).coerceIn(0, 3)
-                                ExportHelper.LAGEN_SHORT_NAMES[legIdx]
+                                val legIdx = (((lapItem.lapIndex - 1) * s.splitDistanceMeters) / lagenLegLength).coerceIn(0, 3)
+                                activeLagenShortNames[legIdx]
                             } else null
 
                             Row(
@@ -438,7 +449,7 @@ private fun SessionHistoryCard(
                                     modifier = Modifier.weight(1.2f)
                                 ) {
                                     Text(
-                                        text = "L${lap.lapIndex}",
+                                        text = if (hasMultipleSeries) "S${lapItem.seriesIndex} L${lapItem.lapIndex}" else "L${lapItem.lapIndex}",
                                         style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
                                         color = AquaPrimary,
                                         maxLines = 1
@@ -489,15 +500,14 @@ private fun SessionHistoryCard(
                                             maxLines = 1
                                         )
                                     } else if (lap.deltaTargetMillis == null) {
-                                        val totalLapsForLane = laneLaps.size
-                                        val isLastLap = (lap == laneLaps.last())
-                                        val lapDistance = if ((totalLapsForLane == 1) && isLastLap) {
+                                        val isLastLapInSeries = (lapItem == seriesItems.lastOrNull { it.seriesIndex == lapItem.seriesIndex })
+                                        val prevCumDist = ((lapItem.lapIndex - 1) * s.splitDistanceMeters).coerceAtMost(s.targetDistanceMeters)
+                                        val currentCumDist = if (isLastLapInSeries) {
                                             s.targetDistanceMeters
-                                        } else if (isLastLap && s.targetDistanceMeters > (totalLapsForLane - 1) * s.splitDistanceMeters) {
-                                            s.targetDistanceMeters - ((totalLapsForLane - 1) * s.splitDistanceMeters)
                                         } else {
-                                            s.splitDistanceMeters
+                                            (lapItem.lapIndex * s.splitDistanceMeters).coerceAtMost(s.targetDistanceMeters)
                                         }
+                                        val lapDistance = (currentCumDist - prevCumDist).coerceAtLeast(s.splitDistanceMeters)
                                         Text(
                                             text = TimeFormatter.formatPacePer100m(lap.lapTimeMillis, lapDistance),
                                             style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),

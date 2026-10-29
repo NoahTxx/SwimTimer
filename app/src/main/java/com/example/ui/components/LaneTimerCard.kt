@@ -884,8 +884,8 @@ fun LaneTimerCardPreview() {
                 laneStartTimeRealtime = SystemClock.elapsedRealtime() - 32540,
                 currentElapsedMillis = 32540L,
                 laps = listOf(
-                    LapItem(1, 15200, 15200),
-                    LapItem(2, 17340, 32540)
+                    LapItem(lapIndex = 1, splitTimeMillis = 15200, lapTimeMillis = 15200),
+                    LapItem(lapIndex = 2, splitTimeMillis = 32540, lapTimeMillis = 17340)
                 )
             ),
             onLapClick = {},

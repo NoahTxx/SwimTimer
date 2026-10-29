@@ -144,7 +144,10 @@ fun MainAppContent(viewModel: StopwatchViewModel) {
                 AppScreen.STOPWATCH -> MultiStopwatchScreen(viewModel = viewModel)
                 AppScreen.HISTORY -> SessionsHistoryScreen(viewModel = viewModel)
                 AppScreen.SWIMMERS -> SwimmersManagementScreen(viewModel = viewModel, isActiveTab = true)
-                AppScreen.TOOLS -> CoachingToolsScreen(viewModel = viewModel)
+                AppScreen.TOOLS -> CoachingToolsScreen(
+                    viewModel = viewModel,
+                    onNavigateToStopwatch = { currentScreen = AppScreen.STOPWATCH }
+                )
             }
         }
 

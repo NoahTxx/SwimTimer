@@ -120,6 +120,7 @@ sealed interface UndoAction {
     data class SingleLaneStart(val laneNumber: Int, val previousLanes: List<LaneState>, val previousMasterStart: Long?) : UndoAction
     data class BulkStop(val previousLanes: List<LaneState>) : UndoAction
     data class LaneRemoved(val lane: LaneState, val index: Int) : UndoAction
+    data class LanePauseToggled(val laneNumber: Int, val previousLaneState: LaneState) : UndoAction
 }
 
 @Immutable
@@ -224,16 +225,22 @@ class StopwatchViewModel(
             filtered = filtered.filter { it.name.contains(query, ignoreCase = true) }
         }
         filtered.map { swimmer ->
-            val pb50mText = swimmer.pb50mMillis?.let { TimeFormatter.formatMillis(it, shortFormat = true) } ?: ""
+            val customMap = swimmer.parseCustomPbsMap()
+            val fav = if (swimmer.favoriteStroke == "Lagen") "Freistil" else swimmer.favoriteStroke
+            val pb25Millis = listOfNotNull(swimmer.pb25mMillis, customMap[fav to 25]).minOrNull()
+            val pb50Millis = listOfNotNull(swimmer.pb50mMillis, customMap[fav to 50]).minOrNull()
+            val pb100Millis = listOfNotNull(swimmer.pb100mMillis, customMap[fav to 100]).minOrNull()
+            val pb100ImMillis = listOfNotNull(swimmer.pb100mLagenMillis, customMap["Lagen" to 100]).minOrNull()
+            val pb50mText = pb50Millis?.let { TimeFormatter.formatMillis(it, shortFormat = true) } ?: ""
             SwimmerCardUiModel(
                 id = swimmer.id,
                 name = swimmer.name,
                 initial = swimmer.name.take(1).uppercase(),
                 groupOrClub = swimmer.favoriteStroke,
-                pb25mText = swimmer.pb25mMillis?.let { TimeFormatter.formatMillis(it, shortFormat = true) } ?: "",
+                pb25mText = pb25Millis?.let { TimeFormatter.formatMillis(it, shortFormat = true) } ?: "",
                 pb50mText = pb50mText,
-                pb100mText = swimmer.pb100mMillis?.let { TimeFormatter.formatMillis(it) } ?: "",
-                pb100mImText = swimmer.pb100mLagenMillis?.let { TimeFormatter.formatMillis(it) } ?: "",
+                pb100mText = pb100Millis?.let { TimeFormatter.formatMillis(it) } ?: "",
+                pb100mImText = pb100ImMillis?.let { TimeFormatter.formatMillis(it) } ?: "",
                 pb50mFormatted = pb50mText.ifEmpty { "--:--" },
                 groupName = swimmer.groupName,
                 originalEntity = swimmer
@@ -841,6 +848,8 @@ class StopwatchViewModel(
     }
 
     fun onStopAll() {
+        waveAudioJob?.cancel()
+        waveAudioJob = null
         val now = clock.nowMillis()
         pushUndo(UndoAction.BulkStop(_uiState.value.lanes))
 
@@ -916,6 +925,7 @@ class StopwatchViewModel(
     fun onPauseLane(laneNumber: Int) {
         val now = clock.nowMillis()
         var anyRunning = false
+        var pushedUndo: UndoAction? = null
         _uiState.update { currentState ->
             val lanes = currentState.lanes.toMutableList()
             val index = lanes.indexOfFirst { it.laneNumber == laneNumber }
@@ -925,6 +935,10 @@ class StopwatchViewModel(
             if (lane.status != LaneStatus.RUNNING) return@update currentState
 
             val elapsed = computeExactLaneElapsed(lane, now, currentState.masterStartTimeRealtime)
+            pushedUndo = UndoAction.LanePauseToggled(
+                laneNumber = laneNumber,
+                previousLaneState = lane.copy(currentElapsedMillis = elapsed)
+            )
 
             lanes[index] = lane.copy(
                 status = LaneStatus.PAUSED,
@@ -934,12 +948,14 @@ class StopwatchViewModel(
             anyRunning = lanes.any { it.status == LaneStatus.RUNNING || it.status == LaneStatus.COUNTDOWN || it.status == LaneStatus.PAUSED || it.status == LaneStatus.REST_COUNTDOWN }
             currentState.copy(lanes = lanes)
         }
+        pushedUndo?.let { pushUndo(it) }
         if (!anyRunning) stopTickerIfAllIdle()
     }
 
     fun onResumeLane(laneNumber: Int) {
         val now = clock.nowMillis()
-        
+        var pushedUndo: UndoAction? = null
+
         _uiState.update { currentState ->
             val lanes = currentState.lanes.toMutableList()
             val index = lanes.indexOfFirst { it.laneNumber == laneNumber }
@@ -947,6 +963,8 @@ class StopwatchViewModel(
 
             val lane = lanes[index]
             if (lane.status != LaneStatus.PAUSED) return@update currentState
+
+            pushedUndo = UndoAction.LanePauseToggled(laneNumber = laneNumber, previousLaneState = lane)
 
             lanes[index] = lane.copy(
                 status = LaneStatus.RUNNING,
@@ -957,6 +975,7 @@ class StopwatchViewModel(
 
             currentState.copy(lanes = lanes)
         }
+        pushedUndo?.let { pushUndo(it) }
         startTicker()
     }
 
@@ -1120,6 +1139,8 @@ class StopwatchViewModel(
     fun onResetAll() {
         tickerJob?.cancel()
         tickerJob = null
+        waveAudioJob?.cancel()
+        waveAudioJob = null
         undoStack.clear()
 
         _uiState.update { currentState ->
@@ -1234,6 +1255,8 @@ class StopwatchViewModel(
                 startTicker()
             }
             is UndoAction.BulkStart -> {
+                waveAudioJob?.cancel()
+                waveAudioJob = null
                 _uiState.update { currentState ->
                     currentState.copy(
                         lanes = action.previousLanes,
@@ -1276,6 +1299,31 @@ class StopwatchViewModel(
                         lastUndoMessage = "Bahn ${action.lane.laneNumber} wiederhergestellt"
                     )
                 }
+            }
+            is UndoAction.LanePauseToggled -> {
+                var anyRunning = false
+                _uiState.update { currentState ->
+                    val lanes = currentState.lanes.toMutableList()
+                    val idx = lanes.indexOfFirst { it.laneNumber == action.laneNumber }
+                    if (idx != -1) {
+                        val now = clock.nowMillis()
+                        val restored = if (action.previousLaneState.status == LaneStatus.RUNNING) {
+                            action.previousLaneState.copy(
+                                laneStartTimeRealtime = now - action.previousLaneState.currentElapsedMillis
+                            )
+                        } else {
+                            action.previousLaneState
+                        }
+                        lanes[idx] = restored
+                        anyRunning = lanes.any { it.status == LaneStatus.RUNNING || it.status == LaneStatus.COUNTDOWN || it.status == LaneStatus.PAUSED || it.status == LaneStatus.REST_COUNTDOWN }
+                        return@update currentState.copy(
+                            lanes = lanes,
+                            lastUndoMessage = "Pause/Weiter für Bahn ${action.laneNumber} rückgängig gemacht"
+                        )
+                    }
+                    currentState
+                }
+                if (anyRunning) startTicker() else stopTickerIfAllIdle()
             }
         }
         _uiState.update { it.copy(canUndo = undoStack.isNotEmpty()) }
@@ -1365,6 +1413,51 @@ class StopwatchViewModel(
         _uiState.update { it.copy(selectedFocusedLane = laneNumber) }
     }
 
+    fun applyRelayTeamsToStopwatch(
+        teams: List<com.example.domain.RelayTeamPlan>,
+        strokeType: String,
+        legDistanceMeters: Int
+    ) {
+        if (teams.isEmpty()) return
+        onResetAll()
+
+        val safeSplit = legDistanceMeters.takeIf { it in listOf(25, 50, 100) } ?: 50
+        val safeTargetDistance = 4 * safeSplit
+        val enforcedSplit = resolveCompatibleSplit(safeTargetDistance, safeSplit)
+        val relayTitle = "4x${enforcedSplit}m $strokeType Staffel"
+
+        val relayLanes = teams.take(15).mapIndexed { index, team ->
+            val namesPreview = team.legs.joinToString(", ") { it.swimmerName }
+            val laneLabel = if (namesPreview.isNotBlank()) {
+                "${team.teamTitle} ($namesPreview)"
+            } else {
+                team.teamTitle
+            }
+            LaneState(
+                laneNumber = index + 1,
+                swimmerId = null,
+                swimmerName = laneLabel,
+                targetDistanceMeters = safeTargetDistance,
+                splitDistanceMeters = enforcedSplit,
+                strokeType = strokeType
+            )
+        }
+
+        _uiState.update { state ->
+            state.copy(
+                sessionTitle = relayTitle,
+                strokeType = strokeType,
+                targetDistanceMeters = safeTargetDistance,
+                splitDistanceMeters = enforcedSplit,
+                laneCount = relayLanes.size,
+                lanes = relayLanes,
+                startMode = StartMode.MASS,
+                lastUndoMessage = "${relayLanes.size} Staffel-Teams auf Stoppuhr übernommen ($relayTitle)"
+            )
+        }
+        savePreferences()
+    }
+
     @Suppress("unused")
     fun setSplitDistance(splitMeters: Int) {
         val currentDist = _uiState.value.targetDistanceMeters
@@ -1379,11 +1472,21 @@ class StopwatchViewModel(
         savePreferences()
     }
 
+    private fun resolveCompatibleSplit(targetMeters: Int, candidateSplit: Int): Int {
+        if (candidateSplit in 1..targetMeters && (targetMeters % candidateSplit) == 0) {
+            return candidateSplit
+        }
+        return when {
+            (targetMeters % 50) == 0 -> 50
+            (targetMeters % 25) == 0 -> 25
+            else -> targetMeters
+        }
+    }
+
     @Suppress("unused")
     fun setTargetDistance(distance: Int) {
         val enforcedDistance = if (_uiState.value.strokeType == "Lagen" && distance < 100) 100 else distance
-        val currentSplit = _uiState.value.splitDistanceMeters
-        val enforcedSplit = if (currentSplit > enforcedDistance) 25 else currentSplit
+        val enforcedSplit = resolveCompatibleSplit(enforcedDistance, _uiState.value.splitDistanceMeters)
         validateDistances(enforcedDistance, enforcedSplit)
         val updatedLanes = _uiState.value.lanes.map {
             it.copy(targetDistanceMeters = enforcedDistance, splitDistanceMeters = enforcedSplit)
@@ -1399,9 +1502,10 @@ class StopwatchViewModel(
     @Suppress("unused")
     fun setStrokeType(stroke: String) {
         val currentDist = _uiState.value.targetDistanceMeters
-        val enforcedDist = if (stroke == "Lagen" && currentDist < 100) 100 else currentDist
+        val enforcedDist = if (stroke == "Lagen") currentDist.coerceIn(100, 400) else currentDist
         val currentSplit = _uiState.value.splitDistanceMeters
-        val enforcedSplit = if (stroke == "Lagen" && enforcedDist == 100) 25 else currentSplit
+        val preferredSplit = if (stroke == "Lagen" && enforcedDist == 100) 25 else currentSplit
+        val enforcedSplit = resolveCompatibleSplit(enforcedDist, preferredSplit)
         validateDistances(enforcedDist, enforcedSplit)
         val updatedLanes = _uiState.value.lanes.map {
             it.copy(strokeType = stroke, targetDistanceMeters = enforcedDist, splitDistanceMeters = enforcedSplit)
@@ -1417,7 +1521,7 @@ class StopwatchViewModel(
 
     fun setSessionMeta(title: String, stroke: String, poolLength: Int, distance: Int, splitDistance: Int = 50) {
         val enforcedDistance = if (stroke == "Lagen" && distance < 100) 100 else distance
-        val enforcedSplit = if (splitDistance > enforcedDistance) enforcedDistance else splitDistance
+        val enforcedSplit = resolveCompatibleSplit(enforcedDistance, splitDistance)
         validateDistances(enforcedDistance, enforcedSplit)
         val cleanTitle = title.ifBlank { "${enforcedDistance}m $stroke" }
         val updatedLanes = _uiState.value.lanes.map {
@@ -1668,21 +1772,27 @@ class StopwatchViewModel(
         }
     }
 
+    @Suppress("unused")
     fun importSwimmers(swimmers: List<SwimmerEntity>) {
         viewModelScope.launch(Dispatchers.IO) {
-            val existing = repository.allSwimmers.firstOrNull() ?: emptyList()
-            val existingNamesLower = existing.asSequence().map { it.name.trim().lowercase() }.toMutableSet()
-
-            swimmers.forEach { swimmer ->
-                val cleanKey = swimmer.name.trim().lowercase()
-                if (cleanKey.isNotBlank() && existingNamesLower.add(cleanKey)) {
-                    repository.insertSwimmer(swimmer.copy(id = 0, name = swimmer.name.trim()))
-                }
-            }
+            importSwimmersInternal(swimmers)
         }
     }
 
+    private suspend fun importSwimmersInternal(swimmers: List<SwimmerEntity>): Int {
+        val existing = repository.allSwimmers.firstOrNull() ?: emptyList()
+        val existingNamesLower = existing.asSequence().map { it.name.trim().lowercase() }.toMutableSet()
+        var insertedCount = 0
 
+        swimmers.forEach { swimmer ->
+            val cleanKey = swimmer.name.trim().lowercase()
+            if (cleanKey.isNotBlank() && existingNamesLower.add(cleanKey)) {
+                repository.insertSwimmer(swimmer.copy(id = 0, name = swimmer.name.trim()))
+                insertedCount++
+            }
+        }
+        return insertedCount
+    }
 
     fun importSessionsFromUri(contentResolver: android.content.ContentResolver, uri: android.net.Uri, onComplete: ((Int) -> Unit)? = null) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -1714,9 +1824,10 @@ class StopwatchViewModel(
                 } ?: ""
                 val importedSwimmers = ExportHelper.importSwimmersFromJson(jsonString)
                 if (importedSwimmers.isNotEmpty()) {
-                    importSwimmers(importedSwimmers)
+                    importSwimmersInternal(importedSwimmers)
+                } else {
+                    0
                 }
-                importedSwimmers.size
             } catch (_: Exception) {
                 0
             }
@@ -1762,18 +1873,57 @@ class StopwatchViewModel(
             repository.deleteSessionById(sessionId)
 
             affectedSwimmerIds.forEach { swimmerId ->
-                recalculateSwimmerPbs(swimmerId)
+                recalculateSwimmerPbs(swimmerId, deletedSession = sessionWithLaps)
             }
         }
     }
 
-    suspend fun recalculateSwimmerPbs(swimmerId: Long) {
+    private fun evaluateSessionOnSwimmer(
+        baseSwimmer: SwimmerEntity,
+        sessionWithLaps: SessionWithLaps,
+        swimmerId: Long
+    ): SwimmerEntity {
+        val s = sessionWithLaps.session
+        val swimmerLaps = sessionWithLaps.laps
+            .asSequence()
+            .filter { it.swimmerId == swimmerId }
+            .sortedBy { it.lapIndex }
+            .toList()
+
+        if (swimmerLaps.isEmpty()) return baseSwimmer
+
+        val seriesLapItems = PersonalBestEvaluator.splitSavedLapsIntoSeries(
+            laps = swimmerLaps,
+            targetDistanceMeters = s.targetDistanceMeters,
+            splitDistanceMeters = s.splitDistanceMeters
+        )
+        val syntheticLane = LaneState(
+            laneNumber = swimmerLaps.first().laneNumber,
+            swimmerId = swimmerId,
+            swimmerName = baseSwimmer.name,
+            status = LaneStatus.FINISHED,
+            finishTimeMillis = seriesLapItems.lastOrNull()?.splitTimeMillis,
+            completedSeriesLaps = seriesLapItems,
+            targetDistanceMeters = s.targetDistanceMeters,
+            splitDistanceMeters = s.splitDistanceMeters,
+            strokeType = s.strokeType
+        )
+        return PersonalBestEvaluator.evaluate(
+            swimmer = baseSwimmer,
+            lane = syntheticLane,
+            targetDistanceMeters = s.targetDistanceMeters,
+            splitDistanceMeters = s.splitDistanceMeters,
+            strokeType = s.strokeType
+        ).updatedSwimmer
+    }
+
+    suspend fun recalculateSwimmerPbs(swimmerId: Long, deletedSession: SessionWithLaps? = null) {
         val swimmer = repository.getSwimmerById(swimmerId) ?: return
         val remainingSessions = repository.allSessionsWithLapsSync().filter { session ->
             session.laps.any { it.swimmerId == swimmerId }
         }
 
-        var recalculated = swimmer.copy(
+        val blankSwimmer = swimmer.copy(
             pb25mMillis = null,
             pb50mMillis = null,
             pb100mMillis = null,
@@ -1795,40 +1945,42 @@ class StopwatchViewModel(
             customPbsJson = null
         )
 
+        var recalculated = if (deletedSession != null) {
+            val deletedEval = evaluateSessionOnSwimmer(blankSwimmer, deletedSession, swimmerId)
+            val deletedCustomMap = deletedEval.parseCustomPbsMap()
+            val preservedCustomMap = swimmer.parseCustomPbsMap().filterNot { (k, v) ->
+                deletedCustomMap[k] == v
+            }
+            fun keepIfNotFromDeleted(currentVal: Long?, deletedVal: Long?): Long? =
+                if (currentVal != null && currentVal == deletedVal) null else currentVal
+
+            swimmer.copy(
+                pb25mMillis = keepIfNotFromDeleted(swimmer.pb25mMillis, deletedEval.pb25mMillis),
+                pb50mMillis = keepIfNotFromDeleted(swimmer.pb50mMillis, deletedEval.pb50mMillis),
+                pb100mMillis = keepIfNotFromDeleted(swimmer.pb100mMillis, deletedEval.pb100mMillis),
+                pb100mLagenMillis = keepIfNotFromDeleted(swimmer.pb100mLagenMillis, deletedEval.pb100mLagenMillis),
+                pb200mLagenMillis = keepIfNotFromDeleted(swimmer.pb200mLagenMillis, deletedEval.pb200mLagenMillis),
+                pb400mLagenMillis = keepIfNotFromDeleted(swimmer.pb400mLagenMillis, deletedEval.pb400mLagenMillis),
+                lagenFlySplitMillis = keepIfNotFromDeleted(swimmer.lagenFlySplitMillis, deletedEval.lagenFlySplitMillis),
+                lagenBackSplitMillis = keepIfNotFromDeleted(swimmer.lagenBackSplitMillis, deletedEval.lagenBackSplitMillis),
+                lagenBreastSplitMillis = keepIfNotFromDeleted(swimmer.lagenBreastSplitMillis, deletedEval.lagenBreastSplitMillis),
+                lagenFreeSplitMillis = keepIfNotFromDeleted(swimmer.lagenFreeSplitMillis, deletedEval.lagenFreeSplitMillis),
+                pb200mLagenFlySplitMillis = keepIfNotFromDeleted(swimmer.pb200mLagenFlySplitMillis, deletedEval.pb200mLagenFlySplitMillis),
+                pb200mLagenBackSplitMillis = keepIfNotFromDeleted(swimmer.pb200mLagenBackSplitMillis, deletedEval.pb200mLagenBackSplitMillis),
+                pb200mLagenBreastSplitMillis = keepIfNotFromDeleted(swimmer.pb200mLagenBreastSplitMillis, deletedEval.pb200mLagenBreastSplitMillis),
+                pb200mLagenFreeSplitMillis = keepIfNotFromDeleted(swimmer.pb200mLagenFreeSplitMillis, deletedEval.pb200mLagenFreeSplitMillis),
+                pb400mLagenFlySplitMillis = keepIfNotFromDeleted(swimmer.pb400mLagenFlySplitMillis, deletedEval.pb400mLagenFlySplitMillis),
+                pb400mLagenBackSplitMillis = keepIfNotFromDeleted(swimmer.pb400mLagenBackSplitMillis, deletedEval.pb400mLagenBackSplitMillis),
+                pb400mLagenBreastSplitMillis = keepIfNotFromDeleted(swimmer.pb400mLagenBreastSplitMillis, deletedEval.pb400mLagenBreastSplitMillis),
+                pb400mLagenFreeSplitMillis = keepIfNotFromDeleted(swimmer.pb400mLagenFreeSplitMillis, deletedEval.pb400mLagenFreeSplitMillis),
+                customPbsJson = SwimmerEntity.serializeCustomPbsMap(preservedCustomMap)
+            )
+        } else {
+            swimmer
+        }
+
         remainingSessions.forEach { sessionWithLaps ->
-            val s = sessionWithLaps.session
-            val swimmerLaps = sessionWithLaps.laps
-                .asSequence()
-                .filter { it.swimmerId == swimmerId }
-                .sortedBy { it.lapIndex }
-                .toList()
-
-            if (swimmerLaps.isEmpty()) return@forEach
-
-            val seriesLapItems = PersonalBestEvaluator.splitSavedLapsIntoSeries(
-                laps = swimmerLaps,
-                targetDistanceMeters = s.targetDistanceMeters,
-                splitDistanceMeters = s.splitDistanceMeters
-            )
-            val syntheticLane = LaneState(
-                laneNumber = swimmerLaps.first().laneNumber,
-                swimmerId = swimmerId,
-                swimmerName = swimmer.name,
-                status = LaneStatus.FINISHED,
-                finishTimeMillis = seriesLapItems.lastOrNull()?.splitTimeMillis,
-                completedSeriesLaps = seriesLapItems,
-                targetDistanceMeters = s.targetDistanceMeters,
-                splitDistanceMeters = s.splitDistanceMeters,
-                strokeType = s.strokeType
-            )
-            val evalResult = PersonalBestEvaluator.evaluate(
-                swimmer = recalculated,
-                lane = syntheticLane,
-                targetDistanceMeters = s.targetDistanceMeters,
-                splitDistanceMeters = s.splitDistanceMeters,
-                strokeType = s.strokeType
-            )
-            recalculated = evalResult.updatedSwimmer
+            recalculated = evaluateSessionOnSwimmer(recalculated, sessionWithLaps, swimmerId)
         }
 
         repository.updateSwimmer(recalculated)

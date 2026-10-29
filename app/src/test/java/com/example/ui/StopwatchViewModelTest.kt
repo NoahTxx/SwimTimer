@@ -235,4 +235,120 @@ class StopwatchViewModelTest {
 
         viewModel.onResetAll()
     }
+
+    @Test
+    fun performUndo_afterPauseAndResume_restoresLaneState() = runTest(testDispatcher) {
+        viewModel.onStartSingleLane(laneNumber = 1)
+        fakeClock.currentMillis = 125_000L
+        viewModel.onPauseLane(laneNumber = 1)
+
+        assertEquals(LaneStatus.PAUSED, viewModel.uiState.value.lanes.find { it.laneNumber == 1 }!!.status)
+
+        // Undo pause -> should be RUNNING again
+        fakeClock.currentMillis = 130_000L
+        viewModel.performUndo()
+        val resumedByUndo = viewModel.uiState.value.lanes.find { it.laneNumber == 1 }!!
+        assertEquals(LaneStatus.RUNNING, resumedByUndo.status)
+        assertEquals(25_000L, resumedByUndo.currentElapsedMillis)
+
+        // Pause again, then resume, then undo resume -> should be PAUSED again
+        viewModel.onPauseLane(laneNumber = 1)
+        fakeClock.currentMillis = 140_000L
+        viewModel.onResumeLane(laneNumber = 1)
+        assertEquals(LaneStatus.RUNNING, viewModel.uiState.value.lanes.find { it.laneNumber == 1 }!!.status)
+
+        viewModel.performUndo()
+        val pausedByUndo = viewModel.uiState.value.lanes.find { it.laneNumber == 1 }!!
+        assertEquals(LaneStatus.PAUSED, pausedByUndo.status)
+        assertEquals(25_000L, pausedByUndo.currentElapsedMillis)
+
+        viewModel.onResetAll()
+    }
+
+    @Test
+    fun deleteSession_preservesManualPbsWhileClearingDeletedSessionPb() = runTest(testDispatcher) {
+        // Swimmer has a manual 50m Brust PB (34.00s) and no 100m Freistil PB yet
+        val manualCustomPbs = SwimmerEntity.serializeCustomPbsMap(mapOf(("Brust" to 50) to 34_000L))
+        val swimmer = SwimmerEntity(
+            id = 77L,
+            name = "Manual PB Swimmer",
+            favoriteStroke = "Freistil",
+            pb50mMillis = 26_500L, // manual 50m Freistil PB
+            customPbsJson = manualCustomPbs
+        )
+        fakeRepository.insertSwimmer(swimmer)
+        viewModel.assignSwimmerToLane(laneNumber = 1, swimmer = swimmer)
+
+        // Swim a 100m Freistil session in 58.00s (achieves a new 100m Freistil PB)
+        viewModel.onStartSingleLane(laneNumber = 1)
+        fakeClock.currentMillis = 128_000L
+        viewModel.onLapLane(laneNumber = 1)
+        fakeClock.currentMillis = 158_000L
+        viewModel.onFinishLane(laneNumber = 1)
+
+        viewModel.saveCurrentSession()
+        testScheduler.advanceTimeBy(100)
+
+        val afterSave = fakeRepository.getSwimmerById(77L)!!
+        assertEquals(58_000L, afterSave.pb100mMillis)
+        assertEquals(26_500L, afterSave.pb50mMillis)
+        assertEquals(34_000L, afterSave.parseCustomPbsMap()["Brust" to 50])
+
+        // Delete the 100m Freistil session -> 100m Freistil PB should be cleared,
+        // while manual 50m Freistil (26.5s) and manual 50m Brust (34.0s) MUST remain intact!
+        val sessionId = fakeRepository.allSessionsWithLapsSync().first().session.id
+        viewModel.deleteSession(sessionId)
+        testScheduler.advanceTimeBy(100)
+
+        val afterDelete = fakeRepository.getSwimmerById(77L)!!
+        assertEquals(null, afterDelete.pb100mMillis)
+        assertEquals(26_500L, afterDelete.pb50mMillis)
+        assertEquals(34_000L, afterDelete.parseCustomPbsMap()["Brust" to 50])
+
+        viewModel.onResetAll()
+    }
+
+    @Test
+    fun setTargetDistance_clampsIncompatibleSplitDistance() = runTest(testDispatcher) {
+        viewModel.setSessionMeta("400m Freistil", "Freistil", 50, 400, 100)
+        assertEquals(100, viewModel.uiState.value.splitDistanceMeters)
+
+        // Switching target distance to 50m should automatically clamp splitDistanceMeters from 100m to 50m
+        viewModel.setTargetDistance(50)
+        assertEquals(50, viewModel.uiState.value.splitDistanceMeters)
+    }
+
+    @Test
+    fun applyRelayTeamsToStopwatch_configuresLanesAndDistancesCorrectly() = runTest(testDispatcher) {
+        val teams = listOf(
+            com.example.domain.RelayTeamPlan(
+                teamIndex = 0,
+                teamTitle = "1. Mannschaft (A-Staffel)",
+                legs = listOf(
+                    com.example.domain.RelayLegAssignment(1, 1L, "Lukas", "Rücken", 50, 30_000L),
+                    com.example.domain.RelayLegAssignment(2, 2L, "Sophie", "Brust", 50, 34_000L),
+                    com.example.domain.RelayLegAssignment(3, 3L, "Leon", "Schmetterling", 50, 28_000L),
+                    com.example.domain.RelayLegAssignment(4, 4L, "Emma", "Freistil", 50, 26_000L)
+                ),
+                totalTimeMillis = 118_000L,
+                averageLegMillis = 29_500L,
+                deltaToFastestMillis = 0L,
+                hasEstimatedTimes = false
+            )
+        )
+
+        viewModel.applyRelayTeamsToStopwatch(
+            teams = teams,
+            strokeType = "Lagen",
+            legDistanceMeters = 50
+        )
+
+        val state = viewModel.uiState.value
+        assertEquals(200, state.targetDistanceMeters)
+        assertEquals(50, state.splitDistanceMeters)
+        assertEquals("Lagen", state.strokeType)
+        assertEquals(1, state.lanes.size)
+        assertTrue(state.lanes[0].swimmerName.contains("1. Mannschaft (A-Staffel)"))
+        assertTrue(state.lanes[0].swimmerName.contains("Lukas"))
+    }
 }

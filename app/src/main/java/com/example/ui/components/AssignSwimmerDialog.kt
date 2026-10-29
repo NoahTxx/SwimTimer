@@ -241,7 +241,8 @@ fun AssignSwimmerDialog(
                                     }
                                 }
 
-                                swimmer.pb50mMillis?.let { pb50m ->
+                                val pb50 = swimmer.pb50mMillis ?: swimmer.parseCustomPbsMap()[swimmer.favoriteStroke to 50]
+                                pb50?.let { pb50m ->
                                     Text(
                                         text = "PB: ${TimeFormatter.formatMillis(pb50m, shortFormat = true)}",
                                         style = MaterialTheme.typography.labelSmall,

@@ -53,14 +53,25 @@ class FakeSwimRepository : ISwimRepository {
     }
 
     override suspend fun renameGroupForAllSwimmers(oldName: String, newName: String) {
+        val target = oldName.trim()
+        val replacement = newName.trim()
         _swimmers.value = _swimmers.value.map {
-            if (it.groupName == oldName) it.copy(groupName = newName) else it
+            if (it.groupName?.trim()?.equals(target, ignoreCase = true) == true) {
+                it.copy(groupName = replacement)
+            } else {
+                it
+            }
         }
     }
 
     override suspend fun clearGroupForAllSwimmers(groupName: String) {
+        val target = groupName.trim()
         _swimmers.value = _swimmers.value.map {
-            if (it.groupName == groupName) it.copy(groupName = "") else it
+            if (it.groupName?.trim()?.equals(target, ignoreCase = true) == true) {
+                it.copy(groupName = null)
+            } else {
+                it
+            }
         }
     }
 

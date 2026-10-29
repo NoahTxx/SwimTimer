@@ -48,12 +48,13 @@ import com.example.ui.theme.OceanSurface
 
 enum class CoachingToolSection(val label: String, val icon: ImageVector) {
     DRILLS("Technik-Drills", Icons.AutoMirrored.Filled.MenuBook),
-    RELAY("Team-Losung", Icons.Default.Groups)
+    RELAY("Staffel-Planer", Icons.Default.Groups)
 }
 
 @Composable
 fun CoachingToolsScreen(
     viewModel: StopwatchViewModel,
+    onNavigateToStopwatch: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     var selectedSection by rememberSaveable { mutableStateOf(CoachingToolSection.DRILLS) }
@@ -126,7 +127,14 @@ fun CoachingToolsScreen(
         Box(modifier = Modifier.fillMaxSize()) {
             when (selectedSection) {
                 CoachingToolSection.DRILLS -> DrillQuickfinderComponent()
-                CoachingToolSection.RELAY -> RelayRandomizerComponent(dbSwimmers = swimmers, availableGroups = availableGroups)
+                CoachingToolSection.RELAY -> RelayRandomizerComponent(
+                    dbSwimmers = swimmers,
+                    availableGroups = availableGroups,
+                    onApplyTeamsToStopwatch = { teams, strokeType, legDist ->
+                        viewModel.applyRelayTeamsToStopwatch(teams, strokeType, legDist)
+                        onNavigateToStopwatch?.invoke()
+                    }
+                )
             }
         }
     }

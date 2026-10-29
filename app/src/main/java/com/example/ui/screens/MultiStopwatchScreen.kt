@@ -567,7 +567,9 @@ fun MultiStopwatchScreen(
 private fun KeepScreenOnEffect(enabled: Boolean) {
     val view = androidx.compose.ui.platform.LocalView.current
     androidx.compose.runtime.DisposableEffect(view, enabled) {
-        view.keepScreenOn = true
-        onDispose { }
+        view.keepScreenOn = enabled
+        onDispose {
+            view.keepScreenOn = false
+        }
     }
 }

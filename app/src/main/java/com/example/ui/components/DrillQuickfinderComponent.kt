@@ -317,7 +317,7 @@ fun DrillQuickfinderComponent(
 private fun TechDrillCard(
     drill: TechDrill
 ) {
-    var isExpanded by remember { mutableStateOf(false) }
+    var isExpanded by rememberSaveable { mutableStateOf(false) }
 
     val strokeColor = when (drill.stroke) {
         "Kraul" -> Color(0xFF00E5FF)
