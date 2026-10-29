@@ -11,6 +11,8 @@ object SoundUtil {
     private val executor = Executors.newSingleThreadExecutor()
     private const val SAMPLE_RATE = 44100
 
+    private val pendingTempFiles = java.util.concurrent.ConcurrentHashMap<Int, File>()
+
     private val soundPool: SoundPool by lazy {
         SoundPool.Builder()
             .setMaxStreams(4)
@@ -21,13 +23,18 @@ object SoundUtil {
                     .build()
             )
             .build()
+            .apply {
+                setOnLoadCompleteListener { _, sampleId, _ ->
+                    pendingTempFiles.remove(sampleId)?.delete()
+                }
+            }
     }
 
     // Pre-loaded native SoundPool audio IDs for zero-latency (<1ms) playback
-    private val sound3Id: Int by lazy { loadWavSound(pcmToWav(generateBeepPcm(freq = 800.0, durationMs = 80))) }
-    private val sound2Id: Int by lazy { loadWavSound(pcmToWav(generateBeepPcm(freq = 1000.0, durationMs = 80))) }
-    private val sound1Id: Int by lazy { loadWavSound(pcmToWav(generateBeepPcm(freq = 1200.0, durationMs = 80))) }
-    private val soundStartId: Int by lazy { loadWavSound(pcmToWav(generateBeepPcm(freq = 1600.0, durationMs = 180))) }
+    private val sound3Id: Int by lazy { loadWavSound("swim_beep_800_80.wav", pcmToWav(generateBeepPcm(freq = 800.0, durationMs = 80))) }
+    private val sound2Id: Int by lazy { loadWavSound("swim_beep_1000_80.wav", pcmToWav(generateBeepPcm(freq = 1000.0, durationMs = 80))) }
+    private val sound1Id: Int by lazy { loadWavSound("swim_beep_1200_80.wav", pcmToWav(generateBeepPcm(freq = 1200.0, durationMs = 80))) }
+    private val soundStartId: Int by lazy { loadWavSound("swim_beep_1600_180.wav", pcmToWav(generateBeepPcm(freq = 1600.0, durationMs = 180))) }
 
     /**
      * Pre-warms native SoundPool memory buffers on startup ensuring 0ms audio latency.
@@ -114,11 +121,15 @@ object SoundUtil {
         return wavBytes
     }
 
-    private fun loadWavSound(wavBytes: ByteArray): Int {
+    private fun loadWavSound(fileName: String, wavBytes: ByteArray): Int {
         return try {
-            val tempFile = File.createTempFile("swim_snd_", ".wav")
+            val tempDir = File(System.getProperty("java.io.tmpdir") ?: ".")
+            val tempFile = File(tempDir, fileName)
             tempFile.writeBytes(wavBytes)
             val soundId = soundPool.load(tempFile.absolutePath, 1)
+            if (soundId != 0) {
+                pendingTempFiles[soundId] = tempFile
+            }
             tempFile.deleteOnExit()
             soundId
         } catch (_: Exception) {

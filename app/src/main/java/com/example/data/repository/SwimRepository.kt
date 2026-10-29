@@ -8,47 +8,69 @@ import com.example.data.model.SessionWithLaps
 import com.example.data.model.SwimmerEntity
 import kotlinx.coroutines.flow.Flow
 
-class SwimRepository(private val database: AppDatabase) {
+interface ISwimRepository {
+    val allSwimmers: Flow<List<SwimmerEntity>>
+    val allSessionsWithLaps: Flow<List<SessionWithLaps>>
+
+    suspend fun allSessionsWithLapsSync(): List<SessionWithLaps>
+    fun getSessionWithLaps(sessionId: Long): Flow<SessionWithLaps?>
+    suspend fun getSessionWithLapsSync(sessionId: Long): SessionWithLaps?
+    suspend fun getSwimmerById(id: Long): SwimmerEntity?
+    suspend fun insertSwimmer(swimmer: SwimmerEntity): Long
+    suspend fun updateSwimmer(swimmer: SwimmerEntity)
+    suspend fun deleteSwimmer(swimmer: SwimmerEntity)
+    suspend fun deleteSwimmerById(id: Long)
+    suspend fun renameGroupForAllSwimmers(oldName: String, newName: String)
+    suspend fun clearGroupForAllSwimmers(groupName: String)
+    suspend fun saveSessionWithLaps(
+        session: SessionEntity,
+        laps: List<LapRecordEntity>,
+    ): Long
+    suspend fun importSessionsWithLaps(sessionsWithLaps: List<SessionWithLaps>)
+    suspend fun deleteSessionById(sessionId: Long)
+}
+
+class SwimRepository(private val database: AppDatabase) : ISwimRepository {
     private val swimmerDao = database.swimmerDao()
     private val sessionDao = database.sessionDao()
     private val lapRecordDao = database.lapRecordDao()
 
-    val allSwimmers: Flow<List<SwimmerEntity>> = swimmerDao.getAllSwimmers()
-    val allSessionsWithLaps: Flow<List<SessionWithLaps>> = sessionDao.getAllSessionsWithLaps()
+    override val allSwimmers: Flow<List<SwimmerEntity>> = swimmerDao.getAllSwimmers()
+    override val allSessionsWithLaps: Flow<List<SessionWithLaps>> = sessionDao.getAllSessionsWithLaps()
 
-    suspend fun allSessionsWithLapsSync(): List<SessionWithLaps> =
+    override suspend fun allSessionsWithLapsSync(): List<SessionWithLaps> =
         sessionDao.getAllSessionsWithLapsSync()
 
     @Suppress("unused")
-    fun getSessionWithLaps(sessionId: Long): Flow<SessionWithLaps?> =
+    override fun getSessionWithLaps(sessionId: Long): Flow<SessionWithLaps?> =
         sessionDao.getSessionWithLaps(sessionId)
 
-    suspend fun getSessionWithLapsSync(sessionId: Long): SessionWithLaps? =
+    override suspend fun getSessionWithLapsSync(sessionId: Long): SessionWithLaps? =
         sessionDao.getSessionWithLapsSync(sessionId)
 
-    suspend fun getSwimmerById(id: Long): SwimmerEntity? =
+    override suspend fun getSwimmerById(id: Long): SwimmerEntity? =
         swimmerDao.getSwimmerByIdSync(id)
 
-    suspend fun insertSwimmer(swimmer: SwimmerEntity): Long =
+    override suspend fun insertSwimmer(swimmer: SwimmerEntity): Long =
         swimmerDao.insertSwimmer(swimmer)
 
-    suspend fun updateSwimmer(swimmer: SwimmerEntity) =
+    override suspend fun updateSwimmer(swimmer: SwimmerEntity) =
         swimmerDao.updateSwimmer(swimmer)
 
-    suspend fun deleteSwimmer(swimmer: SwimmerEntity) =
+    override suspend fun deleteSwimmer(swimmer: SwimmerEntity) =
         swimmerDao.deleteSwimmer(swimmer)
 
     @Suppress("unused")
-    suspend fun deleteSwimmerById(id: Long) =
+    override suspend fun deleteSwimmerById(id: Long) =
         swimmerDao.deleteSwimmerById(id)
 
-    suspend fun renameGroupForAllSwimmers(oldName: String, newName: String) =
+    override suspend fun renameGroupForAllSwimmers(oldName: String, newName: String) =
         swimmerDao.renameGroupForAllSwimmers(oldName, newName)
 
-    suspend fun clearGroupForAllSwimmers(groupName: String) =
+    override suspend fun clearGroupForAllSwimmers(groupName: String) =
         swimmerDao.clearGroupForAllSwimmers(groupName)
 
-    suspend fun saveSessionWithLaps(
+    override suspend fun saveSessionWithLaps(
         session: SessionEntity,
         laps: List<LapRecordEntity>,
     ): Long = database.withTransaction {
@@ -60,7 +82,7 @@ class SwimRepository(private val database: AppDatabase) {
         sessionId
     }
 
-    suspend fun importSessionsWithLaps(sessionsWithLaps: List<SessionWithLaps>) = database.withTransaction {
+    override suspend fun importSessionsWithLaps(sessionsWithLaps: List<SessionWithLaps>) = database.withTransaction {
         val existingSwimmers = swimmerDao.getAllSwimmersSync()
         val swimmerMapByNormalizedName = existingSwimmers
             .associateBy { it.name.trim().lowercase() }
@@ -106,7 +128,7 @@ class SwimRepository(private val database: AppDatabase) {
         }
     }
 
-    suspend fun deleteSessionById(sessionId: Long) = database.withTransaction {
+    override suspend fun deleteSessionById(sessionId: Long) = database.withTransaction {
         lapRecordDao.deleteLapsForSession(sessionId)
         sessionDao.deleteSessionById(sessionId)
     }

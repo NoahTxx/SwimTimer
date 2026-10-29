@@ -165,7 +165,8 @@ fun LaneTimerCard(
                 onResumeClick = onResumeClick,
                 onStartSingleLaneClick = onStartSingleLaneClick,
                 onStrokeRateTap = onStrokeRateTap,
-                currentSpm = lane.currentSpm
+                currentSpm = lane.currentSpm,
+                isSpmMeasuring = lane.spmTapStartRealtime != null
             )
 
             LaneLapsHistory(
@@ -564,7 +565,6 @@ private fun LaneProgressAndLaps(
     }
 }
 
-@Suppress("UNUSED_PARAMETER")
 @Composable
 private fun LaneControls(
     status: LaneStatus,
@@ -575,7 +575,8 @@ private fun LaneControls(
     onResumeClick: (() -> Unit)?,
     onStartSingleLaneClick: (() -> Unit)?,
     onStrokeRateTap: (() -> Unit)?,
-    currentSpm: Double?
+    currentSpm: Double?,
+    isSpmMeasuring: Boolean = false
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -642,6 +643,30 @@ private fun LaneControls(
                         maxLines = 1,
                         softWrap = false
                     )
+                }
+
+                if (onStrokeRateTap != null) {
+                    FilledTonalButton(
+                        onClick = onStrokeRateTap,
+                        modifier = Modifier.height(52.dp),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = if (isSpmMeasuring) Color(0xFFFFD600) else OceanBorder,
+                            contentColor = if (isSpmMeasuring) Color.Black else AquaPrimary
+                        ),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = when {
+                                isSpmMeasuring -> "3-Zyk."
+                                currentSpm != null -> String.format(Locale.US, "%.0f SPM", currentSpm)
+                                else -> "SPM"
+                            },
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
                 }
 
                 if (onPauseClick != null) {
@@ -846,3 +871,27 @@ private fun LaneLapsHistory(
         }
     }
 }
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true, backgroundColor = 0xFF0A1128)
+@Composable
+fun LaneTimerCardPreview() {
+    com.example.ui.theme.SwimTimerTheme {
+        LaneTimerCard(
+            lane = LaneState(
+                laneNumber = 1,
+                status = LaneStatus.RUNNING,
+                swimmerName = "Max Mustermann",
+                laneStartTimeRealtime = SystemClock.elapsedRealtime() - 32540,
+                currentElapsedMillis = 32540L,
+                laps = listOf(
+                    LapItem(1, 15200, 15200),
+                    LapItem(2, 17340, 32540)
+                )
+            ),
+            onLapClick = {},
+            onFinishClick = {},
+            onAssignSwimmerClick = {},
+        )
+    }
+}
+

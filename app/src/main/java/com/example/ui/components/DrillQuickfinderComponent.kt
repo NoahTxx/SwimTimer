@@ -472,3 +472,12 @@ private fun TechDrillCard(
         }
     }
 }
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true, backgroundColor = 0xFF0A1128)
+@Composable
+fun DrillQuickfinderComponentPreview() {
+    com.example.ui.theme.SwimTimerTheme {
+        DrillQuickfinderComponent()
+    }
+}
+

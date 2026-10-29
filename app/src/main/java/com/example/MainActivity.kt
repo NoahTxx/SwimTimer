@@ -109,7 +109,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainAppContent(viewModel: StopwatchViewModel) {
-    var currentScreen by remember { mutableStateOf(AppScreen.STOPWATCH) }
+    var currentScreen by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(AppScreen.STOPWATCH) }
 
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
@@ -160,7 +160,7 @@ fun MainAppContent(viewModel: StopwatchViewModel) {
                 shape = RoundedCornerShape(20.dp),
                 color = OceanSurface,
                 border = BorderStroke(1.dp, Color(0xFF1B2E46)),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 Row(
                     modifier = Modifier

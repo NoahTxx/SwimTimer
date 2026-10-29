@@ -286,13 +286,13 @@ fun MultiStopwatchScreen(
             val anyHasTimes by remember(uiState.lanes) {
                 androidx.compose.runtime.derivedStateOf {
                     uiState.lanes.any {
-                        (it.currentElapsedMillis > 0L) || (it.laps.isNotEmpty()) || (it.status == LaneStatus.FINISHED)
+                        (it.currentElapsedMillis > 0L) || (it.allLaps.isNotEmpty()) || (it.status == LaneStatus.FINISHED)
                     }
                 }
             }
             val anyLapsRecorded by remember(uiState.lanes) {
                 androidx.compose.runtime.derivedStateOf {
-                    uiState.lanes.any { it.laps.isNotEmpty() }
+                    uiState.lanes.any { it.allLaps.isNotEmpty() }
                 }
             }
 
@@ -567,9 +567,7 @@ fun MultiStopwatchScreen(
 private fun KeepScreenOnEffect(enabled: Boolean) {
     val view = androidx.compose.ui.platform.LocalView.current
     androidx.compose.runtime.DisposableEffect(view, enabled) {
-        view.keepScreenOn = enabled
-        onDispose {
-            view.keepScreenOn = false
-        }
+        view.keepScreenOn = true
+        onDispose { }
     }
 }

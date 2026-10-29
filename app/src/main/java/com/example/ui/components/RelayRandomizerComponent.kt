@@ -401,3 +401,20 @@ private fun Modifier.noRippleClickable(onClick: () -> Unit): Modifier = this.the
         onClick = onClick
     )
 )
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true, backgroundColor = 0xFF0A1128)
+@Composable
+fun RelayRandomizerComponentPreview() {
+    com.example.ui.theme.SwimTimerTheme {
+        RelayRandomizerComponent(
+            dbSwimmers = listOf(
+                SwimmerEntity(id = 1, name = "Lukas Weber", groupName = "Wettkampf 1"),
+                SwimmerEntity(id = 2, name = "Sophie Müller", groupName = "Wettkampf 1"),
+                SwimmerEntity(id = 3, name = "Leon Schmidt", groupName = "Wettkampf 2"),
+                SwimmerEntity(id = 4, name = "Emma Fischer", groupName = "Wettkampf 1")
+            ),
+            availableGroups = listOf("Wettkampf 1", "Wettkampf 2")
+        )
+    }
+}
+

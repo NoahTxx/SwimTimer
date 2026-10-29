@@ -107,31 +107,39 @@ fun SwimmerDetailScreen(
 
         // 2. Fill from legacy manual entry fields
         val fav = if (swimmer.favoriteStroke == "Lagen") "Freistil" else swimmer.favoriteStroke
-        swimmer.pb25mMillis?.let { if (pbs[fav to 25] == null) pbs[fav to 25] = it }
-        swimmer.pb50mMillis?.let { if (pbs[fav to 50] == null) pbs[fav to 50] = it }
-        swimmer.pb100mMillis?.let { if (pbs[fav to 100] == null) pbs[fav to 100] = it }
-        swimmer.pb100mLagenMillis?.let { if (pbs["Lagen" to 100] == null) pbs["Lagen" to 100] = it }
-        swimmer.pb200mLagenMillis?.let { if (pbs["Lagen" to 200] == null) pbs["Lagen" to 200] = it }
-        swimmer.pb400mLagenMillis?.let { if (pbs["Lagen" to 400] == null) pbs["Lagen" to 400] = it }
+        swimmer.pb25mMillis?.let { if (pbs[fav to 25] == null || it < pbs[fav to 25]!!) pbs[fav to 25] = it }
+        swimmer.pb50mMillis?.let { if (pbs[fav to 50] == null || it < pbs[fav to 50]!!) pbs[fav to 50] = it }
+        swimmer.pb100mMillis?.let { if (pbs[fav to 100] == null || it < pbs[fav to 100]!!) pbs[fav to 100] = it }
+        swimmer.pb100mLagenMillis?.let { if (pbs["Lagen" to 100] == null || it < pbs["Lagen" to 100]!!) pbs["Lagen" to 100] = it }
+        swimmer.pb200mLagenMillis?.let { if (pbs["Lagen" to 200] == null || it < pbs["Lagen" to 200]!!) pbs["Lagen" to 200] = it }
+        swimmer.pb400mLagenMillis?.let { if (pbs["Lagen" to 400] == null || it < pbs["Lagen" to 400]!!) pbs["Lagen" to 400] = it }
         
-        // 2. Override with better times from history
+        // 3. Override with better times from history (including multi-series runs)
+        val strokeOptions = listOf("Freistil", "Brust", "Rücken", "Schmetterling", "Lagen")
         swimmerSessions.forEach { sessionLaps ->
             val s = sessionLaps.session
             val laps = sessionLaps.laps.asSequence().filter { it.swimmerId == swimmer.id }.sortedBy { it.lapIndex }.toList()
-            
-            // Check if full distance was swum
             val totalSplitsNeeded = (s.targetDistanceMeters / s.splitDistanceMeters).coerceAtLeast(1)
-            val hasTargetLap = laps.any { it.lapIndex == totalSplitsNeeded }
-            val completedFullDistance = hasTargetLap || (laps.size >= totalSplitsNeeded) || laps.isNotEmpty()
+            val seriesItems = com.example.domain.PersonalBestEvaluator.splitSavedLapsIntoSeries(
+                laps = laps,
+                targetDistanceMeters = s.targetDistanceMeters,
+                splitDistanceMeters = s.splitDistanceMeters
+            )
+            val matchedStroke = strokeOptions.find { StopwatchViewModel.isSameStroke(it, s.strokeType) } ?: s.strokeType
+            val key = matchedStroke to s.targetDistanceMeters
 
-            val finishTime = if (completedFullDistance) laps.find { it.lapIndex == totalSplitsNeeded }?.splitTimeMillis ?: laps.lastOrNull()?.splitTimeMillis ?: 0L else 0L
-            if (finishTime > 0) {
-                val strokeOptions = listOf("Freistil", "Brust", "Rücken", "Schmetterling", "Lagen")
-                val matchedStroke = strokeOptions.find { StopwatchViewModel.isSameStroke(it, s.strokeType) } ?: s.strokeType
-                val key = matchedStroke to s.targetDistanceMeters
-                val currentPb = pbs[key]
-                if ((currentPb == null) || (finishTime < currentPb)) {
-                    pbs[key] = finishTime
+            seriesItems.groupBy { it.seriesIndex }.values.forEach { runLaps ->
+                val hasTargetLap = runLaps.any { it.lapIndex == totalSplitsNeeded }
+                val completedFullDistance = hasTargetLap || (runLaps.size >= totalSplitsNeeded) || runLaps.isNotEmpty()
+                val finishTime = if (completedFullDistance) {
+                    runLaps.find { it.lapIndex == totalSplitsNeeded }?.splitTimeMillis ?: runLaps.lastOrNull()?.splitTimeMillis ?: 0L
+                } else 0L
+
+                if (finishTime > 0) {
+                    val currentPb = pbs[key]
+                    if ((currentPb == null) || (finishTime < currentPb)) {
+                        pbs[key] = finishTime
+                    }
                 }
             }
         }
@@ -704,7 +712,17 @@ private fun SwimmerSessionHistoryCard(
             .sortedBy { it.lapIndex }
     }
 
-    val finishTime = swimmerLaps.lastOrNull()?.splitTimeMillis ?: 0L
+    val finishTime = remember(swimmerLaps, s.targetDistanceMeters, s.splitDistanceMeters) {
+        val totalSplitsNeeded = (s.targetDistanceMeters / s.splitDistanceMeters).coerceAtLeast(1)
+        val seriesItems = com.example.domain.PersonalBestEvaluator.splitSavedLapsIntoSeries(
+            laps = swimmerLaps,
+            targetDistanceMeters = s.targetDistanceMeters,
+            splitDistanceMeters = s.splitDistanceMeters
+        )
+        seriesItems.groupBy { it.seriesIndex }.values.mapNotNull { runLaps ->
+            runLaps.find { it.lapIndex == totalSplitsNeeded }?.splitTimeMillis ?: runLaps.lastOrNull()?.splitTimeMillis
+        }.filter { it > 0L }.minOrNull() ?: 0L
+    }
 
     val isSessionPb = remember(finishTime, s.strokeType, s.targetDistanceMeters, dynamicPbs) {
         if (finishTime <= 0L) false
@@ -1395,9 +1413,9 @@ private fun EditSwimmerDialog(
                                 addMapPb("Lagen", 200, pb200LagenText)
                                 addMapPb("Lagen", 400, pb400LagenText)
 
-                                val fav25 = customMap[stroke to 25] ?: TimeFormatter.parseTimeInputToMillis(free25Text)
-                                val fav50 = customMap[stroke to 50] ?: TimeFormatter.parseTimeInputToMillis(free50Text)
-                                val fav100 = customMap[stroke to 100] ?: TimeFormatter.parseTimeInputToMillis(free100Text)
+                                val fav25 = customMap[stroke to 25]
+                                val fav50 = customMap[stroke to 50]
+                                val fav100 = customMap[stroke to 100]
 
                                 onSave(
                                     swimmer.copy(

@@ -292,3 +292,15 @@ fun StrokeRateCalculatorDialog(
         }
     }
 }
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true, backgroundColor = 0xFF0A1128)
+@Composable
+fun StrokeRateCalculatorDialogPreview() {
+    com.example.ui.theme.SwimTimerTheme {
+        StrokeRateCalculatorDialog(
+            targetLane = 1,
+            onDismiss = {},
+            onAttachToLane = { _, _ -> }
+        )
+    }
+}

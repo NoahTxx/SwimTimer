@@ -98,7 +98,7 @@ fun SwimmersManagementScreen(
     val searchQuery by viewModel.swimmersSearchQuery.collectAsStateWithLifecycle()
     val allSessions by viewModel.allSessions.collectAsStateWithLifecycle()
 
-    var selectedSwimmerId by remember { mutableStateOf<Long?>(null) }
+    var selectedSwimmerId by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<Long?>(null) }
     var isAddDialogOpen by remember { mutableStateOf(value = false) }
     var isAddGroupDialogOpen by remember { mutableStateOf(value = false) }
 
@@ -1292,9 +1292,9 @@ private fun AddSwimmerDialog(
                                 addMapPb("Lagen", 200, pb200LagenText)
                                 addMapPb("Lagen", 400, pb400LagenText)
 
-                                val primaryFav25 = customMap[stroke to 25] ?: TimeFormatter.parseTimeInputToMillis(free25Text)
-                                val primaryFav50 = customMap[stroke to 50] ?: TimeFormatter.parseTimeInputToMillis(free50Text)
-                                val primaryFav100 = customMap[stroke to 100] ?: TimeFormatter.parseTimeInputToMillis(free100Text)
+                                val primaryFav25 = customMap[stroke to 25]
+                                val primaryFav50 = customMap[stroke to 50]
+                                val primaryFav100 = customMap[stroke to 100]
 
                                 onAdd(
                                     name.trim(),

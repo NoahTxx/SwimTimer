@@ -16,7 +16,7 @@ import com.example.data.model.SwimmerEntity
         SessionEntity::class,
         LapRecordEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -82,6 +82,12 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_sessions_timestamp ON sessions(timestamp)")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -89,7 +95,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "swim_timer_database",
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                     .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
                     .build()
                 INSTANCE = instance
