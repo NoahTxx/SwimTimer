@@ -179,5 +179,31 @@ class ComposeUiBehaviorTest {
 
         composeTestRule.onNodeWithText("Wechsel 1→2").assertIsDisplayed()
     }
+
+    @Test
+    fun intervalConfigDialog_hidesSplitSelectionInRelayMode() {
+        composeTestRule.setContent {
+            SwimTimerTheme {
+                com.example.ui.components.IntervalConfigDialog(
+                    currentStartMode = com.example.ui.StartMode.MASS,
+                    currentIntervalSec = 5,
+                    currentPoolLength = 50,
+                    currentDistance = 200,
+                    currentSplitDistance = 50,
+                    currentStroke = "Freistil",
+                    currentSeriesConfig = com.example.ui.SeriesConfig(),
+                    isRelayActive = true,
+                    currentRelayStarterCount = 4,
+                    onDismiss = {},
+                    onSave = { _, _, _, _, _, _, _ -> }
+                )
+            }
+        }
+
+        // When relay mode is enabled, the redundant split section should not exist
+        composeTestRule.onNodeWithText("Zwischenzeiten (Splits alle):").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Staffel-Wechsel (pro Starter):").assertDoesNotExist()
+    }
 }
+
 

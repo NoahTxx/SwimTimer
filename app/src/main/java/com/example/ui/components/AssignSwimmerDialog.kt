@@ -58,6 +58,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -68,7 +69,6 @@ import com.example.domain.RelayLegAssignment
 import com.example.domain.RelayOptimizer
 import com.example.ui.LaneState
 import com.example.ui.theme.AquaPrimary
-import com.example.ui.theme.OceanSurface
 import com.example.ui.theme.PaceGreen
 import com.example.ui.theme.TextWhite
 import com.example.util.TimeFormatter
@@ -481,18 +481,22 @@ fun AssignSwimmerDialog(
                                             .fillMaxHeight()
                                             .clickable { activeLegIdx = idx }
                                     ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        Column(
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
+                                            verticalArrangement = Arrangement.SpaceBetween,
+                                            horizontalAlignment = Alignment.CenterHorizontally
                                         ) {
-                                            Column(modifier = Modifier.weight(1f)) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
                                                 val headerColor = if (isSelectedSlot) AquaPrimary else if (hasSwimmer) PaceGreen else if (isAnchorSlot) Color(0xFFFFD600) else Color.Gray
                                                 if (isAnchorSlot) {
                                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                                         Text(
                                                             text = "${leg.legPosition}. ",
-                                                            fontSize = 10.sp,
+                                                            fontSize = 10.5.sp,
                                                             fontWeight = FontWeight.Bold,
                                                             color = headerColor,
                                                             style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false)),
@@ -507,7 +511,7 @@ fun AssignSwimmerDialog(
                                                         Spacer(modifier = Modifier.width(2.dp))
                                                         Text(
                                                             text = "Schluss",
-                                                            fontSize = 10.sp,
+                                                            fontSize = 10.5.sp,
                                                             fontWeight = FontWeight.Bold,
                                                             color = headerColor,
                                                             style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false)),
@@ -517,39 +521,50 @@ fun AssignSwimmerDialog(
                                                 } else {
                                                     Text(
                                                         text = slotHeader,
-                                                        fontSize = 10.sp,
+                                                        fontSize = 10.5.sp,
                                                         fontWeight = FontWeight.Bold,
                                                         color = headerColor,
                                                         style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false)),
                                                         maxLines = 1
                                                     )
                                                 }
+                                                if (hasSwimmer) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Close,
+                                                        contentDescription = "Starter entfernen",
+                                                        tint = Color.LightGray,
+                                                        modifier = Modifier
+                                                            .size(16.dp)
+                                                            .clickable {
+                                                                val updated = relayLegs.toMutableList()
+                                                                updated[idx] = updated[idx].copy(
+                                                                    swimmerId = null,
+                                                                    swimmerName = "Starter ${idx + 1}",
+                                                                    timeMillis = null
+                                                                )
+                                                                relayLegs = updated
+                                                                activeLegIdx = idx
+                                                            }
+                                                    )
+                                                }
+                                            }
+
+                                            Spacer(modifier = Modifier.height(2.dp))
+
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(vertical = 2.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
                                                 Text(
                                                     text = if (hasSwimmer) leg.swimmerName else "Frei (wählen)",
-                                                    fontSize = 12.5.sp,
+                                                    fontSize = 14.5.sp,
                                                     fontWeight = if (hasSwimmer) FontWeight.Bold else FontWeight.Normal,
                                                     color = if (hasSwimmer) TextWhite else Color.Gray,
+                                                    textAlign = TextAlign.Center,
                                                     maxLines = 1,
                                                     overflow = TextOverflow.Ellipsis
-                                                )
-                                            }
-                                            if (hasSwimmer) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Close,
-                                                    contentDescription = "Starter entfernen",
-                                                    tint = Color.LightGray,
-                                                    modifier = Modifier
-                                                        .size(18.dp)
-                                                        .clickable {
-                                                            val updated = relayLegs.toMutableList()
-                                                            updated[idx] = updated[idx].copy(
-                                                                swimmerId = null,
-                                                                swimmerName = "Starter ${idx + 1}",
-                                                                timeMillis = null
-                                                            )
-                                                            relayLegs = updated
-                                                            activeLegIdx = idx
-                                                        }
                                                 )
                                             }
                                         }

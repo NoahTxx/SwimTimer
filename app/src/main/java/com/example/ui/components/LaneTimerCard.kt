@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -387,14 +388,14 @@ private fun RelayLineupSection(
                         val isPlaceholder = member.swimmerId == null && member.swimmerName.startsWith("Starter")
 
                         val cellBg = when {
-                            isActiveNow -> AquaPrimary.copy(alpha = 0.18f)
-                            isCompleted -> Color(0xFF112638)
+                            isActiveNow -> AquaPrimary.copy(alpha = 0.16f)
+                            isCompleted -> Color(0xFF0F261E)
                             else -> Color(0xFF0A141F)
                         }
                         val cellBorder = when {
                             isActiveNow -> AquaPrimary
-                            isCompleted -> PaceGreen.copy(alpha = 0.5f)
-                            else -> Color(0xFF192B3E)
+                            isCompleted -> PaceGreen.copy(alpha = 0.55f)
+                            else -> Color(0xFF1E344B)
                         }
 
                         val shortStroke = when {
@@ -411,7 +412,7 @@ private fun RelayLineupSection(
                         }
 
                         Surface(
-                            shape = RoundedCornerShape(8.dp),
+                            shape = RoundedCornerShape(10.dp),
                             color = cellBg,
                             border = BorderStroke(if (isActiveNow) 1.5.dp else 1.dp, cellBorder),
                             modifier = Modifier
@@ -429,8 +430,9 @@ private fun RelayLineupSection(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .fillMaxHeight()
-                                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                                verticalArrangement = Arrangement.SpaceBetween
+                                    .padding(horizontal = 8.dp, vertical = 7.dp),
+                                verticalArrangement = Arrangement.SpaceBetween,
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Row(
                                     modifier = Modifier
@@ -452,7 +454,7 @@ private fun RelayLineupSection(
                                         if (isAnchorLeg) {
                                             Text(
                                                 text = "${member.legPosition}. ",
-                                                fontSize = 10.sp,
+                                                fontSize = 10.5.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 color = headerColor,
                                                 style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false)),
@@ -467,7 +469,7 @@ private fun RelayLineupSection(
                                             Spacer(modifier = Modifier.width(2.dp))
                                             Text(
                                                 text = "Schluss",
-                                                fontSize = 10.sp,
+                                                fontSize = 10.5.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 color = headerColor,
                                                 style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false)),
@@ -477,7 +479,7 @@ private fun RelayLineupSection(
                                         } else {
                                             Text(
                                                 text = posLabel,
-                                                fontSize = 10.sp,
+                                                fontSize = 10.5.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 color = headerColor,
                                                 style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false)),
@@ -489,15 +491,33 @@ private fun RelayLineupSection(
 
                                     when {
                                         completedLegTimeMs != null -> {
-                                            Text(
-                                                text = "✓ ${TimeFormatter.formatMillis(completedLegTimeMs, shortFormat = true)}",
-                                                fontFamily = FontFamily.Monospace,
-                                                fontSize = 10.5.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = PaceGreen,
-                                                maxLines = 1,
-                                                softWrap = false
-                                            )
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = PaceGreen.copy(alpha = 0.16f),
+                                                border = BorderStroke(1.dp, PaceGreen.copy(alpha = 0.45f))
+                                            ) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Check,
+                                                        contentDescription = null,
+                                                        tint = PaceGreen,
+                                                        modifier = Modifier.size(11.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(3.dp))
+                                                    Text(
+                                                        text = TimeFormatter.formatMillis(completedLegTimeMs, shortFormat = true),
+                                                        fontFamily = FontFamily.Monospace,
+                                                        fontSize = 10.5.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = PaceGreen,
+                                                        maxLines = 1,
+                                                        softWrap = false
+                                                    )
+                                                }
+                                            }
                                         }
                                         isActiveNow -> {
                                             Surface(
@@ -531,15 +551,22 @@ private fun RelayLineupSection(
 
                                 Spacer(modifier = Modifier.height(2.dp))
 
-                                Text(
-                                    text = if (isPlaceholder && onLegClick != null) "Schwimmer wählen…" else member.swimmerName,
-                                    fontSize = 13.sp,
-                                    fontWeight = if (isActiveNow) FontWeight.Black else if (isPlaceholder) FontWeight.Normal else FontWeight.SemiBold,
-                                    color = if (isPlaceholder) AquaPrimary.copy(alpha = 0.75f) else TextWhite,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 2.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = if (isPlaceholder && onLegClick != null) "Schwimmer wählen…" else member.swimmerName,
+                                        fontSize = 15.sp,
+                                        fontWeight = if (isActiveNow) FontWeight.Black else if (isPlaceholder) FontWeight.Normal else FontWeight.Bold,
+                                        color = if (isPlaceholder) AquaPrimary.copy(alpha = 0.8f) else TextWhite,
+                                        textAlign = TextAlign.Center,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                             }
                         }
                     }

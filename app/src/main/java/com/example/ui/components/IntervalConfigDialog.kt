@@ -448,42 +448,40 @@ fun IntervalConfigDialog(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        if (!isRelaySelected) {
+                            Spacer(modifier = Modifier.height(12.dp))
 
-                        Text(
-                            text = if (isRelaySelected) "Staffel-Wechsel (pro Starter):" else "Zwischenzeiten (Splits alle):",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color.LightGray,
-                            maxLines = 1
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
-                            FlowRow(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                availableSplitOptions.forEach { sDist ->
-                                    val labelText = when {
-                                        isRelaySelected -> "Wechsel alle ${sDist}m"
-                                        sDist == distance -> "Nur Ziel (${sDist}m)"
-                                        else -> "Alle ${sDist}m"
-                                    }
-                                    FilterChip(
-                                        selected = effectiveSplitDistance == sDist,
-                                        onClick = {
-                                            focusManager.clearFocus()
-                                            splitDistance = sDist
-                                            if (sDist == 25) {
-                                                poolLength = 25
-                                            }
-                                        },
-                                        label = { Text(labelText, maxLines = 1) },
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = AquaPrimary,
-                                            selectedLabelColor = Color.Black
+                            Text(
+                                text = "Zwischenzeiten (Splits alle):",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.LightGray,
+                                maxLines = 1
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                                FlowRow(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    availableSplitOptions.forEach { sDist ->
+                                        val labelText = if (sDist == distance) "Nur Ziel (${sDist}m)" else "Alle ${sDist}m"
+                                        FilterChip(
+                                            selected = effectiveSplitDistance == sDist,
+                                            onClick = {
+                                                focusManager.clearFocus()
+                                                splitDistance = sDist
+                                                if (sDist == 25) {
+                                                    poolLength = 25
+                                                }
+                                            },
+                                            label = { Text(labelText, maxLines = 1) },
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = AquaPrimary,
+                                                selectedLabelColor = Color.Black
+                                            )
                                         )
-                                    )
+                                    }
                                 }
                             }
                         }
@@ -836,13 +834,6 @@ fun IntervalConfigDialog(
                                     }
                                 }
                             }
-
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Jede Bahn erhält $relayStarterCount Startpositionen (1.–$relayStarterCount. Starter). Du kannst die Anzahl auch pro Bahn individuell anpassen.",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color.LightGray
-                            )
                         }
                     }
                 }
