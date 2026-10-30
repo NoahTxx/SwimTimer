@@ -48,22 +48,23 @@ object ExportHelper {
                 splitDistanceMeters = s.splitDistanceMeters
             )
             val hasMultipleSeries = seriesItems.any { it.seriesIndex > 1 }
-            val swimmer = laps.firstOrNull()?.swimmerName ?: "Bahn $lane"
+            val rawSwimmer = laps.firstOrNull()?.swimmerName ?: "Bahn $lane"
+            val laneTitle = rawSwimmer.substringBefore(" • ").trim().ifEmpty { rawSwimmer }
             val totalTime = laps.lastOrNull()?.splitTimeMillis ?: 0L
-            sb.append("\nBahn $lane: $swimmer (Gesamt: ${TimeFormatter.formatMillis(totalTime)})\n")
+            sb.append("\nBahn $lane: $laneTitle (Gesamt: ${TimeFormatter.formatMillis(totalTime)})\n")
             laps.zip(seriesItems).forEach { (lap, lapItem) ->
                 val strokeTag = if (isLagen) {
                     val legIdx = (((lapItem.lapIndex - 1) * s.splitDistanceMeters) / legDist).coerceIn(0, 3)
                     " (${activeLagenNames[legIdx]})"
                 } else ""
+                val starterTag = if (lap.swimmerName.contains(" • ")) {
+                    " [${lap.swimmerName.substringAfter(" • ").trim()}]"
+                } else ""
                 val paceDelta = if (lap.deltaTargetMillis != null) {
                     " [Pace: ${TimeFormatter.formatDelta(lap.deltaTargetMillis)}]"
                 } else ""
-                val sr = if (lap.strokeRateSpm != null) {
-                    String.format(java.util.Locale.GERMANY, " (Takt: %.1f SPM)", lap.strokeRateSpm)
-                } else ""
                 val lapPrefix = if (hasMultipleSeries) "S${lapItem.seriesIndex} Lap ${lapItem.lapIndex}" else "Lap ${lapItem.lapIndex}"
-                sb.append("  • $lapPrefix$strokeTag: Split ${TimeFormatter.formatMillis(lap.splitTimeMillis)} | Runde: ${TimeFormatter.formatMillis(lap.lapTimeMillis)}$paceDelta$sr\n")
+                sb.append("  • $lapPrefix$starterTag$strokeTag: Split ${TimeFormatter.formatMillis(lap.splitTimeMillis)} | Runde: ${TimeFormatter.formatMillis(lap.lapTimeMillis)}$paceDelta\n")
             }
         }
         sb.append("\n----------------------------------------\n")

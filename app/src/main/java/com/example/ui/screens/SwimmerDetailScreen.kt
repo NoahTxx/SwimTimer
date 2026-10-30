@@ -114,31 +114,20 @@ fun SwimmerDetailScreen(
         swimmer.pb200mLagenMillis?.let { if (pbs["Lagen" to 200] == null || it < pbs["Lagen" to 200]!!) pbs["Lagen" to 200] = it }
         swimmer.pb400mLagenMillis?.let { if (pbs["Lagen" to 400] == null || it < pbs["Lagen" to 400]!!) pbs["Lagen" to 400] = it }
         
-        // 3. Override with better times from history (including multi-series runs)
+        // 3. Override with better times from history (including multi-series runs and relay legs!)
         val strokeOptions = listOf("Freistil", "Brust", "Rücken", "Schmetterling", "Lagen")
         swimmerSessions.forEach { sessionLaps ->
-            val s = sessionLaps.session
-            val laps = sessionLaps.laps.asSequence().filter { it.swimmerId == swimmer.id }.sortedBy { it.lapIndex }.toList()
-            val totalSplitsNeeded = (s.targetDistanceMeters / s.splitDistanceMeters).coerceAtLeast(1)
-            val seriesItems = com.example.domain.PersonalBestEvaluator.splitSavedLapsIntoSeries(
-                laps = laps,
-                targetDistanceMeters = s.targetDistanceMeters,
-                splitDistanceMeters = s.splitDistanceMeters
+            val performances = com.example.domain.PersonalBestEvaluator.extractSwimmerSessionPerformances(
+                sessionWithLaps = sessionLaps,
+                swimmerId = swimmer.id
             )
-            val matchedStroke = strokeOptions.find { StopwatchViewModel.isSameStroke(it, s.strokeType) } ?: s.strokeType
-            val key = matchedStroke to s.targetDistanceMeters
-
-            seriesItems.groupBy { it.seriesIndex }.values.forEach { runLaps ->
-                val hasTargetLap = runLaps.any { it.lapIndex == totalSplitsNeeded }
-                val completedFullDistance = hasTargetLap || (runLaps.size >= totalSplitsNeeded) || runLaps.isNotEmpty()
-                val finishTime = if (completedFullDistance) {
-                    runLaps.find { it.lapIndex == totalSplitsNeeded }?.splitTimeMillis ?: runLaps.lastOrNull()?.splitTimeMillis ?: 0L
-                } else 0L
-
-                if (finishTime > 0) {
+            performances.forEach { perf ->
+                val matchedStroke = strokeOptions.find { StopwatchViewModel.isSameStroke(it, perf.strokeType) } ?: perf.strokeType
+                val key = matchedStroke to perf.distanceMeters
+                if (perf.bestTimeMillis > 0L) {
                     val currentPb = pbs[key]
-                    if ((currentPb == null) || (finishTime < currentPb)) {
-                        pbs[key] = finishTime
+                    if (currentPb == null || perf.bestTimeMillis < currentPb) {
+                        pbs[key] = perf.bestTimeMillis
                     }
                 }
             }
@@ -706,33 +695,30 @@ private fun SwimmerSessionHistoryCard(
 ) {
     var isExpanded by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(value = false) }
     val s = sessionWithLaps.session
-    val swimmerLaps = remember(sessionWithLaps, swimmer.id) {
-        sessionWithLaps.laps
-            .filter { it.swimmerId == swimmer.id }
-            .sortedBy { it.lapIndex }
-    }
-    val seriesItems = remember(swimmerLaps, s.targetDistanceMeters, s.splitDistanceMeters) {
-        com.example.domain.PersonalBestEvaluator.splitSavedLapsIntoSeries(
-            laps = swimmerLaps,
-            targetDistanceMeters = s.targetDistanceMeters,
-            splitDistanceMeters = s.splitDistanceMeters
+    val performances = remember(sessionWithLaps, swimmer.id) {
+        com.example.domain.PersonalBestEvaluator.extractSwimmerSessionPerformances(
+            sessionWithLaps = sessionWithLaps,
+            swimmerId = swimmer.id
         )
     }
-    val hasMultipleSeries = remember(seriesItems) { seriesItems.any { it.seriesIndex > 1 } }
+    val primaryPerf = performances.minByOrNull { if (it.bestTimeMillis > 0L) it.bestTimeMillis else Long.MAX_VALUE }
+    val finishTime = primaryPerf?.bestTimeMillis ?: 0L
+    val perfStroke = primaryPerf?.strokeType ?: s.strokeType
+    val perfDistance = primaryPerf?.distanceMeters ?: s.targetDistanceMeters
+    val isRelayLeg = primaryPerf?.isRelayLeg == true
+    val relayLegLabel = primaryPerf?.relayLegLabel
 
-    val finishTime = remember(seriesItems, s.targetDistanceMeters, s.splitDistanceMeters) {
-        val totalSplitsNeeded = (s.targetDistanceMeters / s.splitDistanceMeters).coerceAtLeast(1)
-        seriesItems.groupBy { it.seriesIndex }.values.mapNotNull { runLaps ->
-            runLaps.find { it.lapIndex == totalSplitsNeeded }?.splitTimeMillis ?: runLaps.lastOrNull()?.splitTimeMillis
-        }.filter { it > 0L }.minOrNull() ?: 0L
+    val displayLaps = remember(performances) {
+        performances.flatMap { it.laps }
     }
+    val hasMultipleSeries = remember(displayLaps) { displayLaps.any { it.seriesIndex > 1 } }
 
-    val isSessionPb = remember(finishTime, s.strokeType, s.targetDistanceMeters, dynamicPbs) {
+    val isSessionPb = remember(finishTime, perfStroke, perfDistance, dynamicPbs) {
         if (finishTime <= 0L) false
         else {
             val strokeOptions = listOf("Freistil", "Brust", "Rücken", "Schmetterling", "Lagen")
-            val matchedStroke = strokeOptions.find { StopwatchViewModel.isSameStroke(it, s.strokeType) } ?: s.strokeType
-            dynamicPbs[matchedStroke to s.targetDistanceMeters] == finishTime
+            val matchedStroke = strokeOptions.find { StopwatchViewModel.isSameStroke(it, perfStroke) } ?: perfStroke
+            dynamicPbs[matchedStroke to perfDistance] == finishTime
         }
     }
 
@@ -776,6 +762,16 @@ private fun SwimmerSessionHistoryCard(
                             }
                         }
                     }
+                    if (!relayLegLabel.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = relayLegLabel,
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = AquaPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = "${TimeFormatter.formatDate(s.timestamp)} • ${s.poolLengthMeters}m Becken",
@@ -787,7 +783,7 @@ private fun SwimmerSessionHistoryCard(
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = TimeFormatter.formatMillis(finishTime),
+                        text = TimeFormatter.formatMillis(finishTime, shortFormat = isRelayLeg && perfDistance <= 50),
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold
@@ -806,15 +802,20 @@ private fun SwimmerSessionHistoryCard(
             AnimatedVisibility(visible = isExpanded) {
                 Column(modifier = Modifier.padding(top = 12.dp)) {
                     HorizontalDivider(color = Color(0xFF1E2D40), modifier = Modifier.padding(bottom = 8.dp))
-                    swimmerLaps.zip(seriesItems).forEach { (lap, lapItem) ->
-                        val isLastLapInSeries = (lapItem == seriesItems.lastOrNull { it.seriesIndex == lapItem.seriesIndex })
-                        val prevCumDist = ((lapItem.lapIndex - 1) * s.splitDistanceMeters).coerceAtMost(s.targetDistanceMeters)
+                    val effectiveTargetDist = if (isRelayLeg) perfDistance else s.targetDistanceMeters
+                    val effectiveSplitDist = if (isRelayLeg) {
+                        (perfDistance / displayLaps.size.coerceAtLeast(1)).coerceAtLeast(s.splitDistanceMeters)
+                    } else s.splitDistanceMeters
+
+                    displayLaps.forEach { lapItem ->
+                        val isLastLapInSeries = (lapItem == displayLaps.lastOrNull { it.seriesIndex == lapItem.seriesIndex })
+                        val prevCumDist = ((lapItem.lapIndex - 1) * effectiveSplitDist).coerceAtMost(effectiveTargetDist)
                         val currentCumDist = if (isLastLapInSeries) {
-                            s.targetDistanceMeters
+                            effectiveTargetDist
                         } else {
-                            (lapItem.lapIndex * s.splitDistanceMeters).coerceAtMost(s.targetDistanceMeters)
+                            (lapItem.lapIndex * effectiveSplitDist).coerceAtMost(effectiveTargetDist)
                         }
-                        val lapDist = (currentCumDist - prevCumDist).coerceAtLeast(s.splitDistanceMeters)
+                        val lapDist = (currentCumDist - prevCumDist).coerceAtLeast(effectiveSplitDist)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -823,25 +824,33 @@ private fun SwimmerSessionHistoryCard(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = if (hasMultipleSeries) "S${lapItem.seriesIndex} • Split ${lapItem.lapIndex} (${lapDist}m)" else "Split ${lapItem.lapIndex} (${lapDist}m)",
+                                text = if (isRelayLeg) {
+                                    "Staffel-Teilstrecke (${lapDist}m $perfStroke)"
+                                } else if (hasMultipleSeries) {
+                                    "S${lapItem.seriesIndex} • Split ${lapItem.lapIndex} (${lapDist}m)"
+                                } else {
+                                    "Split ${lapItem.lapIndex} (${lapDist}m)"
+                                },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color.LightGray
                             )
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = "Runde: ${TimeFormatter.formatMillis(lap.lapTimeMillis, shortFormat = true)}",
+                                    text = "Einzel: ${TimeFormatter.formatMillis(lapItem.lapTimeMillis, shortFormat = true)}",
                                     style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
                                     color = TextWhite
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Gesamt: ${TimeFormatter.formatMillis(lap.splitTimeMillis)}",
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        fontFamily = FontFamily.Monospace,
-                                        fontWeight = FontWeight.Bold
-                                    ),
-                                    color = AquaPrimary
-                                )
+                                if (!isRelayLeg || displayLaps.size > 1) {
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Gesamt: ${TimeFormatter.formatMillis(lapItem.splitTimeMillis)}",
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            fontFamily = FontFamily.Monospace,
+                                            fontWeight = FontWeight.Bold
+                                        ),
+                                        color = AquaPrimary
+                                    )
+                                }
                             }
                         }
                     }

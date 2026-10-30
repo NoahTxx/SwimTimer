@@ -348,7 +348,93 @@ class StopwatchViewModelTest {
         assertEquals(50, state.splitDistanceMeters)
         assertEquals("Lagen", state.strokeType)
         assertEquals(1, state.lanes.size)
-        assertTrue(state.lanes[0].swimmerName.contains("1. Mannschaft (A-Staffel)"))
-        assertTrue(state.lanes[0].swimmerName.contains("Lukas"))
+        assertEquals("1. Mannschaft (A-Staffel)", state.lanes[0].swimmerName)
+        assertEquals(4, state.lanes[0].relayMembers.size)
+        assertEquals("Lukas", state.lanes[0].relayMembers[0].swimmerName)
+        assertEquals("Emma", state.lanes[0].relayMembers[3].swimmerName)
+    }
+
+    @Test
+    fun applyRelayTeamsToStopwatch_4x25m_setsPoolLengthAndSplitTo25mAndSavesIndividualSwimmerTimes() = runTest(testDispatcher) {
+        val s1 = SwimmerEntity(id = 1L, name = "Lukas", favoriteStroke = "Freistil")
+        val s2 = SwimmerEntity(id = 2L, name = "Sophie", favoriteStroke = "Freistil")
+        val s3 = SwimmerEntity(id = 3L, name = "Leon", favoriteStroke = "Freistil")
+        val s4 = SwimmerEntity(id = 4L, name = "Emma", favoriteStroke = "Freistil")
+        fakeRepository.insertSwimmer(s1)
+        fakeRepository.insertSwimmer(s2)
+        fakeRepository.insertSwimmer(s3)
+        fakeRepository.insertSwimmer(s4)
+
+        val teams = listOf(
+            com.example.domain.RelayTeamPlan(
+                teamIndex = 0,
+                teamTitle = "A-Staffel",
+                legs = listOf(
+                    com.example.domain.RelayLegAssignment(1, 1L, "Lukas", "Freistil", 25, 13_000L),
+                    com.example.domain.RelayLegAssignment(2, 2L, "Sophie", "Freistil", 25, 14_000L),
+                    com.example.domain.RelayLegAssignment(3, 3L, "Leon", "Freistil", 25, 12_500L),
+                    com.example.domain.RelayLegAssignment(4, 4L, "Emma", "Freistil", 25, 13_500L)
+                ),
+                totalTimeMillis = 53_000L,
+                averageLegMillis = 13_250L,
+                deltaToFastestMillis = 0L,
+                hasEstimatedTimes = false
+            )
+        )
+
+        // Start with 50m pool length, then apply a 4x25m (100m) Freistil relay
+        viewModel.setSessionMeta("Test", "Freistil", 50, 100, 50)
+        viewModel.applyRelayTeamsToStopwatch(
+            teams = teams,
+            strokeType = "Freistil",
+            legDistanceMeters = 25
+        )
+
+        val state = viewModel.uiState.value
+        assertEquals(100, state.targetDistanceMeters)
+        assertEquals(25, state.splitDistanceMeters)
+        assertEquals(25, state.poolLengthMeters)
+
+        // Swim the 4x25m relay:
+        // Leg 1 (Lukas): 12.80s
+        // Leg 2 (Sophie): 13.70s (split 26.50s)
+        // Leg 3 (Leon): 12.20s (split 38.70s)
+        // Leg 4 (Emma): 13.10s (finish 51.80s)
+        viewModel.onStartSingleLane(laneNumber = 1)
+        fakeClock.currentMillis = 112_800L
+        viewModel.onLapLane(laneNumber = 1, exactRealtime = 112_800L)
+        fakeClock.currentMillis = 126_500L
+        viewModel.onLapLane(laneNumber = 1, exactRealtime = 126_500L)
+        fakeClock.currentMillis = 138_700L
+        viewModel.onLapLane(laneNumber = 1, exactRealtime = 138_700L)
+        fakeClock.currentMillis = 151_800L
+        viewModel.onLapLane(laneNumber = 1, exactRealtime = 151_800L)
+
+        val finishedLane = viewModel.uiState.value.lanes[0]
+        assertEquals(LaneStatus.FINISHED, finishedLane.status)
+        assertEquals(51_800L, finishedLane.finishTimeMillis)
+
+        viewModel.saveCurrentSession()
+        testScheduler.advanceTimeBy(200)
+
+        // Verify each lap was saved with the respective swimmer's ID and individual leg time
+        val savedSession = fakeRepository.allSessionsWithLapsSync().first()
+        assertEquals(4, savedSession.laps.size)
+        assertEquals(1L, savedSession.laps[0].swimmerId)
+        assertEquals(12_800L, savedSession.laps[0].lapTimeMillis)
+        assertEquals(2L, savedSession.laps[1].swimmerId)
+        assertEquals(13_700L, savedSession.laps[1].lapTimeMillis)
+        assertEquals(3L, savedSession.laps[2].swimmerId)
+        assertEquals(12_200L, savedSession.laps[2].lapTimeMillis)
+        assertEquals(4L, savedSession.laps[3].swimmerId)
+        assertEquals(13_100L, savedSession.laps[3].lapTimeMillis)
+
+        // Verify each swimmer got their own individual 25m PB saved!
+        assertEquals(12_800L, fakeRepository.getSwimmerById(1L)?.pb25mMillis)
+        assertEquals(13_700L, fakeRepository.getSwimmerById(2L)?.pb25mMillis)
+        assertEquals(12_200L, fakeRepository.getSwimmerById(3L)?.pb25mMillis)
+        assertEquals(13_100L, fakeRepository.getSwimmerById(4L)?.pb25mMillis)
+
+        viewModel.onResetAll()
     }
 }

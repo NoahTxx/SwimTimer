@@ -388,7 +388,8 @@ private fun SessionHistoryCard(
                             splitDistanceMeters = s.splitDistanceMeters
                         )
                         val hasMultipleSeries = seriesItems.any { it.seriesIndex > 1 }
-                        val swimmer = laneLaps.firstOrNull()?.swimmerName ?: "Bahn $laneNum"
+                        val rawSwimmer = laneLaps.firstOrNull()?.swimmerName ?: "Bahn $laneNum"
+                        val laneDisplayTitle = rawSwimmer.substringBefore(" • ").trim().ifEmpty { rawSwimmer }
                         val finishTime = laneLaps.lastOrNull()?.splitTimeMillis ?: 0L
 
                         Row(
@@ -396,7 +397,7 @@ private fun SessionHistoryCard(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = "Bahn $laneNum: $swimmer",
+                                text = "Bahn $laneNum: $laneDisplayTitle",
                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                                 color = TextWhite,
                                 modifier = Modifier.weight(1f).padding(end = 8.dp),
@@ -420,14 +421,14 @@ private fun SessionHistoryCard(
                                 .padding(vertical = 4.dp),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("Lap", style = MaterialTheme.typography.labelSmall, color = Color.Gray, modifier = Modifier.weight(1.2f), maxLines = 1)
-                            Text("Gesamt", style = MaterialTheme.typography.labelSmall, color = Color.Gray, modifier = Modifier.weight(1.8f), maxLines = 1)
-                            Text("Runde", style = MaterialTheme.typography.labelSmall, color = Color.Gray, modifier = Modifier.weight(1.6f), maxLines = 1)
-                            Text("Pace/SPM", style = MaterialTheme.typography.labelSmall, color = Color.Gray, modifier = Modifier.weight(2.2f), maxLines = 1)
+                            Text("Lap / Starter", style = MaterialTheme.typography.labelSmall, color = Color.Gray, modifier = Modifier.weight(1.8f), maxLines = 1)
+                            Text("Gesamt", style = MaterialTheme.typography.labelSmall, color = Color.Gray, modifier = Modifier.weight(1.6f), maxLines = 1)
+                            Text("Runde", style = MaterialTheme.typography.labelSmall, color = Color.Gray, modifier = Modifier.weight(1.5f), maxLines = 1)
+                            Text("Pace", style = MaterialTheme.typography.labelSmall, color = Color.Gray, modifier = Modifier.weight(1.7f), maxLines = 1)
                         }
 
                         val isLagen = s.strokeType.equals("Lagen", ignoreCase = true)
-                        val isRelaySession = s.title.contains("Staffel", ignoreCase = true)
+                        val isRelaySession = com.example.domain.PersonalBestEvaluator.isRelaySession(s.title, laps)
                         val activeLagenShortNames = if (isRelaySession) ExportHelper.LAGEN_STAFFEL_SHORT_NAMES else ExportHelper.LAGEN_SHORT_NAMES
                         val lagenLegLength = (s.targetDistanceMeters / 4).coerceAtLeast(1)
 
@@ -435,6 +436,9 @@ private fun SessionHistoryCard(
                             val lapLagenStroke = if (isLagen) {
                                 val legIdx = (((lapItem.lapIndex - 1) * s.splitDistanceMeters) / lagenLegLength).coerceIn(0, 3)
                                 activeLagenShortNames[legIdx]
+                            } else null
+                            val relayStarterName = if (lap.swimmerName.contains(" • ")) {
+                                lap.swimmerName.substringAfter(" • ").trim()
                             } else null
 
                             Row(
@@ -446,7 +450,7 @@ private fun SessionHistoryCard(
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.weight(1.2f)
+                                    modifier = Modifier.weight(1.8f).padding(end = 4.dp)
                                 ) {
                                     Text(
                                         text = if (hasMultipleSeries) "S${lapItem.seriesIndex} L${lapItem.lapIndex}" else "L${lapItem.lapIndex}",
@@ -463,24 +467,34 @@ private fun SessionHistoryCard(
                                             maxLines = 1
                                         )
                                     }
+                                    if (!relayStarterName.isNullOrBlank()) {
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = relayStarterName,
+                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold),
+                                            color = TextWhite.copy(alpha = 0.9f),
+                                            maxLines = 1,
+                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                        )
+                                    }
                                 }
                                 Text(
                                     text = TimeFormatter.formatMillis(lap.splitTimeMillis),
                                     style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
                                     color = TextWhite,
-                                    modifier = Modifier.weight(1.8f),
+                                    modifier = Modifier.weight(1.6f),
                                     maxLines = 1
                                 )
                                 Text(
                                     text = TimeFormatter.formatMillis(lap.lapTimeMillis, shortFormat = true),
                                     style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
                                     color = Color.LightGray,
-                                    modifier = Modifier.weight(1.6f),
+                                    modifier = Modifier.weight(1.5f),
                                     maxLines = 1
                                 )
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.weight(2.2f)
+                                    modifier = Modifier.weight(1.7f)
                                 ) {
                                     if (lap.deltaTargetMillis != null) {
                                         val isFaster = lap.deltaTargetMillis <= 0
@@ -490,16 +504,7 @@ private fun SessionHistoryCard(
                                             color = if (isFaster) PaceGreen else PaceRed,
                                             maxLines = 1
                                         )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                    }
-                                    if (lap.strokeRateSpm != null) {
-                                        Text(
-                                            text = "%.0f SPM".format(lap.strokeRateSpm),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = Color(0xFFFFD600),
-                                            maxLines = 1
-                                        )
-                                    } else if (lap.deltaTargetMillis == null) {
+                                    } else {
                                         val isLastLapInSeries = (lapItem == seriesItems.lastOrNull { it.seriesIndex == lapItem.seriesIndex })
                                         val prevCumDist = ((lapItem.lapIndex - 1) * s.splitDistanceMeters).coerceAtMost(s.targetDistanceMeters)
                                         val currentCumDist = if (isLastLapInSeries) {

@@ -62,7 +62,6 @@ import com.example.ui.StopwatchViewModel
 import com.example.ui.components.AssignSwimmerDialog
 import com.example.ui.components.IntervalConfigDialog
 import com.example.ui.components.LaneTimerCard
-import com.example.ui.components.StrokeRateCalculatorDialog
 import com.example.ui.components.SwimPaceCalculatorDialog
 import com.example.util.HapticUtil
 import com.example.util.TimeFormatter
@@ -170,15 +169,21 @@ fun MultiStopwatchScreen(
                             } else ""
 
                             val startLabel = if (uiState.startMode == StartMode.INTERVAL) "Intervall (+${uiState.intervalOffsetSeconds}s)" else "Massenstart"
+                            val isRelayActive = remember(uiState.lanes) { uiState.lanes.any { it.relayMembers.isNotEmpty() } }
 
                             Text(
-                                text = if (uiState.strokeType == "Lagen") {
-                                    "Splits alle ${uiState.splitDistanceMeters}m$seriesLabel • 1. Schmett • 2. Rücken • 3. Brust • 4. Kraul"
-                                } else {
-                                    "Splits alle ${uiState.splitDistanceMeters}m • $startLabel$seriesLabel"
+                                text = when {
+                                    uiState.strokeType == "Lagen" && isRelayActive ->
+                                        "Staffel-Wechsel alle ${uiState.splitDistanceMeters}m$seriesLabel • 1. Rücken • 2. Brust • 3. Schmett • 4. Kraul"
+                                    uiState.strokeType == "Lagen" ->
+                                        "Splits alle ${uiState.splitDistanceMeters}m$seriesLabel • 1. Schmett • 2. Rücken • 3. Brust • 4. Kraul"
+                                    isRelayActive ->
+                                        "Staffel-Wechsel alle ${uiState.splitDistanceMeters}m • $startLabel$seriesLabel"
+                                    else ->
+                                        "Splits alle ${uiState.splitDistanceMeters}m • $startLabel$seriesLabel"
                                 },
                                 style = MaterialTheme.typography.labelSmall,
-                                color = if (uiState.strokeType == "Lagen") Color(0xFFFFD600) else Color.LightGray,
+                                color = if (uiState.strokeType == "Lagen" || isRelayActive) Color(0xFFFFD600) else Color.LightGray,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 textAlign = TextAlign.Center
@@ -227,7 +232,6 @@ fun MultiStopwatchScreen(
                     val onStartSingleLaneClick = remember(laneNum, context) { { HapticUtil.vibrateHeavy(context); viewModel.onStartSingleLane(laneNum) } }
                     val onPauseClick = remember(laneNum, context) { { HapticUtil.vibrateClick(context); viewModel.onPauseLane(laneNum) } }
                     val onResumeClick = remember(laneNum, context) { { HapticUtil.vibrateClick(context); viewModel.onResumeLane(laneNum) } }
-                    val onStrokeRateTap = remember(laneNum) { { viewModel.onTapStrokeRate(laneNum) } }
 
                     LaneTimerCard(
                         lane = lane,
@@ -241,8 +245,7 @@ fun MultiStopwatchScreen(
                         onRemoveLaneClick = onRemoveLaneClick,
                         onStartSingleLaneClick = onStartSingleLaneClick,
                         onPauseClick = onPauseClick,
-                        onResumeClick = onResumeClick,
-                        onStrokeRateTap = onStrokeRateTap
+                        onResumeClick = onResumeClick
                     )
                 }
 
@@ -509,6 +512,7 @@ fun MultiStopwatchScreen(
 
         // Dialogs
         if (isConfigDialogOpen) {
+            val isRelayActive = remember(uiState.lanes) { uiState.lanes.any { it.relayMembers.isNotEmpty() } }
             IntervalConfigDialog(
                 currentStartMode = uiState.startMode,
                 currentIntervalSec = uiState.intervalOffsetSeconds,
@@ -517,6 +521,7 @@ fun MultiStopwatchScreen(
                 currentSplitDistance = uiState.splitDistanceMeters,
                 currentStroke = uiState.strokeType,
                 currentSeriesConfig = uiState.seriesConfig,
+                isRelayActive = isRelayActive,
                 onDismiss = { isConfigDialogOpen = false }
             ) { mode, interval, pool, dist, splitDist, stroke, seriesConfig ->
                 viewModel.setStartMode(mode)
@@ -540,16 +545,6 @@ fun MultiStopwatchScreen(
                 availableGroups = availableGroups,
                 onDismiss = { viewModel.closeAssignSwimmerDialog() },
             ) { swimmer -> viewModel.assignSwimmerToLane(laneNum, swimmer) }
-        }
-
-        if (uiState.isStrokeRateDialogVisible) {
-            StrokeRateCalculatorDialog(
-                targetLane = uiState.strokeRateTargetLane,
-                onDismiss = { viewModel.closeStrokeRateDialog() },
-                onAttachToLane = { laneNum, spm ->
-                    viewModel.attachStrokeRateToLane(laneNum, spm)
-                }
-            )
         }
 
         if (uiState.isPaceCalculatorVisible) {

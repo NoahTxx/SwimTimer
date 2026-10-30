@@ -75,6 +75,7 @@ fun IntervalConfigDialog(
     currentSplitDistance: Int = 50,
     currentStroke: String,
     currentSeriesConfig: SeriesConfig = SeriesConfig(),
+    isRelayActive: Boolean = false,
     onDismiss: () -> Unit,
     onSave: (
         mode: StartMode,
@@ -117,7 +118,7 @@ fun IntervalConfigDialog(
     val poolOptions = listOf(25, 50)
     val strokeOptions = listOf("Freistil", "Brust", "Rücken", "Schmetterling", "Lagen")
 
-    val distanceOptions = if (stroke == "Lagen") {
+    val distanceOptions = if (stroke == "Lagen" || isRelayActive) {
         listOf(100, 200, 400)
     } else {
         listOf(25, 50, 100, 200, 400, 800, 1500)
@@ -268,7 +269,19 @@ fun IntervalConfigDialog(
                                 poolOptions.forEach { length ->
                                     FilterChip(
                                         selected = poolLength == length,
-                                        onClick = { focusManager.clearFocus(); poolLength = length },
+                                        onClick = {
+                                            focusManager.clearFocus()
+                                            poolLength = length
+                                            if (length == 50) {
+                                                if (distance == 25) distance = 50
+                                                if ((stroke == "Lagen" || isRelayActive) && distance == 100) {
+                                                    distance = 200
+                                                    splitDistance = 50
+                                                } else if (splitDistance == 25) {
+                                                    splitDistance = 50
+                                                }
+                                            }
+                                        },
                                         label = { Text("${length}m Bahn", maxLines = 1) },
                                         colors = FilterChipDefaults.filterChipColors(
                                             selectedContainerColor = AquaPrimary,
@@ -292,7 +305,7 @@ fun IntervalConfigDialog(
                 ) {
                     Column(modifier = Modifier.padding(14.dp)) {
                         Text(
-                            text = "Disziplin & Strecke",
+                            text = if (isRelayActive) "Staffel-Disziplin & Strecke" else "Disziplin & Strecke",
                             fontWeight = FontWeight.Bold,
                             color = AquaPrimary,
                             fontSize = 14.sp
@@ -320,14 +333,19 @@ fun IntervalConfigDialog(
                                             focusManager.clearFocus()
                                             stroke = s
                                             var newDist = distance
-                                            if (s == "Lagen") {
+                                            if (s == "Lagen" || isRelayActive) {
                                                 if (newDist < 100) newDist = 100
                                                 if (newDist > 400) newDist = 400
                                             }
                                             distance = newDist
-                                            val newSplits = getAvailableSplitOptions(newDist)
-                                            if (splitDistance !in newSplits) {
-                                                splitDistance = newSplits.first()
+                                            if (s == "Lagen" || isRelayActive) {
+                                                splitDistance = (newDist / 4).coerceAtLeast(25)
+                                                if (splitDistance == 25) poolLength = 25
+                                            } else {
+                                                val newSplits = getAvailableSplitOptions(newDist)
+                                                if (splitDistance !in newSplits) {
+                                                    splitDistance = newSplits.first()
+                                                }
                                             }
                                         },
                                         label = { Text(s, maxLines = 1) },
@@ -348,7 +366,11 @@ fun IntervalConfigDialog(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
-                                    text = "Offizielle Lagen-Reihenfolge:\n1. Schmetterling • 2. Rücken • 3. Brust • 4. Freistil",
+                                    text = if (isRelayActive) {
+                                        "Offizielle Lagen-Staffel-Reihenfolge:\n1. Rücken • 2. Brust • 3. Schmetterling • 4. Freistil"
+                                    } else {
+                                        "Offizielle Lagen-Reihenfolge:\n1. Schmetterling • 2. Rücken • 3. Brust • 4. Freistil"
+                                    },
                                     style = MaterialTheme.typography.labelSmall,
                                     color = AquaPrimary,
                                     modifier = Modifier.padding(8.dp)
@@ -359,7 +381,7 @@ fun IntervalConfigDialog(
                         Spacer(modifier = Modifier.height(12.dp))
 
                         Text(
-                            text = "Zielstrecke:",
+                            text = if (isRelayActive) "Staffel-Gesamtstrecke (4×):" else "Zielstrecke:",
                             style = MaterialTheme.typography.labelMedium,
                             color = Color.LightGray,
                             maxLines = 1
@@ -372,17 +394,31 @@ fun IntervalConfigDialog(
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 distanceOptions.forEach { d ->
+                                    val distLabel = if (isRelayActive && d in listOf(100, 200, 400)) {
+                                        "4×${d / 4}m (${d}m)"
+                                    } else {
+                                        "${d}m"
+                                    }
                                     FilterChip(
                                         selected = distance == d,
                                         onClick = {
                                             focusManager.clearFocus()
                                             distance = d
-                                            val newSplits = getAvailableSplitOptions(d)
-                                            if (splitDistance !in newSplits) {
-                                                splitDistance = newSplits.first()
+                                            if (d == 25) {
+                                                poolLength = 25
+                                                splitDistance = 25
+                                            } else if (isRelayActive || stroke == "Lagen") {
+                                                val legDist = (d / 4).coerceAtLeast(25)
+                                                splitDistance = legDist
+                                                if (legDist == 25) poolLength = 25
+                                            } else {
+                                                val newSplits = getAvailableSplitOptions(d)
+                                                if (splitDistance !in newSplits) {
+                                                    splitDistance = newSplits.first()
+                                                }
                                             }
                                         },
-                                        label = { Text("${d}m", maxLines = 1) },
+                                        label = { Text(distLabel, maxLines = 1) },
                                         colors = FilterChipDefaults.filterChipColors(
                                             selectedContainerColor = AquaPrimary,
                                             selectedLabelColor = Color.Black
@@ -395,7 +431,7 @@ fun IntervalConfigDialog(
                         Spacer(modifier = Modifier.height(12.dp))
 
                         Text(
-                            text = "Zwischenzeiten (Splits alle):",
+                            text = if (isRelayActive) "Wechsel / Zwischenzeiten (alle):" else "Zwischenzeiten (Splits alle):",
                             style = MaterialTheme.typography.labelMedium,
                             color = Color.LightGray,
                             maxLines = 1
@@ -411,7 +447,13 @@ fun IntervalConfigDialog(
                                     val labelText = if (sDist == distance) "Nur Ziel (${sDist}m)" else "Alle ${sDist}m"
                                     FilterChip(
                                         selected = effectiveSplitDistance == sDist,
-                                        onClick = { focusManager.clearFocus(); splitDistance = sDist },
+                                        onClick = {
+                                            focusManager.clearFocus()
+                                            splitDistance = sDist
+                                            if (sDist == 25) {
+                                                poolLength = 25
+                                            }
+                                        },
                                         label = { Text(labelText, maxLines = 1) },
                                         colors = FilterChipDefaults.filterChipColors(
                                             selectedContainerColor = AquaPrimary,

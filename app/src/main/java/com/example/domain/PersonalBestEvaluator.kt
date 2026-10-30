@@ -1,6 +1,7 @@
 package com.example.domain
 
 import com.example.data.model.LapRecordEntity
+import com.example.data.model.SessionWithLaps
 import com.example.data.model.SwimmerEntity
 import com.example.ui.LaneState
 import com.example.ui.LaneStatus
@@ -13,7 +14,23 @@ data class PbEvaluationResult(
     val achievements: List<String>
 )
 
+data class SwimmerSessionPerformance(
+    val strokeType: String,
+    val distanceMeters: Int,
+    val bestTimeMillis: Long,
+    val isRelayLeg: Boolean,
+    val relayLegLabel: String? = null,
+    val laps: List<LapItem> = emptyList()
+)
+
 object PersonalBestEvaluator {
+
+    val LAGEN_STAFFEL_STROKES = listOf("Rücken", "Brust", "Schmetterling", "Freistil")
+
+    fun isRelaySession(title: String, laps: List<LapRecordEntity>): Boolean {
+        if (title.contains("Staffel", ignoreCase = true)) return true
+        return laps.any { it.swimmerName.contains(" • ") }
+    }
 
     /**
      * Reconstructs individual series runs from a flat list of saved [LapRecordEntity] items.
@@ -92,6 +109,104 @@ object PersonalBestEvaluator {
         splitDistanceMeters: Int,
         strokeType: String
     ): PbEvaluationResult {
+        // Relay Lane Handling: Evaluate only the specific leg(s) swum by this swimmer!
+        if (lane.relayMembers.isNotEmpty()) {
+            val memberLegs = lane.relayMembers.withIndex().filter { it.value.swimmerId == swimmer.id }
+            if (memberLegs.isEmpty()) {
+                return PbEvaluationResult(swimmer, false, emptyList())
+            }
+            var currentSwimmer = swimmer
+            var anyImproved = false
+            val allAchievements = mutableListOf<String>()
+            val runs = lane.allLaps.groupBy { it.seriesIndex }
+
+            for ((legIdx, member) in memberLegs) {
+                val legDist = member.distanceMeters.coerceAtLeast(splitDistanceMeters)
+                val splitsPerLeg = (legDist / splitDistanceMeters).coerceAtLeast(1)
+                val startLapIdx = legIdx * splitsPerLeg
+                val endLapIdx = startLapIdx + splitsPerLeg
+
+                val memberSeriesLaps = mutableListOf<LapItem>()
+                for ((seriesIdx, seriesLaps) in runs) {
+                    val startSplitMs = if (startLapIdx == 0) {
+                        0L
+                    } else {
+                        seriesLaps.find { it.lapIndex == startLapIdx }?.splitTimeMillis
+                    }
+                    val endSplitMs = seriesLaps.find { it.lapIndex == endLapIdx }?.splitTimeMillis
+
+                    if (startSplitMs != null && endSplitMs != null && endSplitMs > startSplitMs) {
+                        var allSubSplitsPresent = true
+                        for (subIdx in 1..splitsPerLeg) {
+                            val lapInLane = seriesLaps.find { it.lapIndex == startLapIdx + subIdx }
+                            if (lapInLane == null) {
+                                allSubSplitsPresent = false
+                                break
+                            }
+                        }
+                        if (allSubSplitsPresent) {
+                            for (subIdx in 1..splitsPerLeg) {
+                                val lapInLane = seriesLaps.first { it.lapIndex == startLapIdx + subIdx }
+                                val relSplit = (lapInLane.splitTimeMillis - startSplitMs).coerceAtLeast(0L)
+                                memberSeriesLaps.add(
+                                    LapItem(
+                                        lapIndex = subIdx,
+                                        splitTimeMillis = relSplit,
+                                        lapTimeMillis = lapInLane.lapTimeMillis,
+                                        strokeRateSpm = lapInLane.strokeRateSpm,
+                                        seriesIndex = seriesIdx
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (memberSeriesLaps.isNotEmpty()) {
+                    val syntheticLegLane = LaneState(
+                        laneNumber = lane.laneNumber,
+                        swimmerId = swimmer.id,
+                        swimmerName = swimmer.name,
+                        status = LaneStatus.FINISHED,
+                        finishTimeMillis = memberSeriesLaps.last().splitTimeMillis,
+                        completedSeriesLaps = memberSeriesLaps,
+                        targetDistanceMeters = legDist,
+                        splitDistanceMeters = splitDistanceMeters,
+                        strokeType = member.stroke
+                    )
+                    val legEval = evaluateSingleSwimmerLane(
+                        swimmer = currentSwimmer,
+                        lane = syntheticLegLane,
+                        targetDistanceMeters = legDist,
+                        splitDistanceMeters = splitDistanceMeters,
+                        strokeType = member.stroke
+                    )
+                    if (legEval.hasImproved) {
+                        currentSwimmer = legEval.updatedSwimmer
+                        anyImproved = true
+                        allAchievements.addAll(legEval.achievements)
+                    }
+                }
+            }
+            return PbEvaluationResult(currentSwimmer, anyImproved, allAchievements)
+        }
+
+        return evaluateSingleSwimmerLane(
+            swimmer = swimmer,
+            lane = lane,
+            targetDistanceMeters = targetDistanceMeters,
+            splitDistanceMeters = splitDistanceMeters,
+            strokeType = strokeType
+        )
+    }
+
+    private fun evaluateSingleSwimmerLane(
+        swimmer: SwimmerEntity,
+        lane: LaneState,
+        targetDistanceMeters: Int,
+        splitDistanceMeters: Int,
+        strokeType: String
+    ): PbEvaluationResult {
         var updatedPb25 = swimmer.pb25mMillis
         var updatedPb50 = swimmer.pb50mMillis
         var updatedPb100 = swimmer.pb100mMillis
@@ -124,6 +239,19 @@ object PersonalBestEvaluator {
         var hasImproved = false
         val pbAchievements = mutableListOf<String>()
 
+        fun updateCustomPbIfFaster(strokeKey: String, distMeters: Int, timeMs: Long, announce: Boolean = false) {
+            if (timeMs <= 0L) return
+            val existing = customPbsMap[strokeKey to distMeters]
+            if (existing == null || timeMs < existing) {
+                customPbsMap[strokeKey to distMeters] = timeMs
+                hasImproved = true
+                if (announce) {
+                    val useShort = distMeters <= 50
+                    pbAchievements.add("${swimmer.name} ${distMeters}m $strokeKey: ${TimeFormatter.formatMillis(timeMs, shortFormat = useShort)}")
+                }
+            }
+        }
+
         val expectedSplitsForFullDistance = (targetDistanceMeters / splitDistanceMeters).coerceAtLeast(1)
         val runs = lane.allLaps.groupBy { it.seriesIndex }.values
 
@@ -146,37 +274,47 @@ object PersonalBestEvaluator {
                 return lap?.splitTimeMillis?.takeIf { it > 0L }
             }
 
-            // Check multi-stroke PBs in customPbsMap for any stroke
+            // Check multi-stroke PBs in customPbsMap for target distance
             if (finishTime != null && finishTime > 0) {
-                val currentCustomPb = customPbsMap[matchedStroke to targetDistanceMeters]
-                if (currentCustomPb == null || finishTime < currentCustomPb) {
-                    customPbsMap[matchedStroke to targetDistanceMeters] = finishTime
-                    hasImproved = true
-                    pbAchievements.add("${swimmer.name} ${targetDistanceMeters}m $matchedStroke: ${TimeFormatter.formatMillis(finishTime)}")
-                }
+                val isFavStroke = strokeType != "Lagen" && isSameStroke(strokeType, swimmer.favoriteStroke)
+                val willAnnounceInLegacy = isFavStroke && targetDistanceMeters in listOf(25, 50, 100) ||
+                        (strokeType == "Lagen" && targetDistanceMeters in listOf(100, 200, 400))
+                updateCustomPbIfFaster(matchedStroke, targetDistanceMeters, finishTime, announce = !willAnnounceInLegacy)
             }
 
-            // Non-Lagen: Check 25m, 50m, and 100m PBs for favorite stroke
-            if (strokeType != "Lagen" && isSameStroke(strokeType, swimmer.favoriteStroke)) {
+            // Non-Lagen: Check intermediate & final 25m, 50m, and 100m PBs
+            if (strokeType != "Lagen") {
                 val timeAt25m = if (targetDistanceMeters == 25) finishTime else getCumulativeSplitAtMeters(25)
-                if (timeAt25m != null && (updatedPb25 == null || timeAt25m < updatedPb25)) {
-                    updatedPb25 = timeAt25m
-                    hasImproved = true
-                    pbAchievements.add("${swimmer.name} 25m ${swimmer.favoriteStroke}: ${TimeFormatter.formatMillis(timeAt25m, shortFormat = true)}")
+                if (timeAt25m != null) {
+                    val isFav = isSameStroke(strokeType, swimmer.favoriteStroke)
+                    updateCustomPbIfFaster(matchedStroke, 25, timeAt25m, announce = !isFav && targetDistanceMeters != 25)
+                    if (isFav && (updatedPb25 == null || timeAt25m < updatedPb25)) {
+                        updatedPb25 = timeAt25m
+                        hasImproved = true
+                        pbAchievements.add("${swimmer.name} 25m ${swimmer.favoriteStroke}: ${TimeFormatter.formatMillis(timeAt25m, shortFormat = true)}")
+                    }
                 }
 
                 val timeAt50m = if (targetDistanceMeters == 50) finishTime else getCumulativeSplitAtMeters(50)
-                if (timeAt50m != null && (updatedPb50 == null || timeAt50m < updatedPb50)) {
-                    updatedPb50 = timeAt50m
-                    hasImproved = true
-                    pbAchievements.add("${swimmer.name} 50m ${swimmer.favoriteStroke}: ${TimeFormatter.formatMillis(timeAt50m, shortFormat = true)}")
+                if (timeAt50m != null) {
+                    val isFav = isSameStroke(strokeType, swimmer.favoriteStroke)
+                    updateCustomPbIfFaster(matchedStroke, 50, timeAt50m, announce = !isFav && targetDistanceMeters != 50)
+                    if (isFav && (updatedPb50 == null || timeAt50m < updatedPb50)) {
+                        updatedPb50 = timeAt50m
+                        hasImproved = true
+                        pbAchievements.add("${swimmer.name} 50m ${swimmer.favoriteStroke}: ${TimeFormatter.formatMillis(timeAt50m, shortFormat = true)}")
+                    }
                 }
 
                 val timeAt100m = if (targetDistanceMeters == 100) finishTime else getCumulativeSplitAtMeters(100)
-                if (timeAt100m != null && (updatedPb100 == null || timeAt100m < updatedPb100)) {
-                    updatedPb100 = timeAt100m
-                    hasImproved = true
-                    pbAchievements.add("${swimmer.name} 100m ${swimmer.favoriteStroke}: ${TimeFormatter.formatMillis(timeAt100m)}")
+                if (timeAt100m != null) {
+                    val isFav = isSameStroke(strokeType, swimmer.favoriteStroke)
+                    updateCustomPbIfFaster(matchedStroke, 100, timeAt100m, announce = !isFav && targetDistanceMeters != 100)
+                    if (isFav && (updatedPb100 == null || timeAt100m < updatedPb100)) {
+                        updatedPb100 = timeAt100m
+                        hasImproved = true
+                        pbAchievements.add("${swimmer.name} 100m ${swimmer.favoriteStroke}: ${TimeFormatter.formatMillis(timeAt100m)}")
+                    }
                 }
             }
 
@@ -207,14 +345,16 @@ object PersonalBestEvaluator {
                     val splitsPerLeg = (legDist / splitDistanceMeters).coerceAtLeast(1)
 
                     fun getLegTime(legIndex: Int): Long? {
-                        val startIdx = legIndex * splitsPerLeg
-                        val endIdx = startIdx + splitsPerLeg
-                        if (seriesLaps.size >= endIdx) {
-                            var sum = 0L
-                            for (i in startIdx until endIdx) {
-                                sum += seriesLaps[i].lapTimeMillis
-                            }
-                            return if (sum > 0) sum else null
+                        val startLapIdx = legIndex * splitsPerLeg
+                        val endLapIdx = startLapIdx + splitsPerLeg
+                        val startSplitMs = if (startLapIdx == 0) {
+                            0L
+                        } else {
+                            seriesLaps.find { it.lapIndex == startLapIdx }?.splitTimeMillis
+                        }
+                        val endSplitMs = seriesLaps.find { it.lapIndex == endLapIdx }?.splitTimeMillis
+                        if (startSplitMs != null && endSplitMs != null && endSplitMs > startSplitMs) {
+                            return endSplitMs - startSplitMs
                         }
                         return null
                     }
@@ -231,6 +371,7 @@ object PersonalBestEvaluator {
                                 hasImproved = true
                                 pbAchievements.add("${swimmer.name} (200L 1. Schmett (50m): ${TimeFormatter.formatMillis(flyLegTime, shortFormat = true)})")
                             }
+                            updateCustomPbIfFaster("Schmetterling", 50, flyLegTime)
                             if (isSameStroke(swimmer.favoriteStroke, "Schmetterling") && (updatedPb50 == null || flyLegTime < updatedPb50)) {
                                 updatedPb50 = flyLegTime
                                 hasImproved = true
@@ -243,6 +384,7 @@ object PersonalBestEvaluator {
                                 hasImproved = true
                                 pbAchievements.add("${swimmer.name} (200L 2. Rücken (50m): ${TimeFormatter.formatMillis(backLegTime, shortFormat = true)})")
                             }
+                            updateCustomPbIfFaster("Rücken", 50, backLegTime)
                             if (isSameStroke(swimmer.favoriteStroke, "Rücken") && (updatedPb50 == null || backLegTime < updatedPb50)) {
                                 updatedPb50 = backLegTime
                                 hasImproved = true
@@ -255,6 +397,7 @@ object PersonalBestEvaluator {
                                 hasImproved = true
                                 pbAchievements.add("${swimmer.name} (200L 3. Brust (50m): ${TimeFormatter.formatMillis(breastLegTime, shortFormat = true)})")
                             }
+                            updateCustomPbIfFaster("Brust", 50, breastLegTime)
                             if (isSameStroke(swimmer.favoriteStroke, "Brust") && (updatedPb50 == null || breastLegTime < updatedPb50)) {
                                 updatedPb50 = breastLegTime
                                 hasImproved = true
@@ -267,6 +410,7 @@ object PersonalBestEvaluator {
                                 hasImproved = true
                                 pbAchievements.add("${swimmer.name} (200L 4. Kraul (50m): ${TimeFormatter.formatMillis(freeLegTime, shortFormat = true)})")
                             }
+                            updateCustomPbIfFaster("Freistil", 50, freeLegTime)
                             if (isSameStroke(swimmer.favoriteStroke, "Freistil") && (updatedPb50 == null || freeLegTime < updatedPb50)) {
                                 updatedPb50 = freeLegTime
                                 hasImproved = true
@@ -280,6 +424,7 @@ object PersonalBestEvaluator {
                                 hasImproved = true
                                 pbAchievements.add("${swimmer.name} (100L 1. Schmett (25m): ${TimeFormatter.formatMillis(flyLegTime, shortFormat = true)})")
                             }
+                            updateCustomPbIfFaster("Schmetterling", 25, flyLegTime)
                             if (isSameStroke(swimmer.favoriteStroke, "Schmetterling") && (updatedPb25 == null || flyLegTime < updatedPb25)) {
                                 updatedPb25 = flyLegTime
                                 hasImproved = true
@@ -292,6 +437,7 @@ object PersonalBestEvaluator {
                                 hasImproved = true
                                 pbAchievements.add("${swimmer.name} (100L 2. Rücken (25m): ${TimeFormatter.formatMillis(backLegTime, shortFormat = true)})")
                             }
+                            updateCustomPbIfFaster("Rücken", 25, backLegTime)
                             if (isSameStroke(swimmer.favoriteStroke, "Rücken") && (updatedPb25 == null || backLegTime < updatedPb25)) {
                                 updatedPb25 = backLegTime
                                 hasImproved = true
@@ -304,6 +450,7 @@ object PersonalBestEvaluator {
                                 hasImproved = true
                                 pbAchievements.add("${swimmer.name} (100L 3. Brust (25m): ${TimeFormatter.formatMillis(breastLegTime, shortFormat = true)})")
                             }
+                            updateCustomPbIfFaster("Brust", 25, breastLegTime)
                             if (isSameStroke(swimmer.favoriteStroke, "Brust") && (updatedPb25 == null || breastLegTime < updatedPb25)) {
                                 updatedPb25 = breastLegTime
                                 hasImproved = true
@@ -316,6 +463,7 @@ object PersonalBestEvaluator {
                                 hasImproved = true
                                 pbAchievements.add("${swimmer.name} (100L 4. Freistil (25m): ${TimeFormatter.formatMillis(freeLegTime, shortFormat = true)})")
                             }
+                            updateCustomPbIfFaster("Freistil", 25, freeLegTime)
                             if (isSameStroke(swimmer.favoriteStroke, "Freistil") && (updatedPb25 == null || freeLegTime < updatedPb25)) {
                                 updatedPb25 = freeLegTime
                                 hasImproved = true
@@ -329,6 +477,7 @@ object PersonalBestEvaluator {
                                 hasImproved = true
                                 pbAchievements.add("${swimmer.name} (400L 1. Schmett (100m): ${TimeFormatter.formatMillis(flyLegTime)})")
                             }
+                            updateCustomPbIfFaster("Schmetterling", 100, flyLegTime)
                             if (isSameStroke(swimmer.favoriteStroke, "Schmetterling") && (updatedPb100 == null || flyLegTime < updatedPb100)) {
                                 updatedPb100 = flyLegTime
                                 hasImproved = true
@@ -341,6 +490,7 @@ object PersonalBestEvaluator {
                                 hasImproved = true
                                 pbAchievements.add("${swimmer.name} (400L 2. Rücken (100m): ${TimeFormatter.formatMillis(backLegTime)})")
                             }
+                            updateCustomPbIfFaster("Rücken", 100, backLegTime)
                             if (isSameStroke(swimmer.favoriteStroke, "Rücken") && (updatedPb100 == null || backLegTime < updatedPb100)) {
                                 updatedPb100 = backLegTime
                                 hasImproved = true
@@ -353,6 +503,7 @@ object PersonalBestEvaluator {
                                 hasImproved = true
                                 pbAchievements.add("${swimmer.name} (400L 3. Brust (100m): ${TimeFormatter.formatMillis(breastLegTime)})")
                             }
+                            updateCustomPbIfFaster("Brust", 100, breastLegTime)
                             if (isSameStroke(swimmer.favoriteStroke, "Brust") && (updatedPb100 == null || breastLegTime < updatedPb100)) {
                                 updatedPb100 = breastLegTime
                                 hasImproved = true
@@ -365,6 +516,7 @@ object PersonalBestEvaluator {
                                 hasImproved = true
                                 pbAchievements.add("${swimmer.name} (400L 4. Freistil (100m): ${TimeFormatter.formatMillis(freeLegTime)})")
                             }
+                            updateCustomPbIfFaster("Freistil", 100, freeLegTime)
                             if (isSameStroke(swimmer.favoriteStroke, "Freistil") && (updatedPb100 == null || freeLegTime < updatedPb100)) {
                                 updatedPb100 = freeLegTime
                                 hasImproved = true
@@ -407,5 +559,165 @@ object PersonalBestEvaluator {
             hasImproved = hasImproved,
             achievements = pbAchievements
         )
+    }
+
+    /**
+     * Extracts a swimmer's individual performance(s) from a saved [SessionWithLaps],
+     * accurately handling both normal individual swims and relay legs.
+     */
+    fun extractSwimmerSessionPerformances(
+        sessionWithLaps: SessionWithLaps,
+        swimmerId: Long
+    ): List<SwimmerSessionPerformance> {
+        val s = sessionWithLaps.session
+        val relay = isRelaySession(s.title, sessionWithLaps.laps)
+
+        if (!relay) {
+            val swimmerLaps = sessionWithLaps.laps
+                .asSequence()
+                .filter { it.swimmerId == swimmerId }
+                .sortedBy { it.lapIndex }
+                .toList()
+            if (swimmerLaps.isEmpty()) return emptyList()
+
+            val seriesItems = splitSavedLapsIntoSeries(
+                laps = swimmerLaps,
+                targetDistanceMeters = s.targetDistanceMeters,
+                splitDistanceMeters = s.splitDistanceMeters
+            )
+            val totalSplitsNeeded = (s.targetDistanceMeters / s.splitDistanceMeters).coerceAtLeast(1)
+            val bestTime = seriesItems.groupBy { it.seriesIndex }.values.mapNotNull { runLaps ->
+                runLaps.find { it.lapIndex == totalSplitsNeeded }?.splitTimeMillis
+                    ?: runLaps.lastOrNull()?.splitTimeMillis
+            }.filter { it > 0L }.minOrNull() ?: 0L
+
+            return listOf(
+                SwimmerSessionPerformance(
+                    strokeType = s.strokeType,
+                    distanceMeters = s.targetDistanceMeters,
+                    bestTimeMillis = bestTime,
+                    isRelayLeg = false,
+                    relayLegLabel = null,
+                    laps = seriesItems
+                )
+            )
+        }
+
+        // Relay session: group by lane first so cumulative splits on that lane are intact
+        val performances = mutableListOf<SwimmerSessionPerformance>()
+        val lanesWithSwimmer = sessionWithLaps.laps
+            .groupBy { it.laneNumber }
+            .filterValues { laneLaps -> laneLaps.any { it.swimmerId == swimmerId } }
+
+        for ((_, laneLapsRaw) in lanesWithSwimmer) {
+            val sortedLaneLaps = laneLapsRaw.sortedBy { it.lapIndex }
+            val laneSeriesItems = splitSavedLapsIntoSeries(
+                laps = sortedLaneLaps,
+                targetDistanceMeters = s.targetDistanceMeters,
+                splitDistanceMeters = s.splitDistanceMeters
+            )
+            val zipped = sortedLaneLaps.zip(laneSeriesItems)
+            val bySeries = zipped.groupBy { it.second.seriesIndex }
+
+            for ((seriesIdx, seriesPairs) in bySeries) {
+                val swimmerPairs = seriesPairs.filter { it.first.swimmerId == swimmerId }
+                if (swimmerPairs.isEmpty()) continue
+
+                val legDist = swimmerPairs.size * s.splitDistanceMeters
+                val firstLapItem = swimmerPairs.first().second
+                val legNumber = ((firstLapItem.lapIndex - 1) / swimmerPairs.size.coerceAtLeast(1)) + 1
+                val legStroke = if (isSameStroke(s.strokeType, "Lagen")) {
+                    LAGEN_STAFFEL_STROKES.getOrElse((legNumber - 1).coerceIn(0, 3)) { "Freistil" }
+                } else {
+                    s.strokeType
+                }
+
+                // Verify that the preceding split (if legNumber > 1) was actually recorded
+                val startLapIdx = firstLapItem.lapIndex - 1
+                val startSplitMs = if (startLapIdx == 0) {
+                    0L
+                } else {
+                    seriesPairs.find { it.second.lapIndex == startLapIdx }?.second?.splitTimeMillis
+                }
+                val endSplitMs = swimmerPairs.last().second.splitTimeMillis
+
+                val validLegTime = if (startSplitMs != null && endSplitMs > startSplitMs) {
+                    endSplitMs - startSplitMs
+                } else {
+                    swimmerPairs.sumOf { it.second.lapTimeMillis }.takeIf { startLapIdx == 0 && it > 0L } ?: 0L
+                }
+
+                if (validLegTime > 0L) {
+                    val normalizedLaps = swimmerPairs.mapIndexed { idx, (_, item) ->
+                        val relSplit = if (startSplitMs != null) {
+                            (item.splitTimeMillis - startSplitMs).coerceAtLeast(0L)
+                        } else {
+                            item.splitTimeMillis
+                        }
+                        LapItem(
+                            lapIndex = idx + 1,
+                            splitTimeMillis = relSplit,
+                            lapTimeMillis = item.lapTimeMillis,
+                            strokeRateSpm = item.strokeRateSpm,
+                            seriesIndex = seriesIdx
+                        )
+                    }
+                    val teamTitle = swimmerPairs.first().first.swimmerName.substringBefore(" • ").trim()
+                    val label = buildString {
+                        if (teamTitle.isNotBlank()) append("$teamTitle • ")
+                        append("$legNumber. Teilstrecke (${legDist}m $legStroke)")
+                    }
+                    performances.add(
+                        SwimmerSessionPerformance(
+                            strokeType = legStroke,
+                            distanceMeters = legDist,
+                            bestTimeMillis = validLegTime,
+                            isRelayLeg = true,
+                            relayLegLabel = label,
+                            laps = normalizedLaps
+                        )
+                    )
+                }
+            }
+        }
+        return performances
+    }
+
+    fun evaluateSavedSessionForSwimmer(
+        baseSwimmer: SwimmerEntity,
+        sessionWithLaps: SessionWithLaps,
+        swimmerId: Long
+    ): SwimmerEntity {
+        val s = sessionWithLaps.session
+        val performances = extractSwimmerSessionPerformances(sessionWithLaps, swimmerId)
+        if (performances.isEmpty()) return baseSwimmer
+
+        var current = baseSwimmer
+        for (perf in performances) {
+            val splitDist = if (perf.isRelayLeg) {
+                (perf.distanceMeters / perf.laps.size.coerceAtLeast(1)).coerceAtLeast(25)
+            } else {
+                s.splitDistanceMeters
+            }
+            val syntheticLane = LaneState(
+                laneNumber = 1,
+                swimmerId = swimmerId,
+                swimmerName = current.name,
+                status = LaneStatus.FINISHED,
+                finishTimeMillis = perf.bestTimeMillis,
+                completedSeriesLaps = perf.laps,
+                targetDistanceMeters = perf.distanceMeters,
+                splitDistanceMeters = splitDist,
+                strokeType = perf.strokeType
+            )
+            current = evaluateSingleSwimmerLane(
+                swimmer = current,
+                lane = syntheticLane,
+                targetDistanceMeters = perf.distanceMeters,
+                splitDistanceMeters = splitDist,
+                strokeType = perf.strokeType
+            ).updatedSwimmer
+        }
+        return current
     }
 }

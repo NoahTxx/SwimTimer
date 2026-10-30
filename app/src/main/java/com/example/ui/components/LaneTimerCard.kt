@@ -1,6 +1,5 @@
 package com.example.ui.components
 
-import android.os.SystemClock
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -23,6 +22,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
@@ -56,19 +56,21 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.domain.RelayLegAssignment
 import com.example.ui.LaneState
 import com.example.ui.LaneStatus
 import com.example.ui.LapItem
+import com.example.ui.SeriesModeType
 import com.example.ui.theme.AquaPrimary
 import com.example.ui.theme.LaneColors
 import com.example.ui.theme.OceanBorder
 import com.example.ui.theme.OceanSurface
+import com.example.ui.theme.PaceGreen
 import com.example.ui.theme.PaceRed
 import com.example.ui.theme.TextWhite
+import com.example.util.AndroidMonotonicClock
+import com.example.util.MonotonicClock
 import com.example.util.TimeFormatter
-import java.util.Locale
-
-import com.example.ui.SeriesModeType
 
 @Composable
 fun LaneTimerCard(
@@ -85,7 +87,7 @@ fun LaneTimerCard(
     onStartSingleLaneClick: (() -> Unit)? = null,
     onPauseClick: (() -> Unit)? = null,
     onResumeClick: (() -> Unit)? = null,
-    onStrokeRateTap: (() -> Unit)? = null,
+    clock: MonotonicClock = AndroidMonotonicClock(),
 ) {
     var isExpanded by rememberSaveable { mutableStateOf(false) }
 
@@ -103,6 +105,15 @@ fun LaneTimerCard(
         }
     }
 
+    val isRelay = lane.relayMembers.isNotEmpty()
+    val splitsPerLeg = if (isRelay) {
+        val legDist = (lane.targetDistanceMeters / lane.relayMembers.size.coerceAtLeast(1)).coerceAtLeast(lane.splitDistanceMeters)
+        (legDist / lane.splitDistanceMeters).coerceAtLeast(1)
+    } else 1
+    val activeRelayLegIdx = if (isRelay) {
+        (lane.laps.size / splitsPerLeg).coerceIn(0, lane.relayMembers.lastIndex)
+    } else 0
+
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -117,6 +128,8 @@ fun LaneTimerCard(
             LaneHeader(
                 laneNumber = lane.laneNumber,
                 swimmerName = lane.swimmerName,
+                isRelay = isRelay,
+                relayFormatBadge = if (isRelay) "${lane.relayMembers.size}×${lane.splitDistanceMeters}m" else null,
                 seriesCount = lane.seriesCount,
                 maxSeriesCount = maxSeriesCount,
                 isSeriesEnabled = isSeriesEnabled,
@@ -138,8 +151,21 @@ fun LaneTimerCard(
                 finishRealtimeMillis = lane.finishRealtimeMillis,
                 isSeriesEnabled = isSeriesEnabled,
                 seriesMode = seriesMode,
-                sendOffDurationSec = sendOffDurationSec
+                sendOffDurationSec = sendOffDurationSec,
+                clock = clock
             )
+
+            if (isRelay) {
+                Spacer(modifier = Modifier.height(8.dp))
+                RelayLineupSection(
+                    relayMembers = lane.relayMembers,
+                    currentRunLaps = lane.laps,
+                    status = lane.status,
+                    splitsPerLeg = splitsPerLeg,
+                    activeLegIdx = activeRelayLegIdx,
+                    isLagenRelay = lane.strokeType.equals("Lagen", ignoreCase = true)
+                )
+            }
 
             LaneProgressAndLaps(
                 status = lane.status,
@@ -159,14 +185,15 @@ fun LaneTimerCard(
             LaneControls(
                 status = lane.status,
                 isSeriesEnabled = isSeriesEnabled,
+                isRelay = isRelay,
+                activeRelayLegNumber = activeRelayLegIdx + 1,
+                totalRelayLegs = lane.relayMembers.size,
                 onLapClick = onLapClick,
                 onFinishClick = onFinishClick,
                 onPauseClick = onPauseClick,
                 onResumeClick = onResumeClick,
                 onStartSingleLaneClick = onStartSingleLaneClick,
-                onStrokeRateTap = onStrokeRateTap,
-                currentSpm = lane.currentSpm,
-                isSpmMeasuring = lane.spmTapStartRealtime != null
+                clock = clock
             )
 
             LaneLapsHistory(
@@ -176,7 +203,9 @@ fun LaneTimerCard(
                 allLaps = lane.allLaps,
                 seriesCount = lane.seriesCount,
                 isSeriesEnabled = isSeriesEnabled,
-                splitDistanceMeters = lane.splitDistanceMeters
+                splitDistanceMeters = lane.splitDistanceMeters,
+                relayMembers = lane.relayMembers,
+                splitsPerLeg = splitsPerLeg
             )
         }
     }
@@ -186,6 +215,8 @@ fun LaneTimerCard(
 private fun LaneHeader(
     laneNumber: Int,
     swimmerName: String,
+    isRelay: Boolean = false,
+    relayFormatBadge: String? = null,
     seriesCount: Int,
     maxSeriesCount: Int? = null,
     isSeriesEnabled: Boolean = false,
@@ -228,20 +259,37 @@ private fun LaneHeader(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = Icons.Default.Person,
+                    imageVector = if (isRelay) Icons.Default.Groups else Icons.Default.Person,
                     contentDescription = "Schwimmer zuweisen",
-                    tint = TextWhite.copy(alpha = 0.7f),
+                    tint = if (isRelay) AquaPrimary else TextWhite.copy(alpha = 0.7f),
                     modifier = Modifier.size(18.dp)
                 )
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.width(5.dp))
                 Text(
                     text = swimmerName,
                     style = MaterialTheme.typography.titleMedium,
                     color = TextWhite,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                if (relayFormatBadge != null) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Surface(
+                        color = AquaPrimary.copy(alpha = 0.16f),
+                        shape = RoundedCornerShape(6.dp),
+                        border = BorderStroke(1.dp, AquaPrimary.copy(alpha = 0.5f))
+                    ) {
+                        Text(
+                            text = "$relayFormatBadge Staffel",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AquaPrimary,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            maxLines = 1
+                        )
+                    }
+                }
             }
 
             if (isSeriesEnabled) {
@@ -282,6 +330,144 @@ private fun LaneHeader(
 }
 
 @Composable
+private fun RelayLineupSection(
+    relayMembers: List<RelayLegAssignment>,
+    currentRunLaps: List<LapItem>,
+    status: LaneStatus,
+    splitsPerLeg: Int,
+    activeLegIdx: Int,
+    isLagenRelay: Boolean
+) {
+    val isRacing = status == LaneStatus.RUNNING || status == LaneStatus.PAUSED
+    val isFinished = status == LaneStatus.FINISHED || status == LaneStatus.REST_COUNTDOWN
+
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = Color(0xFF0D1B2A),
+        border = BorderStroke(1.dp, Color(0xFF1E344B)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            relayMembers.chunked(2).forEachIndexed { rowIdx, pair ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    pair.forEachIndexed { colIdx, member ->
+                        val memberIdx = rowIdx * 2 + colIdx
+                        val startLapIdx = memberIdx * splitsPerLeg
+                        val endLapIdx = startLapIdx + splitsPerLeg
+                        val startSplitMs = if (startLapIdx == 0) 0L else currentRunLaps.find { it.lapIndex == startLapIdx }?.splitTimeMillis
+                        val endSplitMs = currentRunLaps.find { it.lapIndex == endLapIdx }?.splitTimeMillis
+                        val completedLegTimeMs = if (startSplitMs != null && endSplitMs != null && endSplitMs > startSplitMs) {
+                            endSplitMs - startSplitMs
+                        } else null
+
+                        val isCompleted = completedLegTimeMs != null
+                        val isActiveNow = isRacing && !isCompleted && memberIdx == activeLegIdx
+
+                        val cellBg = when {
+                            isActiveNow -> AquaPrimary.copy(alpha = 0.18f)
+                            isCompleted -> Color(0xFF112638)
+                            else -> Color(0xFF0A141F)
+                        }
+                        val cellBorder = when {
+                            isActiveNow -> AquaPrimary
+                            isCompleted -> PaceGreen.copy(alpha = 0.5f)
+                            else -> Color(0xFF192B3E)
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = cellBg,
+                            border = BorderStroke(if (isActiveNow) 1.5.dp else 1.dp, cellBorder),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f).padding(end = 4.dp)) {
+                                    val posLabel = if (isLagenRelay) {
+                                        "${member.legPosition}. ${member.stroke.take(7)}"
+                                    } else if (member.legPosition == 4 && relayMembers.size == 4) {
+                                        "4. ★ Schluss"
+                                    } else {
+                                        "${member.legPosition}. Starter"
+                                    }
+                                    Text(
+                                        text = posLabel,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = when {
+                                            isActiveNow -> AquaPrimary
+                                            isCompleted -> PaceGreen
+                                            else -> Color.Gray
+                                        },
+                                        maxLines = 1
+                                    )
+                                    Text(
+                                        text = member.swimmerName,
+                                        fontSize = 13.sp,
+                                        fontWeight = if (isActiveNow) FontWeight.Black else FontWeight.SemiBold,
+                                        color = TextWhite,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+
+                                when {
+                                    completedLegTimeMs != null -> {
+                                        Text(
+                                            text = TimeFormatter.formatMillis(completedLegTimeMs, shortFormat = true),
+                                            fontFamily = FontFamily.Monospace,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = PaceGreen,
+                                            maxLines = 1
+                                        )
+                                    }
+                                    isActiveNow -> {
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = AquaPrimary
+                                        ) {
+                                            Text(
+                                                text = "AKTIV",
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Black,
+                                                color = Color.Black,
+                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                            )
+                                        }
+                                    }
+                                    member.timeMillis != null && !isFinished -> {
+                                        Text(
+                                            text = TimeFormatter.formatMillis(member.timeMillis, shortFormat = true),
+                                            fontFamily = FontFamily.Monospace,
+                                            fontSize = 10.sp,
+                                            color = Color.Gray,
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (pair.size == 1) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun DigitalTimerDisplay(
     status: LaneStatus,
     countdownRemainingSeconds: Int,
@@ -292,7 +478,8 @@ private fun DigitalTimerDisplay(
     finishRealtimeMillis: Long? = null,
     isSeriesEnabled: Boolean = false,
     seriesMode: SeriesModeType = SeriesModeType.MANUAL,
-    sendOffDurationSec: Int = 0
+    sendOffDurationSec: Int = 0,
+    clock: MonotonicClock = AndroidMonotonicClock()
 ) {
     var displayMillis by remember { mutableLongStateOf(0L) }
     var restElapsedMillis by remember { mutableLongStateOf(0L) }
@@ -306,7 +493,7 @@ private fun DigitalTimerDisplay(
         if (status == LaneStatus.RUNNING && laneStartTimeRealtime != null) {
             while (true) {
                 withFrameMillis {
-                    val elapsed = (SystemClock.elapsedRealtime() - laneStartTimeRealtime).coerceAtLeast(0L)
+                    val elapsed = (clock.nowMillis() - laneStartTimeRealtime).coerceAtLeast(0L)
                     if (isSendOffMode) {
                         if (elapsed <= sendOffMs) {
                             displayMillis = sendOffMs - elapsed
@@ -330,7 +517,7 @@ private fun DigitalTimerDisplay(
             overrunMillis = 0L
             while (true) {
                 withFrameMillis {
-                    restElapsedMillis = (SystemClock.elapsedRealtime() - finishRealtimeMillis).coerceAtLeast(0L)
+                    restElapsedMillis = (clock.nowMillis() - finishRealtimeMillis).coerceAtLeast(0L)
                 }
             }
         } else if (status == LaneStatus.REST_COUNTDOWN && restTargetRealtime != null) {
@@ -339,7 +526,7 @@ private fun DigitalTimerDisplay(
             overrunMillis = 0L
             while (true) {
                 withFrameMillis {
-                    restElapsedMillis = (restTargetRealtime - SystemClock.elapsedRealtime()).coerceAtLeast(0L)
+                    restElapsedMillis = (restTargetRealtime - clock.nowMillis()).coerceAtLeast(0L)
                 }
             }
         } else {
@@ -550,7 +737,7 @@ private fun LaneProgressAndLaps(
                 modifier = Modifier.clickable { onExpandClick() }
             ) {
                 Text(
-                    text = if (isSeriesEnabled && seriesCount > 1) "${allLaps.size} Laps ($seriesCount S.)" else "${allLaps.size} Laps",
+                    text = if (isSeriesEnabled && seriesCount > 1) "${allLaps.size} Splits ($seriesCount S.)" else "${allLaps.size} Splits",
                     fontSize = 12.sp,
                     color = TextWhite.copy(alpha = 0.7f),
                     maxLines = 1
@@ -569,19 +756,20 @@ private fun LaneProgressAndLaps(
 private fun LaneControls(
     status: LaneStatus,
     isSeriesEnabled: Boolean = false,
+    isRelay: Boolean = false,
+    activeRelayLegNumber: Int = 1,
+    totalRelayLegs: Int = 4,
     onLapClick: (Long) -> Unit,
     onFinishClick: (Long) -> Unit,
     onPauseClick: (() -> Unit)?,
     onResumeClick: (() -> Unit)?,
     onStartSingleLaneClick: (() -> Unit)?,
-    onStrokeRateTap: (() -> Unit)?,
-    currentSpm: Double?,
-    isSpmMeasuring: Boolean = false
+    clock: MonotonicClock = AndroidMonotonicClock()
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         when (status) {
             LaneStatus.IDLE -> {
@@ -590,15 +778,16 @@ private fun LaneControls(
                         onClick = onStartSingleLaneClick,
                         modifier = Modifier
                             .weight(1f)
-                            .height(52.dp),
+                            .height(58.dp),
+                        shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.filledTonalButtonColors(containerColor = AquaPrimary, contentColor = Color.Black),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                     ) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(22.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "Einzelstart",
-                            fontSize = 15.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
                             softWrap = false
@@ -607,19 +796,26 @@ private fun LaneControls(
                 }
             }
             LaneStatus.RUNNING -> {
+                val splitButtonLabel = if (isRelay && activeRelayLegNumber < totalRelayLegs) {
+                    "Wechsel (${activeRelayLegNumber}→${activeRelayLegNumber + 1})"
+                } else {
+                    "Split"
+                }
+
                 FilledTonalButton(
-                    onClick = { onLapClick(SystemClock.elapsedRealtime()) },
+                    onClick = { onLapClick(clock.nowMillis()) },
                     modifier = Modifier
-                        .weight(1.5f)
-                        .height(52.dp),
+                        .weight(1.4f)
+                        .height(58.dp),
+                    shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.filledTonalButtonColors(containerColor = AquaPrimary, contentColor = Color.Black),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                 ) {
-                    Icon(Icons.Default.Timer, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.Timer, contentDescription = null, modifier = Modifier.size(22.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Split",
-                        fontSize = 15.sp,
+                        text = splitButtonLabel,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         softWrap = false
@@ -627,46 +823,23 @@ private fun LaneControls(
                 }
 
                 FilledTonalButton(
-                    onClick = { onFinishClick(SystemClock.elapsedRealtime()) },
+                    onClick = { onFinishClick(clock.nowMillis()) },
                     modifier = Modifier
-                        .weight(1.2f)
-                        .height(52.dp),
+                        .weight(1.1f)
+                        .height(58.dp),
+                    shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.filledTonalButtonColors(containerColor = Color(0xFFEF5350), contentColor = Color.White),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                 ) {
-                    Icon(Icons.Default.Flag, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.Flag, contentDescription = null, modifier = Modifier.size(22.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = "Ziel",
-                        fontSize = 15.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         softWrap = false
                     )
-                }
-
-                if (onStrokeRateTap != null) {
-                    FilledTonalButton(
-                        onClick = onStrokeRateTap,
-                        modifier = Modifier.height(52.dp),
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = if (isSpmMeasuring) Color(0xFFFFD600) else OceanBorder,
-                            contentColor = if (isSpmMeasuring) Color.Black else AquaPrimary
-                        ),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = when {
-                                isSpmMeasuring -> "3-Zyk."
-                                currentSpm != null -> String.format(Locale.US, "%.0f SPM", currentSpm)
-                                else -> "SPM"
-                            },
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                    }
                 }
 
                 if (onPauseClick != null) {
@@ -674,9 +847,9 @@ private fun LaneControls(
                         onClick = onPauseClick,
                         modifier = Modifier
                             .background(OceanBorder, CircleShape)
-                            .size(52.dp)
+                            .size(58.dp)
                     ) {
-                        Icon(Icons.Default.Pause, contentDescription = "Pause", tint = TextWhite, modifier = Modifier.size(24.dp))
+                        Icon(Icons.Default.Pause, contentDescription = "Pause", tint = TextWhite, modifier = Modifier.size(26.dp))
                     }
                 }
             }
@@ -685,16 +858,17 @@ private fun LaneControls(
                     FilledTonalButton(
                         onClick = onResumeClick,
                         modifier = Modifier
-                            .weight(1.5f)
-                            .height(52.dp),
+                            .weight(1.4f)
+                            .height(58.dp),
+                        shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.filledTonalButtonColors(containerColor = Color(0xFFFFA726), contentColor = Color.Black),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                     ) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(22.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "Weiter",
-                            fontSize = 15.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
                             softWrap = false
@@ -703,18 +877,19 @@ private fun LaneControls(
                 }
 
                 FilledTonalButton(
-                    onClick = { onFinishClick(SystemClock.elapsedRealtime()) },
+                    onClick = { onFinishClick(clock.nowMillis()) },
                     modifier = Modifier
-                        .weight(1.2f)
-                        .height(52.dp),
+                        .weight(1.1f)
+                        .height(58.dp),
+                    shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.filledTonalButtonColors(containerColor = Color(0xFFEF5350), contentColor = Color.White),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                 ) {
-                    Icon(Icons.Default.Flag, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.Flag, contentDescription = null, modifier = Modifier.size(22.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = "Ziel",
-                        fontSize = 15.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         softWrap = false
@@ -725,7 +900,7 @@ private fun LaneControls(
                 Text(
                     text = "Startet in Kürze...",
                     color = Color(0xFFFFD600),
-                    fontSize = 13.sp,
+                    fontSize = 14.sp,
                     modifier = Modifier.weight(1f),
                     textAlign = TextAlign.Center,
                     maxLines = 1,
@@ -738,13 +913,14 @@ private fun LaneControls(
                         onClick = onStartSingleLaneClick,
                         modifier = Modifier
                             .weight(1f)
-                            .height(52.dp),
+                            .height(58.dp),
+                        shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.filledTonalButtonColors(containerColor = OceanBorder, contentColor = TextWhite),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                     ) {
                         Text(
                             text = "Neustart",
-                            fontSize = 15.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
                             softWrap = false
@@ -754,7 +930,8 @@ private fun LaneControls(
                     Text(
                         text = "Ziel erreicht",
                         color = AquaPrimary,
-                        fontSize = 13.sp,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.weight(1f),
                         textAlign = TextAlign.Center,
                         maxLines = 1,
@@ -774,7 +951,9 @@ private fun LaneLapsHistory(
     allLaps: List<LapItem>,
     seriesCount: Int,
     isSeriesEnabled: Boolean = false,
-    splitDistanceMeters: Int
+    splitDistanceMeters: Int,
+    relayMembers: List<RelayLegAssignment> = emptyList(),
+    splitsPerLeg: Int = 1
 ) {
     val totalSplitsNeeded = (targetDistanceMeters / splitDistanceMeters).coerceAtLeast(1)
 
@@ -796,6 +975,10 @@ private fun LaneLapsHistory(
                 } else {
                     (lap.lapIndex * splitDistanceMeters).coerceAtMost(targetDistanceMeters)
                 }
+                val relayMember = if (relayMembers.isNotEmpty()) {
+                    val idx = ((lap.lapIndex - 1).coerceAtLeast(0) / splitsPerLeg).coerceIn(0, relayMembers.lastIndex)
+                    relayMembers[idx]
+                } else null
 
                 Row(
                     modifier = Modifier
@@ -823,48 +1006,40 @@ private fun LaneLapsHistory(
                                 )
                             }
                         }
+                        val lapTitle = if (relayMember != null) {
+                            "${relayMember.legPosition}. ${relayMember.swimmerName} (${relayMember.stroke} • ${lapCumDist}m)"
+                        } else {
+                            "Lap ${lap.lapIndex} (${lapCumDist}m)"
+                        }
                         Text(
-                            text = "Lap ${lap.lapIndex} (${lapCumDist}m)",
+                            text = lapTitle,
                             fontSize = 12.sp,
-                            color = TextWhite.copy(alpha = 0.7f),
+                            color = TextWhite.copy(alpha = 0.85f),
+                            fontWeight = if (relayMember != null) FontWeight.SemiBold else FontWeight.Normal,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    Column(
+                        horizontalAlignment = Alignment.End
                     ) {
-                        if (lap.strokeRateSpm != null && lap.strokeRateSpm > 0) {
-                            Text(
-                                text = String.format(Locale.US, "%.0f SPM", lap.strokeRateSpm),
-                                fontSize = 11.sp,
-                                color = AquaPrimary,
-                                maxLines = 1
-                            )
-                        }
-
-                        Column(
-                            horizontalAlignment = Alignment.End
-                        ) {
-                            Text(
-                                text = "Runde: ${TimeFormatter.formatMillis(lap.lapTimeMillis)}",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextWhite,
-                                fontFamily = FontFamily.Monospace,
-                                maxLines = 1
-                            )
-                            Text(
-                                text = "Gesamt: ${TimeFormatter.formatMillis(lap.splitTimeMillis)}",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = AquaPrimary,
-                                fontFamily = FontFamily.Monospace,
-                                maxLines = 1
-                            )
-                        }
+                        Text(
+                            text = "Runde: ${TimeFormatter.formatMillis(lap.lapTimeMillis)}",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextWhite,
+                            fontFamily = FontFamily.Monospace,
+                            maxLines = 1
+                        )
+                        Text(
+                            text = "Gesamt: ${TimeFormatter.formatMillis(lap.splitTimeMillis)}",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = AquaPrimary,
+                            fontFamily = FontFamily.Monospace,
+                            maxLines = 1
+                        )
                     }
                 }
             }
@@ -881,7 +1056,7 @@ fun LaneTimerCardPreview() {
                 laneNumber = 1,
                 status = LaneStatus.RUNNING,
                 swimmerName = "Max Mustermann",
-                laneStartTimeRealtime = SystemClock.elapsedRealtime() - 32540,
+                laneStartTimeRealtime = 1000L,
                 currentElapsedMillis = 32540L,
                 laps = listOf(
                     LapItem(lapIndex = 1, splitTimeMillis = 15200, lapTimeMillis = 15200),
@@ -894,4 +1069,3 @@ fun LaneTimerCardPreview() {
         )
     }
 }
-
