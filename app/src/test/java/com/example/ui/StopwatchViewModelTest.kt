@@ -437,4 +437,115 @@ class StopwatchViewModelTest {
 
         viewModel.onResetAll()
     }
+
+    @Test
+    fun `applyRelayTeamsToStopwatch automatically disables previously active seriesConfig and sets StartMode MASS`() = runTest(testDispatcher) {
+        // First enable Series mode and Interval mode from a previous workout
+        viewModel.setSeriesConfig(
+            SeriesConfig(isEnabled = true, mode = SeriesModeType.SEND_OFF, sendOffDurationSeconds = 90, maxSeriesCount = 8)
+        )
+        viewModel.setStartMode(StartMode.INTERVAL)
+        assertEquals(true, viewModel.uiState.value.seriesConfig.isEnabled)
+        assertEquals(StartMode.INTERVAL, viewModel.uiState.value.startMode)
+
+        val teams = listOf(
+            com.example.domain.RelayTeamPlan(
+                teamIndex = 0,
+                teamTitle = "1. Staffel",
+                legs = listOf(
+                    com.example.domain.RelayLegAssignment(1, 1L, "Lukas", "Rücken", 50, 30_000L, false, "PB"),
+                    com.example.domain.RelayLegAssignment(2, 2L, "Sophie", "Brust", 50, 35_000L, false, "PB"),
+                    com.example.domain.RelayLegAssignment(3, 3L, "Leon", "Schmetterling", 50, 29_000L, false, "PB"),
+                    com.example.domain.RelayLegAssignment(4, 4L, "Emma", "Freistil", 50, 27_000L, false, "PB")
+                ),
+                totalTimeMillis = 121_000L,
+                averageLegMillis = 30_250L,
+                deltaToFastestMillis = 0L,
+                hasEstimatedTimes = false
+            )
+        )
+
+        viewModel.applyRelayTeamsToStopwatch(
+            teams = teams,
+            strokeType = "Lagen",
+            legDistanceMeters = 50
+        )
+
+        val state = viewModel.uiState.value
+        assertEquals(false, state.seriesConfig.isEnabled)
+        assertEquals(StartMode.MASS, state.startMode)
+        assertEquals(200, state.targetDistanceMeters)
+        assertEquals(50, state.splitDistanceMeters)
+        assertEquals(50, state.poolLengthMeters)
+    }
+
+    @Test
+    fun `manual relay mode in configureStopwatchSettings and assignRelayTeamToLane saves individual swimmer times`() = runTest(testDispatcher) {
+        fakeRepository.insertSwimmer(SwimmerEntity(id = 10L, name = "Max"))
+        fakeRepository.insertSwimmer(SwimmerEntity(id = 11L, name = "Ben"))
+        fakeRepository.insertSwimmer(SwimmerEntity(id = 12L, name = "Clara"))
+        fakeRepository.insertSwimmer(SwimmerEntity(id = 13L, name = "Nina"))
+        testScheduler.advanceTimeBy(100)
+
+        // Enable Series and Interval first to verify manual relay mode turns them off
+        viewModel.setSeriesConfig(
+            SeriesConfig(isEnabled = true, mode = SeriesModeType.FIXED_REST, restDurationSeconds = 30)
+        )
+        viewModel.setStartMode(StartMode.INTERVAL)
+
+        // Manually switch to Relay Mode (4x50m Lagen) in settings
+        viewModel.configureStopwatchSettings(
+            mode = StartMode.INTERVAL,
+            intervalSec = 5,
+            poolLength = 50,
+            distance = 200,
+            splitDistance = 50,
+            stroke = "Lagen",
+            seriesConfig = SeriesConfig(isEnabled = true, mode = SeriesModeType.FIXED_REST, restDurationSeconds = 30),
+            isRelayMode = true
+        )
+
+        val stateAfterConfig = viewModel.uiState.value
+        assertEquals(false, stateAfterConfig.seriesConfig.isEnabled)
+        assertEquals(StartMode.MASS, stateAfterConfig.startMode)
+        assertEquals(4, stateAfterConfig.lanes[0].relayMembers.size)
+        assertEquals("Rücken", stateAfterConfig.lanes[0].relayMembers[0].stroke)
+        assertEquals("Brust", stateAfterConfig.lanes[0].relayMembers[1].stroke)
+        assertEquals("Schmetterling", stateAfterConfig.lanes[0].relayMembers[2].stroke)
+        assertEquals("Freistil", stateAfterConfig.lanes[0].relayMembers[3].stroke)
+
+        // Manually assign the 4 starters to Lane 1
+        viewModel.assignRelayTeamToLane(
+            laneNumber = 1,
+            teamName = "Vereinsstaffel 1",
+            members = listOf(
+                com.example.domain.RelayLegAssignment(legPosition = 1, swimmerId = 10L, swimmerName = "Max", stroke = "Rücken", distanceMeters = 50, timeMillis = null),
+                com.example.domain.RelayLegAssignment(legPosition = 2, swimmerId = 11L, swimmerName = "Ben", stroke = "Brust", distanceMeters = 50, timeMillis = null),
+                com.example.domain.RelayLegAssignment(legPosition = 3, swimmerId = 12L, swimmerName = "Clara", stroke = "Schmetterling", distanceMeters = 50, timeMillis = null),
+                com.example.domain.RelayLegAssignment(legPosition = 4, swimmerId = 13L, swimmerName = "Nina", stroke = "Freistil", distanceMeters = 50, timeMillis = null)
+            )
+        )
+
+        // Swim the 4x50m Lagen relay
+        viewModel.onStartSingleLane(laneNumber = 1)
+        fakeClock.currentMillis = 131_000L
+        viewModel.onLapLane(laneNumber = 1, exactRealtime = 131_000L) // Max (Rücken): 31.0s
+        fakeClock.currentMillis = 167_000L
+        viewModel.onLapLane(laneNumber = 1, exactRealtime = 167_000L) // Ben (Brust): 36.0s
+        fakeClock.currentMillis = 197_000L
+        viewModel.onLapLane(laneNumber = 1, exactRealtime = 197_000L) // Clara (Schmetterling): 30.0s
+        fakeClock.currentMillis = 224_500L
+        viewModel.onLapLane(laneNumber = 1, exactRealtime = 224_500L) // Nina (Freistil): 27.5s
+
+        viewModel.saveCurrentSession()
+        testScheduler.advanceTimeBy(200)
+
+        // Verify stroke-specific 50m PBs were saved for each individual swimmer
+        assertEquals(31_000L, fakeRepository.getSwimmerById(10L)?.parseCustomPbsMap()?.get("Rücken" to 50))
+        assertEquals(36_000L, fakeRepository.getSwimmerById(11L)?.parseCustomPbsMap()?.get("Brust" to 50))
+        assertEquals(30_000L, fakeRepository.getSwimmerById(12L)?.parseCustomPbsMap()?.get("Schmetterling" to 50))
+        assertEquals(27_500L, fakeRepository.getSwimmerById(13L)?.pb50mMillis)
+
+        viewModel.onResetAll()
+    }
 }

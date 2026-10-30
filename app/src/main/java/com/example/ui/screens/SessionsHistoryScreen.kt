@@ -448,27 +448,27 @@ private fun SessionHistoryCard(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
+                                Column(
                                     modifier = Modifier.weight(1.8f).padding(end = 4.dp)
                                 ) {
-                                    Text(
-                                        text = if (hasMultipleSeries) "S${lapItem.seriesIndex} L${lapItem.lapIndex}" else "L${lapItem.lapIndex}",
-                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                                        color = AquaPrimary,
-                                        maxLines = 1
-                                    )
-                                    if (lapLagenStroke != null) {
-                                        Spacer(modifier = Modifier.width(3.dp))
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(
-                                            text = lapLagenStroke,
-                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold),
-                                            color = Color(0xFFFFD600),
+                                            text = if (hasMultipleSeries) "S${lapItem.seriesIndex} L${lapItem.lapIndex}" else "L${lapItem.lapIndex}",
+                                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                            color = AquaPrimary,
                                             maxLines = 1
                                         )
+                                        if (lapLagenStroke != null) {
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = lapLagenStroke,
+                                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold),
+                                                color = Color(0xFFFFD600),
+                                                maxLines = 1
+                                            )
+                                        }
                                     }
                                     if (!relayStarterName.isNullOrBlank()) {
-                                        Spacer(modifier = Modifier.width(4.dp))
                                         Text(
                                             text = relayStarterName,
                                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold),

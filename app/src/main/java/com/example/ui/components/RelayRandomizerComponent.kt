@@ -309,48 +309,57 @@ fun RelayRandomizerComponent(
                     modifier = Modifier.padding(bottom = 6.dp)
                 )
 
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    items(RelayOptimizationMode.entries, key = { it.name }) { mode ->
-                        val isSelected = selectedMode == mode
-                        val icon = when (mode) {
-                            RelayOptimizationMode.MEDLEY_OPTIMAL -> Icons.Default.AutoAwesome
-                            RelayOptimizationMode.FASTEST_SINGLE -> Icons.Default.EmojiEvents
-                            RelayOptimizationMode.BALANCED -> Icons.Default.Balance
-                            RelayOptimizationMode.RANDOM -> Icons.Default.Shuffle
+                val modePairs = remember { RelayOptimizationMode.entries.chunked(2) }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    modePairs.forEach { rowModes ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            rowModes.forEach { mode ->
+                                val isSelected = selectedMode == mode
+                                val icon = when (mode) {
+                                    RelayOptimizationMode.MEDLEY_OPTIMAL -> Icons.Default.AutoAwesome
+                                    RelayOptimizationMode.FASTEST_SINGLE -> Icons.Default.EmojiEvents
+                                    RelayOptimizationMode.BALANCED -> Icons.Default.Balance
+                                    RelayOptimizationMode.RANDOM -> Icons.Default.Shuffle
+                                }
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = {
+                                        selectedMode = mode
+                                        statusHintMessage = null
+                                    },
+                                    label = {
+                                        Text(
+                                            text = mode.shortLabel,
+                                            fontSize = 11.5.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = icon,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = AquaPrimary,
+                                        selectedLabelColor = Color.Black,
+                                        selectedLeadingIconColor = Color.Black,
+                                        containerColor = OceanSurface,
+                                        labelColor = Color.LightGray,
+                                        iconColor = AquaPrimary
+                                    ),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("relay_mode_${mode.name.lowercase()}")
+                                )
+                            }
                         }
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = {
-                                selectedMode = mode
-                                statusHintMessage = null
-                            },
-                            label = {
-                                Text(
-                                    text = mode.shortLabel,
-                                    fontSize = 12.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold
-                                )
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = icon,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(15.dp)
-                                )
-                            },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = AquaPrimary,
-                                selectedLabelColor = Color.Black,
-                                selectedLeadingIconColor = Color.Black,
-                                containerColor = OceanSurface,
-                                labelColor = Color.LightGray,
-                                iconColor = AquaPrimary
-                            ),
-                            modifier = Modifier.testTag("relay_mode_${mode.name.lowercase()}")
-                        )
                     }
                 }
             }
@@ -409,8 +418,11 @@ fun RelayRandomizerComponent(
                         )
                     } else {
                         Spacer(modifier = Modifier.height(8.dp))
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            items(RelayOptimizer.SINGLE_STROKES, key = { it }) { stroke ->
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            RelayOptimizer.SINGLE_STROKES.forEach { stroke ->
                                 val isSelected = selectedStroke == stroke
                                 FilterChip(
                                     selected = isSelected,
@@ -627,7 +639,7 @@ fun RelayRandomizerComponent(
 
                 val actionButtonLabel = when (selectedMode) {
                     RelayOptimizationMode.MEDLEY_OPTIMAL -> "OPTIMALE 4× LAGEN-STAFFEL BERECHNEN"
-                    RelayOptimizationMode.FASTEST_SINGLE -> "TOP 4× ${selectedStroke.uppercase()}-STAFFEL BERECHNEN"
+                    RelayOptimizationMode.FASTEST_SINGLE -> "4× ${selectedStroke.uppercase()}-STAFFEL BERECHNEN"
                     RelayOptimizationMode.BALANCED -> "FAIRE TEAMS NACH PB BERECHNEN"
                     RelayOptimizationMode.RANDOM -> "TEAMS ZUFÄLLIG AUSLOSEN"
                 }
@@ -650,10 +662,16 @@ fun RelayRandomizerComponent(
                         },
                         contentDescription = null,
                         tint = Color.Black,
-                        modifier = Modifier.size(19.dp)
+                        modifier = Modifier.size(18.dp)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(actionButtonLabel, fontWeight = FontWeight.Black, fontSize = 13.5.sp, maxLines = 1)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = actionButtonLabel,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 12.5.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
 
                 statusHintMessage?.let { hint ->
@@ -863,7 +881,8 @@ private fun RelayLegRow(
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                 color = TextWhite,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
             )
 
             if (isAnchor) {

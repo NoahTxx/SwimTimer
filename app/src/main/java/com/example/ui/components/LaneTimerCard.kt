@@ -79,6 +79,7 @@ fun LaneTimerCard(
     onFinishClick: (Long) -> Unit,
     onAssignSwimmerClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onAssignRelayLegClick: ((legPosition: Int) -> Unit)? = null,
     isSeriesEnabled: Boolean = false,
     maxSeriesCount: Int? = null,
     seriesMode: SeriesModeType = SeriesModeType.MANUAL,
@@ -163,7 +164,10 @@ fun LaneTimerCard(
                     status = lane.status,
                     splitsPerLeg = splitsPerLeg,
                     activeLegIdx = activeRelayLegIdx,
-                    isLagenRelay = lane.strokeType.equals("Lagen", ignoreCase = true)
+                    isLagenRelay = lane.strokeType.equals("Lagen", ignoreCase = true),
+                    onLegClick = if (lane.status == LaneStatus.IDLE) {
+                        { legPos -> onAssignRelayLegClick?.invoke(legPos) ?: onAssignSwimmerClick() }
+                    } else null
                 )
             }
 
@@ -271,7 +275,8 @@ private fun LaneHeader(
                     color = TextWhite,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
                 if (relayFormatBadge != null) {
                     Spacer(modifier = Modifier.width(6.dp))
@@ -281,12 +286,13 @@ private fun LaneHeader(
                         border = BorderStroke(1.dp, AquaPrimary.copy(alpha = 0.5f))
                     ) {
                         Text(
-                            text = "$relayFormatBadge Staffel",
+                            text = relayFormatBadge,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             color = AquaPrimary,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                            maxLines = 1
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
                 }
@@ -336,7 +342,8 @@ private fun RelayLineupSection(
     status: LaneStatus,
     splitsPerLeg: Int,
     activeLegIdx: Int,
-    isLagenRelay: Boolean
+    isLagenRelay: Boolean,
+    onLegClick: ((legPosition: Int) -> Unit)? = null
 ) {
     val isRacing = status == LaneStatus.RUNNING || status == LaneStatus.PAUSED
     val isFinished = status == LaneStatus.FINISHED || status == LaneStatus.REST_COUNTDOWN
@@ -349,7 +356,7 @@ private fun RelayLineupSection(
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             relayMembers.chunked(2).forEachIndexed { rowIdx, pair ->
                 Row(
@@ -368,6 +375,7 @@ private fun RelayLineupSection(
 
                         val isCompleted = completedLegTimeMs != null
                         val isActiveNow = isRacing && !isCompleted && memberIdx == activeLegIdx
+                        val isPlaceholder = member.swimmerId == null && member.swimmerName.startsWith("Starter")
 
                         val cellBg = when {
                             isActiveNow -> AquaPrimary.copy(alpha = 0.18f)
@@ -380,25 +388,42 @@ private fun RelayLineupSection(
                             else -> Color(0xFF192B3E)
                         }
 
+                        val shortStroke = when {
+                            member.stroke.equals("Schmetterling", ignoreCase = true) -> "Schmett."
+                            else -> member.stroke
+                        }
+                        val posLabel = if (isLagenRelay) {
+                            "${member.legPosition}. $shortStroke"
+                        } else if (member.legPosition == 4 && relayMembers.size == 4) {
+                            "4. ★ Schluss"
+                        } else {
+                            "${member.legPosition}. Starter"
+                        }
+
                         Surface(
                             shape = RoundedCornerShape(8.dp),
                             color = cellBg,
                             border = BorderStroke(if (isActiveNow) 1.5.dp else 1.dp, cellBorder),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Column(modifier = Modifier.weight(1f).padding(end = 4.dp)) {
-                                    val posLabel = if (isLagenRelay) {
-                                        "${member.legPosition}. ${member.stroke.take(7)}"
-                                    } else if (member.legPosition == 4 && relayMembers.size == 4) {
-                                        "4. ★ Schluss"
+                            modifier = Modifier
+                                .weight(1f)
+                                .then(
+                                    if (onLegClick != null) {
+                                        Modifier.clickable { onLegClick(member.legPosition) }
                                     } else {
-                                        "${member.legPosition}. Starter"
+                                        Modifier
                                     }
+                                )
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp, vertical = 6.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
                                     Text(
                                         text = posLabel,
                                         fontSize = 10.sp,
@@ -408,53 +433,62 @@ private fun RelayLineupSection(
                                             isCompleted -> PaceGreen
                                             else -> Color.Gray
                                         },
-                                        maxLines = 1
-                                    )
-                                    Text(
-                                        text = member.swimmerName,
-                                        fontSize = 13.sp,
-                                        fontWeight = if (isActiveNow) FontWeight.Black else FontWeight.SemiBold,
-                                        color = TextWhite,
                                         maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f, fill = false)
                                     )
-                                }
 
-                                when {
-                                    completedLegTimeMs != null -> {
-                                        Text(
-                                            text = TimeFormatter.formatMillis(completedLegTimeMs, shortFormat = true),
-                                            fontFamily = FontFamily.Monospace,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = PaceGreen,
-                                            maxLines = 1
-                                        )
-                                    }
-                                    isActiveNow -> {
-                                        Surface(
-                                            shape = RoundedCornerShape(4.dp),
-                                            color = AquaPrimary
-                                        ) {
+                                    when {
+                                        completedLegTimeMs != null -> {
                                             Text(
-                                                text = "AKTIV",
-                                                fontSize = 9.sp,
-                                                fontWeight = FontWeight.Black,
-                                                color = Color.Black,
-                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                text = "✓ ${TimeFormatter.formatMillis(completedLegTimeMs, shortFormat = true)}",
+                                                fontFamily = FontFamily.Monospace,
+                                                fontSize = 10.5.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = PaceGreen,
+                                                maxLines = 1,
+                                                softWrap = false
+                                            )
+                                        }
+                                        isActiveNow -> {
+                                            Surface(
+                                                shape = RoundedCornerShape(4.dp),
+                                                color = AquaPrimary
+                                            ) {
+                                                Text(
+                                                    text = "AKTIV",
+                                                    fontSize = 9.sp,
+                                                    fontWeight = FontWeight.Black,
+                                                    color = Color.Black,
+                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                                                    maxLines = 1
+                                                )
+                                            }
+                                        }
+                                        member.timeMillis != null && !isFinished -> {
+                                            Text(
+                                                text = TimeFormatter.formatMillis(member.timeMillis, shortFormat = true),
+                                                fontFamily = FontFamily.Monospace,
+                                                fontSize = 10.sp,
+                                                color = AquaPrimary.copy(alpha = 0.8f),
+                                                maxLines = 1,
+                                                softWrap = false
                                             )
                                         }
                                     }
-                                    member.timeMillis != null && !isFinished -> {
-                                        Text(
-                                            text = TimeFormatter.formatMillis(member.timeMillis, shortFormat = true),
-                                            fontFamily = FontFamily.Monospace,
-                                            fontSize = 10.sp,
-                                            color = Color.Gray,
-                                            maxLines = 1
-                                        )
-                                    }
                                 }
+
+                                Spacer(modifier = Modifier.height(2.dp))
+
+                                Text(
+                                    text = if (isPlaceholder && onLegClick != null) "Schwimmer wählen…" else member.swimmerName,
+                                    fontSize = 13.sp,
+                                    fontWeight = if (isActiveNow) FontWeight.Black else if (isPlaceholder) FontWeight.Normal else FontWeight.SemiBold,
+                                    color = if (isPlaceholder) AquaPrimary.copy(alpha = 0.75f) else TextWhite,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
                             }
                         }
                     }
@@ -1006,19 +1040,33 @@ private fun LaneLapsHistory(
                                 )
                             }
                         }
-                        val lapTitle = if (relayMember != null) {
-                            "${relayMember.legPosition}. ${relayMember.swimmerName} (${relayMember.stroke} • ${lapCumDist}m)"
+                        if (relayMember != null) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                Text(
+                                    text = "${relayMember.legPosition}. ${relayMember.swimmerName}",
+                                    fontSize = 12.5.sp,
+                                    color = TextWhite,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "${relayMember.stroke} • ${lapCumDist}m",
+                                    fontSize = 10.5.sp,
+                                    color = AquaPrimary.copy(alpha = 0.85f),
+                                    maxLines = 1
+                                )
+                            }
                         } else {
-                            "Lap ${lap.lapIndex} (${lapCumDist}m)"
+                            Text(
+                                text = "Lap ${lap.lapIndex} (${lapCumDist}m)",
+                                fontSize = 12.sp,
+                                color = TextWhite.copy(alpha = 0.85f),
+                                fontWeight = FontWeight.Normal,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
-                        Text(
-                            text = lapTitle,
-                            fontSize = 12.sp,
-                            color = TextWhite.copy(alpha = 0.85f),
-                            fontWeight = if (relayMember != null) FontWeight.SemiBold else FontWeight.Normal,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
                     }
 
                     Column(

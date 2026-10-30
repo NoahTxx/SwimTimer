@@ -77,6 +77,16 @@ fun IntervalConfigDialog(
     currentSeriesConfig: SeriesConfig = SeriesConfig(),
     isRelayActive: Boolean = false,
     onDismiss: () -> Unit,
+    onSaveWithRelay: ((
+        mode: StartMode,
+        intervalSec: Int,
+        poolLength: Int,
+        distance: Int,
+        splitDistance: Int,
+        stroke: String,
+        seriesConfig: SeriesConfig,
+        isRelayMode: Boolean,
+    ) -> Unit)? = null,
     onSave: (
         mode: StartMode,
         intervalSec: Int,
@@ -85,11 +95,12 @@ fun IntervalConfigDialog(
         splitDistance: Int,
         stroke: String,
         seriesConfig: SeriesConfig,
-    ) -> Unit,
+    ) -> Unit = { _, _, _, _, _, _, _ -> },
 ) {
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
 
+    var isRelaySelected by remember { mutableStateOf(isRelayActive) }
     var mode by remember { mutableStateOf(currentStartMode) }
     var intervalSec by remember { mutableIntStateOf(currentIntervalSec) }
     var poolLength by remember { mutableIntStateOf(currentPoolLength) }
@@ -98,7 +109,7 @@ fun IntervalConfigDialog(
     var splitDistance by remember { mutableIntStateOf(currentSplitDistance) }
 
     // Series Config state
-    var isSeriesEnabled by remember { mutableStateOf(currentSeriesConfig.isEnabled) }
+    var isSeriesEnabled by remember { mutableStateOf(currentSeriesConfig.isEnabled && !isRelayActive) }
     var seriesMode by remember { mutableStateOf(currentSeriesConfig.mode) }
     var restDurationSec by remember { mutableIntStateOf(currentSeriesConfig.restDurationSeconds) }
     var sendOffDurationSec by remember { mutableIntStateOf(currentSeriesConfig.sendOffDurationSeconds) }
@@ -118,13 +129,15 @@ fun IntervalConfigDialog(
     val poolOptions = listOf(25, 50)
     val strokeOptions = listOf("Freistil", "Brust", "Rücken", "Schmetterling", "Lagen")
 
-    val distanceOptions = if (stroke == "Lagen" || isRelayActive) {
+    val distanceOptions = if (stroke == "Lagen" || isRelaySelected) {
         listOf(100, 200, 400)
     } else {
         listOf(25, 50, 100, 200, 400, 800, 1500)
     }
 
-    val availableSplitOptions = remember(distance) { getAvailableSplitOptions(distance) }
+    val availableSplitOptions = remember(distance, isRelaySelected) {
+        if (isRelaySelected) listOf((distance / 4).coerceAtLeast(25)) else getAvailableSplitOptions(distance)
+    }
     val effectiveSplitDistance = if (splitDistance in availableSplitOptions) splitDistance else availableSplitOptions.first()
 
     val cardColor = Color(0xFF162536)
@@ -169,6 +182,78 @@ fun IntervalConfigDialog(
                 )
 
                 Spacer(modifier = Modifier.height(14.dp))
+
+                // CARD 0: Lauf-Modus (Einzellauf vs. Staffel)
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = cardColor,
+                    border = cardBorder,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Text(
+                            text = "Wettkampf- / Trainingsmodus",
+                            fontWeight = FontWeight.Bold,
+                            color = AquaPrimary,
+                            fontSize = 14.sp
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                            FlowRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                FilterChip(
+                                    selected = !isRelaySelected,
+                                    onClick = {
+                                        focusManager.clearFocus()
+                                        isRelaySelected = false
+                                    },
+                                    label = { Text("Einzellauf", maxLines = 1) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = AquaPrimary,
+                                        selectedLabelColor = Color.Black
+                                    ),
+                                    modifier = Modifier.testTag("config_mode_single")
+                                )
+                                FilterChip(
+                                    selected = isRelaySelected,
+                                    onClick = {
+                                        focusManager.clearFocus()
+                                        isRelaySelected = true
+                                        isSeriesEnabled = false
+                                        mode = StartMode.MASS
+                                        if (distance !in listOf(100, 200, 400)) {
+                                            distance = 200
+                                        }
+                                        val legDist = (distance / 4).coerceAtLeast(25)
+                                        splitDistance = legDist
+                                        if (legDist == 25) {
+                                            poolLength = 25
+                                        }
+                                    },
+                                    label = { Text("Staffel (4× Starter)", maxLines = 1) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = AquaPrimary,
+                                        selectedLabelColor = Color.Black
+                                    ),
+                                    modifier = Modifier.testTag("config_mode_relay")
+                                )
+                            }
+                        }
+                        if (isRelaySelected) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "Im Staffel-Modus erhält jede Bahn 4 Startpositionen (1.–4. Starter), die du direkt auf der Bahn-Karte antippen und besetzen kannst.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.LightGray
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
 
                 // CARD 1: Start-Verfahren & Becken
                 Surface(
@@ -224,7 +309,7 @@ fun IntervalConfigDialog(
                         if (mode == StartMode.INTERVAL) {
                             Spacer(modifier = Modifier.height(10.dp))
                             Text(
-                                text = "Staffel-Offset pro Bahn:",
+                                text = "Start-Offset pro Bahn:",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = Color.LightGray,
                                 maxLines = 1
@@ -274,7 +359,7 @@ fun IntervalConfigDialog(
                                             poolLength = length
                                             if (length == 50) {
                                                 if (distance == 25) distance = 50
-                                                if ((stroke == "Lagen" || isRelayActive) && distance == 100) {
+                                                if ((stroke == "Lagen" || isRelaySelected) && distance == 100) {
                                                     distance = 200
                                                     splitDistance = 50
                                                 } else if (splitDistance == 25) {
@@ -305,7 +390,7 @@ fun IntervalConfigDialog(
                 ) {
                     Column(modifier = Modifier.padding(14.dp)) {
                         Text(
-                            text = if (isRelayActive) "Staffel-Disziplin & Strecke" else "Disziplin & Strecke",
+                            text = if (isRelaySelected) "Staffel-Disziplin & Strecke" else "Disziplin & Strecke",
                             fontWeight = FontWeight.Bold,
                             color = AquaPrimary,
                             fontSize = 14.sp
@@ -333,12 +418,12 @@ fun IntervalConfigDialog(
                                             focusManager.clearFocus()
                                             stroke = s
                                             var newDist = distance
-                                            if (s == "Lagen" || isRelayActive) {
+                                            if (s == "Lagen" || isRelaySelected) {
                                                 if (newDist < 100) newDist = 100
                                                 if (newDist > 400) newDist = 400
                                             }
                                             distance = newDist
-                                            if (s == "Lagen" || isRelayActive) {
+                                            if (s == "Lagen" || isRelaySelected) {
                                                 splitDistance = (newDist / 4).coerceAtLeast(25)
                                                 if (splitDistance == 25) poolLength = 25
                                             } else {
@@ -366,7 +451,7 @@ fun IntervalConfigDialog(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
-                                    text = if (isRelayActive) {
+                                    text = if (isRelaySelected) {
                                         "Offizielle Lagen-Staffel-Reihenfolge:\n1. Rücken • 2. Brust • 3. Schmetterling • 4. Freistil"
                                     } else {
                                         "Offizielle Lagen-Reihenfolge:\n1. Schmetterling • 2. Rücken • 3. Brust • 4. Freistil"
@@ -381,7 +466,7 @@ fun IntervalConfigDialog(
                         Spacer(modifier = Modifier.height(12.dp))
 
                         Text(
-                            text = if (isRelayActive) "Staffel-Gesamtstrecke (4×):" else "Zielstrecke:",
+                            text = if (isRelaySelected) "Staffel-Gesamtstrecke (4×):" else "Zielstrecke:",
                             style = MaterialTheme.typography.labelMedium,
                             color = Color.LightGray,
                             maxLines = 1
@@ -394,7 +479,7 @@ fun IntervalConfigDialog(
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 distanceOptions.forEach { d ->
-                                    val distLabel = if (isRelayActive && d in listOf(100, 200, 400)) {
+                                    val distLabel = if (isRelaySelected && d in listOf(100, 200, 400)) {
                                         "4×${d / 4}m (${d}m)"
                                     } else {
                                         "${d}m"
@@ -407,7 +492,7 @@ fun IntervalConfigDialog(
                                             if (d == 25) {
                                                 poolLength = 25
                                                 splitDistance = 25
-                                            } else if (isRelayActive || stroke == "Lagen") {
+                                            } else if (isRelaySelected || stroke == "Lagen") {
                                                 val legDist = (d / 4).coerceAtLeast(25)
                                                 splitDistance = legDist
                                                 if (legDist == 25) poolLength = 25
@@ -431,7 +516,7 @@ fun IntervalConfigDialog(
                         Spacer(modifier = Modifier.height(12.dp))
 
                         Text(
-                            text = if (isRelayActive) "Wechsel / Zwischenzeiten (alle):" else "Zwischenzeiten (Splits alle):",
+                            text = if (isRelaySelected) "Staffel-Wechsel (pro Starter):" else "Zwischenzeiten (Splits alle):",
                             style = MaterialTheme.typography.labelMedium,
                             color = Color.LightGray,
                             maxLines = 1
@@ -444,7 +529,11 @@ fun IntervalConfigDialog(
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 availableSplitOptions.forEach { sDist ->
-                                    val labelText = if (sDist == distance) "Nur Ziel (${sDist}m)" else "Alle ${sDist}m"
+                                    val labelText = when {
+                                        isRelaySelected -> "Wechsel alle ${sDist}m"
+                                        sDist == distance -> "Nur Ziel (${sDist}m)"
+                                        else -> "Alle ${sDist}m"
+                                    }
                                     FilterChip(
                                         selected = effectiveSplitDistance == sDist,
                                         onClick = {
@@ -466,15 +555,16 @@ fun IntervalConfigDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                if (!isRelaySelected) {
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                // CARD 3: Serien-Modus
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = cardColor,
-                    border = cardBorder,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                    // CARD 3: Serien-Modus (nur im Einzellauf)
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = cardColor,
+                        border = cardBorder,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                     Column(modifier = Modifier.padding(14.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -681,6 +771,7 @@ fun IntervalConfigDialog(
                         }
                     }
                 }
+                }
 
                 Spacer(modifier = Modifier.height(20.dp))
 
@@ -709,13 +800,17 @@ fun IntervalConfigDialog(
                             focusManager.clearFocus(force = true)
                             val parsedMaxCount = maxSeriesCountText.toIntOrNull()?.takeIf { it > 0 }
                             val newConfig = SeriesConfig(
-                                isEnabled = isSeriesEnabled,
+                                isEnabled = isSeriesEnabled && !isRelaySelected,
                                 mode = seriesMode,
                                 restDurationSeconds = restDurationSec,
                                 sendOffDurationSeconds = sendOffDurationSec,
                                 maxSeriesCount = parsedMaxCount
                             )
-                            onSave(mode, intervalSec, poolLength, distance, effectiveSplitDistance, stroke, newConfig)
+                            if (onSaveWithRelay != null) {
+                                onSaveWithRelay(mode, intervalSec, poolLength, distance, effectiveSplitDistance, stroke, newConfig, isRelaySelected)
+                            } else {
+                                onSave(mode, intervalSec, poolLength, distance, effectiveSplitDistance, stroke, newConfig)
+                            }
                             onDismiss()
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = AquaPrimary)

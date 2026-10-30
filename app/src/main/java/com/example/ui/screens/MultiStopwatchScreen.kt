@@ -134,22 +134,28 @@ fun MultiStopwatchScreen(
                             modifier = Modifier.weight(1f).padding(end = 8.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
+                            val isRelayActive = remember(uiState.lanes) { uiState.lanes.any { it.relayMembers.isNotEmpty() } }
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.Center
                             ) {
                                 Text(
-                                    text = "${uiState.targetDistanceMeters}m ${uiState.strokeType}",
+                                    text = if (isRelayActive) {
+                                        "4×${uiState.splitDistanceMeters}m ${uiState.strokeType} (${uiState.targetDistanceMeters}m)"
+                                    } else {
+                                        "${uiState.targetDistanceMeters}m ${uiState.strokeType}"
+                                    },
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         fontWeight = FontWeight.Black,
-                                        fontSize = 17.sp
+                                        fontSize = 16.sp
                                     ),
                                     color = AquaPrimary,
                                     textAlign = TextAlign.Center,
                                     maxLines = 1,
-                                    softWrap = false
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f, fill = false)
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
                                 Text(
                                     text = "• ${uiState.poolLengthMeters}m Becken",
                                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
@@ -160,7 +166,7 @@ fun MultiStopwatchScreen(
                                 )
                             }
                             Spacer(modifier = Modifier.height(2.dp))
-                            val seriesLabel = if (uiState.seriesConfig.isEnabled) {
+                            val seriesLabel = if (uiState.seriesConfig.isEnabled && !isRelayActive) {
                                 " • " + (when (uiState.seriesConfig.mode) {
                                     SeriesModeType.MANUAL -> "Serie Manuell"
                                     SeriesModeType.FIXED_REST -> "Pause ${uiState.seriesConfig.restDurationSeconds}s"
@@ -169,22 +175,21 @@ fun MultiStopwatchScreen(
                             } else ""
 
                             val startLabel = if (uiState.startMode == StartMode.INTERVAL) "Intervall (+${uiState.intervalOffsetSeconds}s)" else "Massenstart"
-                            val isRelayActive = remember(uiState.lanes) { uiState.lanes.any { it.relayMembers.isNotEmpty() } }
 
                             Text(
                                 text = when {
                                     uiState.strokeType == "Lagen" && isRelayActive ->
-                                        "Staffel-Wechsel alle ${uiState.splitDistanceMeters}m$seriesLabel • 1. Rücken • 2. Brust • 3. Schmett • 4. Kraul"
+                                        "Staffel-Wechsel alle ${uiState.splitDistanceMeters}m • 1. Rücken • 2. Brust • 3. Schmett. • 4. Freistil"
                                     uiState.strokeType == "Lagen" ->
-                                        "Splits alle ${uiState.splitDistanceMeters}m$seriesLabel • 1. Schmett • 2. Rücken • 3. Brust • 4. Kraul"
+                                        "Splits alle ${uiState.splitDistanceMeters}m$seriesLabel • 1. Schmett. • 2. Rücken • 3. Brust • 4. Freistil"
                                     isRelayActive ->
-                                        "Staffel-Wechsel alle ${uiState.splitDistanceMeters}m • $startLabel$seriesLabel"
+                                        "Staffel-Modus • Wechsel alle ${uiState.splitDistanceMeters}m • $startLabel"
                                     else ->
                                         "Splits alle ${uiState.splitDistanceMeters}m • $startLabel$seriesLabel"
                                 },
-                                style = MaterialTheme.typography.labelSmall,
+                                style = MaterialTheme.typography.labelSmall.copy(lineHeight = 14.sp),
                                 color = if (uiState.strokeType == "Lagen" || isRelayActive) Color(0xFFFFD600) else Color.LightGray,
-                                maxLines = 1,
+                                maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                                 textAlign = TextAlign.Center
                             )
@@ -228,6 +233,7 @@ fun MultiStopwatchScreen(
                     val onLapClick = remember(laneNum, context) { { exactTime: Long -> HapticUtil.vibrateClick(context); viewModel.onLapLane(laneNum, exactTime) } }
                     val onFinishClick = remember(laneNum, context) { { exactTime: Long -> HapticUtil.vibrateHeavy(context); viewModel.onFinishLane(laneNum, exactTime) } }
                     val onAssignSwimmerClick = remember(laneNum) { { viewModel.openAssignSwimmerDialog(laneNum) } }
+                    val onAssignRelayLegClick = remember(laneNum) { { legPos: Int -> viewModel.openAssignSwimmerDialog(laneNum, legPos) } }
                     val onRemoveLaneClick = remember(laneNum, context) { { HapticUtil.vibrateClick(context); viewModel.removeLane(laneNum) } }
                     val onStartSingleLaneClick = remember(laneNum, context) { { HapticUtil.vibrateHeavy(context); viewModel.onStartSingleLane(laneNum) } }
                     val onPauseClick = remember(laneNum, context) { { HapticUtil.vibrateClick(context); viewModel.onPauseLane(laneNum) } }
@@ -238,6 +244,7 @@ fun MultiStopwatchScreen(
                         onLapClick = onLapClick,
                         onFinishClick = onFinishClick,
                         onAssignSwimmerClick = onAssignSwimmerClick,
+                        onAssignRelayLegClick = onAssignRelayLegClick,
                         isSeriesEnabled = uiState.seriesConfig.isEnabled,
                         maxSeriesCount = uiState.seriesConfig.maxSeriesCount,
                         seriesMode = uiState.seriesConfig.mode,
@@ -522,28 +529,50 @@ fun MultiStopwatchScreen(
                 currentStroke = uiState.strokeType,
                 currentSeriesConfig = uiState.seriesConfig,
                 isRelayActive = isRelayActive,
-                onDismiss = { isConfigDialogOpen = false }
-            ) { mode, interval, pool, dist, splitDist, stroke, seriesConfig ->
-                viewModel.setStartMode(mode)
-                viewModel.setIntervalOffsetSeconds(interval)
-                viewModel.setSeriesConfig(seriesConfig)
-                viewModel.setSessionMeta("${dist}m $stroke", stroke, pool, dist, splitDist)
-            }
+                onDismiss = { isConfigDialogOpen = false },
+                onSaveWithRelay = { mode, interval, pool, dist, splitDist, stroke, seriesConfig, relaySelected ->
+                    viewModel.configureStopwatchSettings(
+                        mode = mode,
+                        intervalSec = interval,
+                        poolLength = pool,
+                        distance = dist,
+                        splitDistance = splitDist,
+                        stroke = stroke,
+                        seriesConfig = seriesConfig,
+                        isRelayMode = relaySelected
+                    )
+                }
+            )
         }
 
         if (uiState.isAssignSwimmerDialogVisible && (uiState.assignSwimmerLane != null)) {
             val laneNum = uiState.assignSwimmerLane!!
+            val targetLane = remember(uiState.lanes, laneNum) {
+                uiState.lanes.find { it.laneNumber == laneNum }
+            }
             val assignedSwimmers = remember(uiState.lanes) {
-                uiState.lanes.mapNotNull { lane ->
-                    lane.swimmerId?.let { sId -> sId to lane.laneNumber }
-                }.toMap()
+                buildMap {
+                    uiState.lanes.forEach { lane ->
+                        lane.swimmerId?.let { sId -> put(sId, lane.laneNumber) }
+                        lane.relayMembers.forEach { member ->
+                            member.swimmerId?.let { sId -> put(sId, lane.laneNumber) }
+                        }
+                    }
+                }
             }
             AssignSwimmerDialog(
                 laneNumber = laneNum,
                 swimmers = swimmers,
                 assignedSwimmers = assignedSwimmers,
                 availableGroups = availableGroups,
+                currentLane = targetLane,
+                currentStrokeType = uiState.strokeType,
+                currentSplitDistanceMeters = uiState.splitDistanceMeters,
+                initialRelayLegPosition = uiState.assignSwimmerInitialRelayLeg,
                 onDismiss = { viewModel.closeAssignSwimmerDialog() },
+                onSelectRelayTeam = { teamName, members ->
+                    viewModel.assignRelayTeamToLane(laneNum, teamName, members)
+                }
             ) { swimmer -> viewModel.assignSwimmerToLane(laneNum, swimmer) }
         }
 
