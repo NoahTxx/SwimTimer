@@ -426,7 +426,10 @@ fun SwimPaceCalculatorDialog(
                         onValueChange = { targetTimeInput = it },
                         placeholder = { Text("z.B. 1:02.50") },
                         singleLine = true,
-                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal,
+                            imeAction = androidx.compose.ui.text.input.ImeAction.Done
+                        ),
                         keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { focusManager.clearFocus() }),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = TextWhite,

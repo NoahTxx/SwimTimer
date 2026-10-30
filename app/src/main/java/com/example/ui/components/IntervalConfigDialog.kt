@@ -183,78 +183,6 @@ fun IntervalConfigDialog(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // CARD 0: Lauf-Modus (Einzellauf vs. Staffel)
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = cardColor,
-                    border = cardBorder,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Text(
-                            text = "Wettkampf- / Trainingsmodus",
-                            fontWeight = FontWeight.Bold,
-                            color = AquaPrimary,
-                            fontSize = 14.sp
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
-                            FlowRow(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                FilterChip(
-                                    selected = !isRelaySelected,
-                                    onClick = {
-                                        focusManager.clearFocus()
-                                        isRelaySelected = false
-                                    },
-                                    label = { Text("Einzellauf", maxLines = 1) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = AquaPrimary,
-                                        selectedLabelColor = Color.Black
-                                    ),
-                                    modifier = Modifier.testTag("config_mode_single")
-                                )
-                                FilterChip(
-                                    selected = isRelaySelected,
-                                    onClick = {
-                                        focusManager.clearFocus()
-                                        isRelaySelected = true
-                                        isSeriesEnabled = false
-                                        mode = StartMode.MASS
-                                        if (distance !in listOf(100, 200, 400)) {
-                                            distance = 200
-                                        }
-                                        val legDist = (distance / 4).coerceAtLeast(25)
-                                        splitDistance = legDist
-                                        if (legDist == 25) {
-                                            poolLength = 25
-                                        }
-                                    },
-                                    label = { Text("Staffel (4× Starter)", maxLines = 1) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = AquaPrimary,
-                                        selectedLabelColor = Color.Black
-                                    ),
-                                    modifier = Modifier.testTag("config_mode_relay")
-                                )
-                            }
-                        }
-                        if (isRelaySelected) {
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "Im Staffel-Modus erhält jede Bahn 4 Startpositionen (1.–4. Starter), die du direkt auf der Bahn-Karte antippen und besetzen kannst.",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color.LightGray
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
                 // CARD 1: Start-Verfahren & Becken
                 Surface(
                     shape = RoundedCornerShape(16.dp),
@@ -479,11 +407,6 @@ fun IntervalConfigDialog(
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 distanceOptions.forEach { d ->
-                                    val distLabel = if (isRelaySelected && d in listOf(100, 200, 400)) {
-                                        "4×${d / 4}m (${d}m)"
-                                    } else {
-                                        "${d}m"
-                                    }
                                     FilterChip(
                                         selected = distance == d,
                                         onClick = {
@@ -503,7 +426,7 @@ fun IntervalConfigDialog(
                                                 }
                                             }
                                         },
-                                        label = { Text(distLabel, maxLines = 1) },
+                                        label = { Text("${d}m", maxLines = 1) },
                                         colors = FilterChipDefaults.filterChipColors(
                                             selectedContainerColor = AquaPrimary,
                                             selectedLabelColor = Color.Black
@@ -555,16 +478,15 @@ fun IntervalConfigDialog(
                     }
                 }
 
-                if (!isRelaySelected) {
-                    Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-                    // CARD 3: Serien-Modus (nur im Einzellauf)
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = cardColor,
-                        border = cardBorder,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
+                // CARD 3: Serien-Modus
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = cardColor,
+                    border = cardBorder,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Column(modifier = Modifier.padding(14.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -579,13 +501,20 @@ fun IntervalConfigDialog(
                             )
                             Switch(
                                 checked = isSeriesEnabled,
-                                onCheckedChange = { focusManager.clearFocus(); isSeriesEnabled = it },
+                                onCheckedChange = { enabled ->
+                                    focusManager.clearFocus()
+                                    isSeriesEnabled = enabled
+                                    if (enabled) {
+                                        isRelaySelected = false
+                                    }
+                                },
                                 colors = SwitchDefaults.colors(
                                     checkedThumbColor = Color.Black,
                                     checkedTrackColor = AquaPrimary,
                                     uncheckedThumbColor = Color.Gray,
                                     uncheckedTrackColor = Color(0xFF1A2B3C)
-                                )
+                                ),
+                                modifier = Modifier.testTag("config_series_switch")
                             )
                         }
 
@@ -771,6 +700,103 @@ fun IntervalConfigDialog(
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // CARD 4: Staffel-Modus (genau wie Serien-Modus mit Switch)
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = cardColor,
+                    border = cardBorder,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Staffel-Modus",
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFFFD600),
+                                fontSize = 15.sp
+                            )
+                            Switch(
+                                checked = isRelaySelected,
+                                onCheckedChange = { enabled ->
+                                    focusManager.clearFocus()
+                                    isRelaySelected = enabled
+                                    if (enabled) {
+                                        isSeriesEnabled = false
+                                        mode = StartMode.MASS
+                                        if (distance !in listOf(100, 200, 400)) {
+                                            distance = 200
+                                        }
+                                        val legDist = (distance / 4).coerceAtLeast(25)
+                                        splitDistance = legDist
+                                        if (legDist == 25) {
+                                            poolLength = 25
+                                        }
+                                    }
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.Black,
+                                    checkedTrackColor = AquaPrimary,
+                                    uncheckedThumbColor = Color.Gray,
+                                    uncheckedTrackColor = Color(0xFF1A2B3C)
+                                ),
+                                modifier = Modifier.testTag("config_mode_relay")
+                            )
+                        }
+
+                        if (isRelaySelected) {
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            Text(
+                                text = "Teilstrecke pro Starter (4× Starter):",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.LightGray,
+                                maxLines = 1
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            val relayLegOptions = listOf(25, 50, 100)
+                            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                                FlowRow(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    relayLegOptions.forEach { legDist ->
+                                        val totalRelayDist = legDist * 4
+                                        FilterChip(
+                                            selected = distance == totalRelayDist,
+                                            onClick = {
+                                                focusManager.clearFocus()
+                                                distance = totalRelayDist
+                                                splitDistance = legDist
+                                                if (legDist == 25) {
+                                                    poolLength = 25
+                                                }
+                                            },
+                                            label = { Text("4×${legDist}m", maxLines = 1) },
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = AquaPrimary,
+                                                selectedLabelColor = Color.Black
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Im Staffel-Modus erhält jede Bahn 4 Startpositionen (1.–4. Starter), die du direkt auf der Bahn-Karte antippen und besetzen kannst.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.LightGray
+                            )
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))

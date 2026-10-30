@@ -1111,6 +1111,14 @@ internal fun SwimmerFormDialog(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
 
+                val timeKeyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal,
+                    imeAction = androidx.compose.ui.text.input.ImeAction.Done
+                )
+                val timeKeyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                    onDone = { focusManager.clearFocus() }
+                )
+
                 val strokeCategories = listOf(
                     Triple("Freistil", "Freistil / Kraul", Color(0xFF00E5FF)),
                     Triple("Brust", "Brust", Color(0xFF00E676)),
@@ -1173,6 +1181,8 @@ internal fun SwimmerFormDialog(
                                             label = { Text("100m", fontSize = 11.sp, maxLines = 1) },
                                             placeholder = { Text("1:03.50") },
                                             singleLine = true,
+                                            keyboardOptions = timeKeyboardOptions,
+                                            keyboardActions = timeKeyboardActions,
                                             colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = catColor, unfocusedBorderColor = Color(0xFF1B2E46)),
                                             modifier = Modifier.weight(1f)
                                         )
@@ -1182,6 +1192,8 @@ internal fun SwimmerFormDialog(
                                             label = { Text("200m", fontSize = 11.sp, maxLines = 1) },
                                             placeholder = { Text("2:18.00") },
                                             singleLine = true,
+                                            keyboardOptions = timeKeyboardOptions,
+                                            keyboardActions = timeKeyboardActions,
                                             colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = catColor, unfocusedBorderColor = Color(0xFF1B2E46)),
                                             modifier = Modifier.weight(1f)
                                         )
@@ -1191,6 +1203,8 @@ internal fun SwimmerFormDialog(
                                             label = { Text("400m", fontSize = 11.sp, maxLines = 1) },
                                             placeholder = { Text("4:55.00") },
                                             singleLine = true,
+                                            keyboardOptions = timeKeyboardOptions,
+                                            keyboardActions = timeKeyboardActions,
                                             colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = catColor, unfocusedBorderColor = Color(0xFF1B2E46)),
                                             modifier = Modifier.weight(1f)
                                         )
@@ -1214,6 +1228,8 @@ internal fun SwimmerFormDialog(
                                                 label = { Text("25m", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                                 placeholder = { Text("12.50") },
                                                 singleLine = true,
+                                                keyboardOptions = timeKeyboardOptions,
+                                                keyboardActions = timeKeyboardActions,
                                                 colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = catColor, unfocusedBorderColor = Color(0xFF1B2E46)),
                                                 modifier = Modifier.weight(1f)
                                             )
@@ -1223,6 +1239,8 @@ internal fun SwimmerFormDialog(
                                                 label = { Text("50m", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                                 placeholder = { Text("24.80") },
                                                 singleLine = true,
+                                                keyboardOptions = timeKeyboardOptions,
+                                                keyboardActions = timeKeyboardActions,
                                                 colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = catColor, unfocusedBorderColor = Color(0xFF1B2E46)),
                                                 modifier = Modifier.weight(1f)
                                             )
@@ -1238,6 +1256,8 @@ internal fun SwimmerFormDialog(
                                                 label = { Text("100m", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                                 placeholder = { Text("54.20") },
                                                 singleLine = true,
+                                                keyboardOptions = timeKeyboardOptions,
+                                                keyboardActions = timeKeyboardActions,
                                                 colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = catColor, unfocusedBorderColor = Color(0xFF1B2E46)),
                                                 modifier = Modifier.weight(1f)
                                             )
@@ -1247,6 +1267,8 @@ internal fun SwimmerFormDialog(
                                                 label = { Text("200m", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                                 placeholder = { Text("2:02.00") },
                                                 singleLine = true,
+                                                keyboardOptions = timeKeyboardOptions,
+                                                keyboardActions = timeKeyboardActions,
                                                 colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = catColor, unfocusedBorderColor = Color(0xFF1B2E46)),
                                                 modifier = Modifier.weight(1f)
                                             )
@@ -1295,13 +1317,13 @@ internal fun SwimmerFormDialog(
                     Text(text = "100m Lagen Teilstrecken (4 × 25m):", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFFFFD600))
                     Spacer(modifier = Modifier.height(4.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        OutlinedTextField(value = flySplitText, onValueChange = { flySplitText = it }, label = { Text("1. Schmett") }, placeholder = { Text("13.80") }, singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFFF5252), unfocusedBorderColor = Color(0xFF1B2E46)), modifier = Modifier.weight(1f))
-                        OutlinedTextField(value = backSplitText, onValueChange = { backSplitText = it }, label = { Text("2. Rücken") }, placeholder = { Text("15.50") }, singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFFFD600), unfocusedBorderColor = Color(0xFF1B2E46)), modifier = Modifier.weight(1f))
+                        OutlinedTextField(value = flySplitText, onValueChange = { flySplitText = it }, label = { Text("1. Schmett") }, placeholder = { Text("13.80") }, singleLine = true, keyboardOptions = timeKeyboardOptions, keyboardActions = timeKeyboardActions, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFFF5252), unfocusedBorderColor = Color(0xFF1B2E46)), modifier = Modifier.weight(1f))
+                        OutlinedTextField(value = backSplitText, onValueChange = { backSplitText = it }, label = { Text("2. Rücken") }, placeholder = { Text("15.50") }, singleLine = true, keyboardOptions = timeKeyboardOptions, keyboardActions = timeKeyboardActions, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFFFD600), unfocusedBorderColor = Color(0xFF1B2E46)), modifier = Modifier.weight(1f))
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        OutlinedTextField(value = breastSplitText, onValueChange = { breastSplitText = it }, label = { Text("3. Brust") }, placeholder = { Text("18.00") }, singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E676), unfocusedBorderColor = Color(0xFF1B2E46)), modifier = Modifier.weight(1f))
-                        OutlinedTextField(value = freeSplitText, onValueChange = { freeSplitText = it }, label = { Text("4. Kraul") }, placeholder = { Text("12.90") }, singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E5FF), unfocusedBorderColor = Color(0xFF1B2E46)), modifier = Modifier.weight(1f))
+                        OutlinedTextField(value = breastSplitText, onValueChange = { breastSplitText = it }, label = { Text("3. Brust") }, placeholder = { Text("18.00") }, singleLine = true, keyboardOptions = timeKeyboardOptions, keyboardActions = timeKeyboardActions, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E676), unfocusedBorderColor = Color(0xFF1B2E46)), modifier = Modifier.weight(1f))
+                        OutlinedTextField(value = freeSplitText, onValueChange = { freeSplitText = it }, label = { Text("4. Kraul") }, placeholder = { Text("12.90") }, singleLine = true, keyboardOptions = timeKeyboardOptions, keyboardActions = timeKeyboardActions, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E5FF), unfocusedBorderColor = Color(0xFF1B2E46)), modifier = Modifier.weight(1f))
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
@@ -1309,13 +1331,13 @@ internal fun SwimmerFormDialog(
                     Text(text = "200m Lagen Teilstrecken (4 × 50m):", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = AquaPrimary)
                     Spacer(modifier = Modifier.height(4.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        OutlinedTextField(value = pb200FlyText, onValueChange = { pb200FlyText = it }, label = { Text("1. Schmett") }, placeholder = { Text("29.50") }, singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFFF5252), unfocusedBorderColor = Color(0xFF1B2E46)), modifier = Modifier.weight(1f))
-                        OutlinedTextField(value = pb200BackText, onValueChange = { pb200BackText = it }, label = { Text("2. Rücken") }, placeholder = { Text("35.00") }, singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFFFD600), unfocusedBorderColor = Color(0xFF1B2E46)), modifier = Modifier.weight(1f))
+                        OutlinedTextField(value = pb200FlyText, onValueChange = { pb200FlyText = it }, label = { Text("1. Schmett") }, placeholder = { Text("29.50") }, singleLine = true, keyboardOptions = timeKeyboardOptions, keyboardActions = timeKeyboardActions, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFFF5252), unfocusedBorderColor = Color(0xFF1B2E46)), modifier = Modifier.weight(1f))
+                        OutlinedTextField(value = pb200BackText, onValueChange = { pb200BackText = it }, label = { Text("2. Rücken") }, placeholder = { Text("35.00") }, singleLine = true, keyboardOptions = timeKeyboardOptions, keyboardActions = timeKeyboardActions, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFFFD600), unfocusedBorderColor = Color(0xFF1B2E46)), modifier = Modifier.weight(1f))
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        OutlinedTextField(value = pb200BreastText, onValueChange = { pb200BreastText = it }, label = { Text("3. Brust") }, placeholder = { Text("39.80") }, singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E676), unfocusedBorderColor = Color(0xFF1B2E46)), modifier = Modifier.weight(1f))
-                        OutlinedTextField(value = pb200FreeText, onValueChange = { pb200FreeText = it }, label = { Text("4. Kraul") }, placeholder = { Text("28.00") }, singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E5FF), unfocusedBorderColor = Color(0xFF1B2E46)), modifier = Modifier.weight(1f))
+                        OutlinedTextField(value = pb200BreastText, onValueChange = { pb200BreastText = it }, label = { Text("3. Brust") }, placeholder = { Text("39.80") }, singleLine = true, keyboardOptions = timeKeyboardOptions, keyboardActions = timeKeyboardActions, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E676), unfocusedBorderColor = Color(0xFF1B2E46)), modifier = Modifier.weight(1f))
+                        OutlinedTextField(value = pb200FreeText, onValueChange = { pb200FreeText = it }, label = { Text("4. Kraul") }, placeholder = { Text("28.00") }, singleLine = true, keyboardOptions = timeKeyboardOptions, keyboardActions = timeKeyboardActions, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E5FF), unfocusedBorderColor = Color(0xFF1B2E46)), modifier = Modifier.weight(1f))
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
@@ -1323,13 +1345,13 @@ internal fun SwimmerFormDialog(
                     Text(text = "400m Lagen Teilstrecken (4 × 100m):", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFF80D8FF))
                     Spacer(modifier = Modifier.height(4.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        OutlinedTextField(value = pb400FlyText, onValueChange = { pb400FlyText = it }, label = { Text("1. Schmett") }, placeholder = { Text("1:04.50") }, singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFFF5252), unfocusedBorderColor = Color(0xFF1B2E46)), modifier = Modifier.weight(1f))
-                        OutlinedTextField(value = pb400BackText, onValueChange = { pb400BackText = it }, label = { Text("2. Rücken") }, placeholder = { Text("1:14.00") }, singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFFFD600), unfocusedBorderColor = Color(0xFF1B2E46)), modifier = Modifier.weight(1f))
+                        OutlinedTextField(value = pb400FlyText, onValueChange = { pb400FlyText = it }, label = { Text("1. Schmett") }, placeholder = { Text("1:04.50") }, singleLine = true, keyboardOptions = timeKeyboardOptions, keyboardActions = timeKeyboardActions, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFFF5252), unfocusedBorderColor = Color(0xFF1B2E46)), modifier = Modifier.weight(1f))
+                        OutlinedTextField(value = pb400BackText, onValueChange = { pb400BackText = it }, label = { Text("2. Rücken") }, placeholder = { Text("1:14.00") }, singleLine = true, keyboardOptions = timeKeyboardOptions, keyboardActions = timeKeyboardActions, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFFFFD600), unfocusedBorderColor = Color(0xFF1B2E46)), modifier = Modifier.weight(1f))
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        OutlinedTextField(value = pb400BreastText, onValueChange = { pb400BreastText = it }, label = { Text("3. Brust") }, placeholder = { Text("1:24.00") }, singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E676), unfocusedBorderColor = Color(0xFF1B2E46)), modifier = Modifier.weight(1f))
-                        OutlinedTextField(value = pb400FreeText, onValueChange = { pb400FreeText = it }, label = { Text("4. Kraul") }, placeholder = { Text("1:01.00") }, singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E5FF), unfocusedBorderColor = Color(0xFF1B2E46)), modifier = Modifier.weight(1f))
+                        OutlinedTextField(value = pb400BreastText, onValueChange = { pb400BreastText = it }, label = { Text("3. Brust") }, placeholder = { Text("1:24.00") }, singleLine = true, keyboardOptions = timeKeyboardOptions, keyboardActions = timeKeyboardActions, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E676), unfocusedBorderColor = Color(0xFF1B2E46)), modifier = Modifier.weight(1f))
+                        OutlinedTextField(value = pb400FreeText, onValueChange = { pb400FreeText = it }, label = { Text("4. Kraul") }, placeholder = { Text("1:01.00") }, singleLine = true, keyboardOptions = timeKeyboardOptions, keyboardActions = timeKeyboardActions, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E5FF), unfocusedBorderColor = Color(0xFF1B2E46)), modifier = Modifier.weight(1f))
                     }
                 }
 
@@ -1378,8 +1400,8 @@ internal fun SwimmerFormDialog(
                             label = { Text("400m", fontSize = 11.sp) },
                             placeholder = { Text("4:35.00") },
                             singleLine = true,
-                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
-                            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { focusManager.clearFocus() }),
+                            keyboardOptions = timeKeyboardOptions,
+                            keyboardActions = timeKeyboardActions,
                             colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E5FF), unfocusedBorderColor = Color(0xFF1B2E46)),
                             modifier = Modifier.weight(1f)
                         )
@@ -1389,8 +1411,8 @@ internal fun SwimmerFormDialog(
                             label = { Text("800m", fontSize = 11.sp) },
                             placeholder = { Text("9:20.00") },
                             singleLine = true,
-                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
-                            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { focusManager.clearFocus() }),
+                            keyboardOptions = timeKeyboardOptions,
+                            keyboardActions = timeKeyboardActions,
                             colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E5FF), unfocusedBorderColor = Color(0xFF1B2E46)),
                             modifier = Modifier.weight(1f)
                         )
@@ -1403,8 +1425,8 @@ internal fun SwimmerFormDialog(
                             label = { Text("1500m", fontSize = 11.sp) },
                             placeholder = { Text("18:10.00") },
                             singleLine = true,
-                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
-                            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { focusManager.clearFocus() }),
+                            keyboardOptions = timeKeyboardOptions,
+                            keyboardActions = timeKeyboardActions,
                             colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = Color(0xFF00E5FF), unfocusedBorderColor = Color(0xFF1B2E46)),
                             modifier = Modifier.weight(1f)
                         )

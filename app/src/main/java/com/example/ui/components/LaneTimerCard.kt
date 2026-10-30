@@ -803,7 +803,7 @@ private fun LaneControls(
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         when (status) {
             LaneStatus.IDLE -> {
@@ -830,8 +830,9 @@ private fun LaneControls(
                 }
             }
             LaneStatus.RUNNING -> {
-                val splitButtonLabel = if (isRelay && activeRelayLegNumber < totalRelayLegs) {
-                    "Wechsel (${activeRelayLegNumber}→${activeRelayLegNumber + 1})"
+                val isRelaySplit = isRelay && activeRelayLegNumber < totalRelayLegs
+                val splitButtonLabel = if (isRelaySplit) {
+                    "Wechsel ${activeRelayLegNumber}→${activeRelayLegNumber + 1}"
                 } else {
                     "Split"
                 }
@@ -839,37 +840,46 @@ private fun LaneControls(
                 FilledTonalButton(
                     onClick = { onLapClick(clock.nowMillis()) },
                     modifier = Modifier
-                        .weight(1.4f)
+                        .weight(if (isRelaySplit) 1.65f else 1.4f)
                         .height(58.dp),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.filledTonalButtonColors(containerColor = AquaPrimary, contentColor = Color.Black),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                    contentPadding = PaddingValues(horizontal = if (isRelaySplit) 8.dp else 12.dp, vertical = 8.dp)
                 ) {
-                    Icon(Icons.Default.Timer, contentDescription = null, modifier = Modifier.size(22.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Icon(
+                        Icons.Default.Timer,
+                        contentDescription = null,
+                        modifier = Modifier.size(if (isRelaySplit) 18.dp else 22.dp)
+                    )
+                    Spacer(modifier = Modifier.width(if (isRelaySplit) 4.dp else 6.dp))
                     Text(
                         text = splitButtonLabel,
-                        fontSize = 16.sp,
+                        fontSize = if (isRelaySplit) 14.sp else 16.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
-                        softWrap = false
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
                 FilledTonalButton(
                     onClick = { onFinishClick(clock.nowMillis()) },
                     modifier = Modifier
-                        .weight(1.1f)
+                        .weight(if (isRelaySplit) 1.0f else 1.1f)
                         .height(58.dp),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.filledTonalButtonColors(containerColor = Color(0xFFEF5350), contentColor = Color.White),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                    contentPadding = PaddingValues(horizontal = if (isRelaySplit) 10.dp else 12.dp, vertical = 8.dp)
                 ) {
-                    Icon(Icons.Default.Flag, contentDescription = null, modifier = Modifier.size(22.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Icon(
+                        Icons.Default.Flag,
+                        contentDescription = null,
+                        modifier = Modifier.size(if (isRelaySplit) 20.dp else 22.dp)
+                    )
+                    Spacer(modifier = Modifier.width(if (isRelaySplit) 4.dp else 6.dp))
                     Text(
                         text = "Ziel",
-                        fontSize = 16.sp,
+                        fontSize = if (isRelaySplit) 15.sp else 16.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         softWrap = false
@@ -881,9 +891,9 @@ private fun LaneControls(
                         onClick = onPauseClick,
                         modifier = Modifier
                             .background(OceanBorder, CircleShape)
-                            .size(58.dp)
+                            .size(if (isRelaySplit) 52.dp else 58.dp)
                     ) {
-                        Icon(Icons.Default.Pause, contentDescription = "Pause", tint = TextWhite, modifier = Modifier.size(26.dp))
+                        Icon(Icons.Default.Pause, contentDescription = "Pause", tint = TextWhite, modifier = Modifier.size(24.dp))
                     }
                 }
             }

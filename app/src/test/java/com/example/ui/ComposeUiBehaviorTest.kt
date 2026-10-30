@@ -10,6 +10,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import com.example.ui.components.StrokeRateCalculatorDialog
 import com.example.ui.components.SwimPaceCalculatorDialog
 import com.example.ui.theme.SwimTimerTheme
@@ -108,4 +109,75 @@ class ComposeUiBehaviorTest {
         composeTestRule.onNodeWithText("Historie").performClick()
         composeTestRule.onNodeWithText("Stoppuhr").performClick()
     }
+
+    @Test
+    fun intervalConfigDialog_relaySwitchTogglesAndSavesRelayMode() {
+        var savedRelayMode = false
+        var savedDistance = 0
+
+        composeTestRule.setContent {
+            SwimTimerTheme {
+                com.example.ui.components.IntervalConfigDialog(
+                    currentStartMode = StartMode.MASS,
+                    currentIntervalSec = 5,
+                    currentPoolLength = 25,
+                    currentDistance = 100,
+                    currentSplitDistance = 50,
+                    currentStroke = "Freistil",
+                    isRelayActive = false,
+                    onDismiss = {},
+                    onSaveWithRelay = { _, _, _, dist, _, _, _, isRelay ->
+                        savedRelayMode = isRelay
+                        savedDistance = dist
+                    }
+                )
+            }
+        }
+
+        composeTestRule.onNode(androidx.compose.ui.test.hasTestTag("config_mode_relay"))
+            .performScrollTo()
+            .performClick()
+        composeTestRule.onNodeWithText("4×50m")
+            .performScrollTo()
+            .performClick()
+        composeTestRule.onNodeWithText("Übernehmen")
+            .performScrollTo()
+            .performClick()
+
+        assertTrue("Relay mode should be enabled via switch", savedRelayMode)
+        org.junit.Assert.assertEquals(200, savedDistance)
+    }
+
+    @Test
+    fun laneTimerCard_relayModeDisplaysWechselButton() {
+        val relayLane = LaneState(
+            laneNumber = 1,
+            status = LaneStatus.RUNNING,
+            swimmerName = "Staffel Bahn 1",
+            targetDistanceMeters = 200,
+            splitDistanceMeters = 50,
+            laneStartTimeRealtime = null,
+            currentElapsedMillis = 12340L,
+            relayMembers = listOf(
+                com.example.domain.RelayLegAssignment(1, 1L, "Starter 1", "Freistil", 50, null),
+                com.example.domain.RelayLegAssignment(2, 2L, "Starter 2", "Freistil", 50, null),
+                com.example.domain.RelayLegAssignment(3, 3L, "Starter 3", "Freistil", 50, null),
+                com.example.domain.RelayLegAssignment(4, 4L, "Starter 4", "Freistil", 50, null),
+            )
+        )
+
+        composeTestRule.setContent {
+            SwimTimerTheme {
+                com.example.ui.components.LaneTimerCard(
+                    lane = relayLane,
+                    onLapClick = {},
+                    onFinishClick = {},
+                    onAssignSwimmerClick = {}
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Wechsel 1→2").assertIsDisplayed()
+    }
 }
+

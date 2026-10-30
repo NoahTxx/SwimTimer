@@ -123,6 +123,15 @@ object TimeFormatter {
                 if (secDouble < 0.0 || secDouble >= 60.0) return null
                 val totalMillis = (min * 60_000L) + (secDouble * 1000.0).roundToLong()
                 if (totalMillis in 1L..3_600_000L) totalMillis else null
+            } else if (cleaned.count { it == '.' } == 2) {
+                val parts = cleaned.split(".")
+                if (parts.size != 3) return null
+                val min = parts[0].trim().toLongOrNull() ?: return null
+                if (min < 0) return null
+                val secDouble = "${parts[1].trim()}.${parts[2].trim()}".toDoubleOrNull() ?: return null
+                if (secDouble < 0.0 || secDouble >= 60.0) return null
+                val totalMillis = (min * 60_000L) + (secDouble * 1000.0).roundToLong()
+                if (totalMillis in 1L..3_600_000L) totalMillis else null
             } else {
                 val secDouble = cleaned.toDoubleOrNull() ?: return null
                 if (secDouble <= 0.0) return null
