@@ -12,6 +12,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -326,6 +327,127 @@ class StopwatchViewModelTest {
         assertEquals(null, afterDelete.pb100mMillis)
         assertEquals(26_500L, afterDelete.pb50mMillis)
         assertEquals(34_000L, afterDelete.parseCustomPbsMap()["Brust" to 50])
+
+        viewModel.onResetAll()
+    }
+
+    @Test
+    fun deleteRelaySession_restoresOldManualPbAndDoesNotWipePbs() = runTest(testDispatcher) {
+        // Swimmer has an existing manual 50m Freistil PB of 30.00s
+        val manualCustomPbs = SwimmerEntity.serializeCustomPbsMap(mapOf(("Freistil" to 50) to 30_000L))
+        val swimmer = SwimmerEntity(
+            id = 88L,
+            name = "Staffel Starter",
+            favoriteStroke = "Freistil",
+            pb50mMillis = 30_000L,
+            customPbsJson = manualCustomPbs
+        )
+        fakeRepository.insertSwimmer(swimmer)
+
+        // Set up a 4x50m Freistil relay on Lane 1
+        val relayLegs = listOf(
+            com.example.domain.RelayLegAssignment(1, 88L, "Staffel Starter", "Freistil", 50, 30_000L),
+            com.example.domain.RelayLegAssignment(2, null, "Starter 2", "Freistil", 50, 31_000L),
+            com.example.domain.RelayLegAssignment(3, null, "Starter 3", "Freistil", 50, 32_000L),
+            com.example.domain.RelayLegAssignment(4, null, "Starter 4", "Freistil", 50, 33_000L)
+        )
+        val teams = listOf(
+            com.example.domain.RelayTeamPlan(
+                teamIndex = 0,
+                teamTitle = "Staffel Bahn 1",
+                legs = relayLegs,
+                totalTimeMillis = 126_000L,
+                averageLegMillis = 31_500L,
+                deltaToFastestMillis = 0L,
+                hasEstimatedTimes = false
+            )
+        )
+        viewModel.applyRelayTeamsToStopwatch(teams, "Freistil", 50)
+
+        // Start Lane 1: Swimmer 1 swims 50m in 27.50s (improves old PB 30.00s -> 27.50s!)
+        viewModel.onStartSingleLane(laneNumber = 1)
+        fakeClock.currentMillis = 127_500L
+        viewModel.onLapLane(laneNumber = 1) // Leg 1 finish (27.5s)
+        fakeClock.currentMillis = 158_500L
+        viewModel.onLapLane(laneNumber = 1) // Leg 2 finish
+        fakeClock.currentMillis = 190_500L
+        viewModel.onLapLane(laneNumber = 1) // Leg 3 finish
+        fakeClock.currentMillis = 223_500L
+        viewModel.onFinishLane(laneNumber = 1) // Leg 4 finish
+
+        viewModel.saveCurrentSession()
+        testScheduler.advanceTimeBy(100)
+
+        // Verify that after save, new PB 27.50s is active
+        val afterSave = fakeRepository.getSwimmerById(88L)!!
+        assertEquals(27_500L, afterSave.pb50mMillis)
+        assertEquals(27_500L, afterSave.parseCustomPbsMap()["Freistil" to 50])
+
+        // Now delete the relay session from history (e.g. coach says it was just a test)
+        val sessionId = fakeRepository.allSessionsWithLapsSync().first().session.id
+        viewModel.deleteSession(sessionId)
+        testScheduler.advanceTimeBy(100)
+
+        // The swimmer's PB MUST NOT be null! It MUST be safely restored to the old 30.00s!
+        val afterDelete = fakeRepository.getSwimmerById(88L)!!
+        assertEquals(30_000L, afterDelete.pb50mMillis)
+        assertEquals(30_000L, afterDelete.parseCustomPbsMap()["Freistil" to 50])
+
+        viewModel.onResetAll()
+    }
+
+    @Test
+    fun deleteSession_multiSessionPBProgression_revertsToPreviousSessionOrManualPb() = runTest(testDispatcher) {
+        // Swimmer has manual 50m Freistil PB = 32.00s
+        val manualCustomPbs = SwimmerEntity.serializeCustomPbsMap(mapOf(("Freistil" to 50) to 32_000L))
+        val swimmer = SwimmerEntity(
+            id = 99L,
+            name = "Progression Swimmer",
+            favoriteStroke = "Freistil",
+            pb50mMillis = 32_000L,
+            customPbsJson = manualCustomPbs
+        )
+        fakeRepository.insertSwimmer(swimmer)
+        viewModel.assignSwimmerToLane(laneNumber = 1, swimmer = swimmer)
+
+        // Session 1: 50m in 30.00s
+        viewModel.setSessionMeta("50m Freistil 1", "Freistil", 50, 50, 50)
+        viewModel.onStartSingleLane(laneNumber = 1)
+        fakeClock.currentMillis = 130_000L
+        viewModel.onFinishLane(laneNumber = 1)
+        viewModel.saveCurrentSession()
+        testScheduler.advanceTimeBy(100)
+        viewModel.onResetAll()
+
+        val afterSession1 = fakeRepository.getSwimmerById(99L)!!
+        assertEquals(30_000L, afterSession1.pb50mMillis)
+        val session1Id = fakeRepository.allSessionsWithLapsSync().first().session.id
+
+        // Session 2: 50m in 28.00s
+        viewModel.assignSwimmerToLane(laneNumber = 1, swimmer = afterSession1)
+        viewModel.setSessionMeta("50m Freistil 2", "Freistil", 50, 50, 50)
+        viewModel.onStartSingleLane(laneNumber = 1)
+        fakeClock.currentMillis = 158_000L
+        viewModel.onFinishLane(laneNumber = 1)
+        viewModel.saveCurrentSession()
+        testScheduler.advanceTimeBy(100)
+        viewModel.onResetAll()
+
+        val afterSession2 = fakeRepository.getSwimmerById(99L)!!
+        assertEquals(28_000L, afterSession2.pb50mMillis)
+        val session2Id = fakeRepository.allSessionsWithLapsSync().first().session.id
+
+        // Delete Session 2 -> PB must revert to Session 1 (30.00s)
+        viewModel.deleteSession(session2Id)
+        testScheduler.advanceTimeBy(100)
+        val afterDeleteSession2 = fakeRepository.getSwimmerById(99L)!!
+        assertEquals(30_000L, afterDeleteSession2.pb50mMillis)
+
+        // Delete Session 1 -> PB must revert to original manual PB (32.00s), NEVER null!
+        viewModel.deleteSession(session1Id)
+        testScheduler.advanceTimeBy(100)
+        val afterDeleteSession1 = fakeRepository.getSwimmerById(99L)!!
+        assertEquals(32_000L, afterDeleteSession1.pb50mMillis)
 
         viewModel.onResetAll()
     }
@@ -672,6 +794,42 @@ class StopwatchViewModelTest {
         assertEquals(1, sessions.size)
         assertEquals(1, sessions[0].laps.size)
         assertEquals(15_000L, sessions[0].laps[0].splitTimeMillis)
+
+        viewModel.onResetAll()
+    }
+
+    @Test
+    fun `assignSwimmerToLane cleans up swimmer from relay leg on other lane`() = runTest(testDispatcher) {
+        val swimmerA = SwimmerEntity(id = 1, name = "Lukas", favoriteStroke = "Freistil")
+        val swimmerB = SwimmerEntity(id = 2, name = "Sophie", favoriteStroke = "Brust")
+        fakeRepository.insertSwimmer(swimmerA)
+        fakeRepository.insertSwimmer(swimmerB)
+
+        // Assign relay team to lane 1 with Lukas as leg 1
+        val relayLegs = listOf(
+            com.example.domain.RelayLegAssignment(legPosition = 1, swimmerId = 1L, swimmerName = "Lukas", stroke = "Freistil", distanceMeters = 50, timeMillis = null),
+            com.example.domain.RelayLegAssignment(legPosition = 2, swimmerId = 2L, swimmerName = "Sophie", stroke = "Freistil", distanceMeters = 50, timeMillis = null)
+        )
+        viewModel.assignRelayTeamToLane(1, "Staffel 1", relayLegs)
+
+        // Verify Lukas is assigned on Lane 1
+        val lane1Before = viewModel.uiState.value.lanes.find { it.laneNumber == 1 }!!
+        assertEquals(1L, lane1Before.relayMembers[0].swimmerId)
+
+        // Now assign Lukas as single swimmer to Lane 2
+        viewModel.assignSwimmerToLane(2, swimmerA)
+
+        val lane2 = viewModel.uiState.value.lanes.find { it.laneNumber == 2 }!!
+        val lane1After = viewModel.uiState.value.lanes.find { it.laneNumber == 1 }!!
+
+        assertEquals(1L, lane2.swimmerId)
+        assertEquals("Lukas", lane2.swimmerName)
+
+        // Lukas must be removed from leg 1 on Lane 1, slot reset to Starter 1
+        assertNull(lane1After.relayMembers[0].swimmerId)
+        assertEquals("Starter 1", lane1After.relayMembers[0].swimmerName)
+        // Leg 2 with Sophie remains intact
+        assertEquals(2L, lane1After.relayMembers[1].swimmerId)
 
         viewModel.onResetAll()
     }

@@ -255,6 +255,14 @@ object PersonalBestEvaluator {
         val strokeOptions = listOf("Freistil", "Brust", "Rücken", "Schmetterling", "Lagen")
         val matchedStroke = strokeOptions.find { isSameStroke(it, strokeType) } ?: strokeType
         val customPbsMap = swimmer.parseCustomPbsMap().toMutableMap()
+        // Ensure existing legacy PBs are seeded into customPbsMap so they are never omitted when serializing
+        val favStroke = if (swimmer.favoriteStroke == "Lagen") "Freistil" else swimmer.favoriteStroke
+        swimmer.pb25mMillis?.let { if (it > 0L) customPbsMap.putIfAbsent(favStroke to 25, it) }
+        swimmer.pb50mMillis?.let { if (it > 0L) customPbsMap.putIfAbsent(favStroke to 50, it) }
+        swimmer.pb100mMillis?.let { if (it > 0L) customPbsMap.putIfAbsent(favStroke to 100, it) }
+        swimmer.pb100mLagenMillis?.let { if (it > 0L) customPbsMap.putIfAbsent("Lagen" to 100, it) }
+        swimmer.pb200mLagenMillis?.let { if (it > 0L) customPbsMap.putIfAbsent("Lagen" to 200, it) }
+        swimmer.pb400mLagenMillis?.let { if (it > 0L) customPbsMap.putIfAbsent("Lagen" to 400, it) }
 
         var hasImproved = false
         val pbAchievements = mutableListOf<String>()

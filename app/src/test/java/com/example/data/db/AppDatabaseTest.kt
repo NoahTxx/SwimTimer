@@ -143,4 +143,20 @@ class AppDatabaseTest {
 
         assertNull(sessionDao.getSessionWithLapsSync(sessionId))
     }
+
+    @Test
+    fun insertAndRetrieveSwimmerWithManualPbsJson() = runBlocking {
+        val swimmer = SwimmerEntity(
+            name = "Florian Wellbrock",
+            groupName = "LongDistance",
+            pb50mMillis = 26_000L
+        ).withManualPbsSnapshot()
+
+        val id = swimmerDao.insertSwimmer(swimmer)
+        val retrieved = swimmerDao.getSwimmerByIdSync(id)
+        assertNotNull(retrieved)
+        assertNotNull(retrieved?.manualPbsJson)
+        val base = retrieved?.toBaseSwimmer()
+        assertEquals(26_000L, base?.pb50mMillis)
+    }
 }

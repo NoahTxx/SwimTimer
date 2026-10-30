@@ -198,6 +198,7 @@ object ExportHelper {
                 put("notes", swimmer.notes)
                 swimmer.groupName?.let { put("groupName", it) }
                 swimmer.customPbsJson?.let { put("customPbsJson", it) }
+                swimmer.manualPbsJson?.let { put("manualPbsJson", it) }
             }
             jsonArray.put(obj)
         }
@@ -214,37 +215,38 @@ object ExportHelper {
 
             val safeName = obj.optString("name", "Unbekannt").trim()
             val safeGroupName = optStringNullable("groupName")?.trim()
+            val importedManualPbs = optStringNullable("manualPbsJson")
 
-            list.add(
-                SwimmerEntity(
-                    id = 0,
-                    name = safeName.ifBlank { "Unbekannt" },
-                    ageGroup = obj.optString("ageGroup", "Offen").trim().ifBlank { "Offen" },
-                    favoriteStroke = obj.optString("favoriteStroke", "Freistil").trim().ifBlank { "Freistil" },
-                    pb25mMillis = optLongNullable("pb25mMillis"),
-                    pb50mMillis = optLongNullable("pb50mMillis"),
-                    pb100mMillis = optLongNullable("pb100mMillis"),
-                    pb100mLagenMillis = optLongNullable("pb100mLagenMillis"),
-                    lagenFlySplitMillis = optLongNullable("lagenFlySplitMillis"),
-                    lagenBackSplitMillis = optLongNullable("lagenBackSplitMillis"),
-                    lagenBreastSplitMillis = optLongNullable("lagenBreastSplitMillis"),
-                    lagenFreeSplitMillis = optLongNullable("lagenFreeSplitMillis"),
-                    pb200mLagenMillis = optLongNullable("pb200mLagenMillis"),
-                    pb400mLagenMillis = optLongNullable("pb400mLagenMillis"),
-                    pb200mLagenFlySplitMillis = optLongNullable("pb200mLagenFlySplitMillis"),
-                    pb200mLagenBackSplitMillis = optLongNullable("pb200mLagenBackSplitMillis"),
-                    pb200mLagenBreastSplitMillis = optLongNullable("pb200mLagenBreastSplitMillis"),
-                    pb200mLagenFreeSplitMillis = optLongNullable("pb200mLagenFreeSplitMillis"),
-                    pb400mLagenFlySplitMillis = optLongNullable("pb400mLagenFlySplitMillis"),
-                    pb400mLagenBackSplitMillis = optLongNullable("pb400mLagenBackSplitMillis"),
-                    pb400mLagenBreastSplitMillis = optLongNullable("pb400mLagenBreastSplitMillis"),
-                    pb400mLagenFreeSplitMillis = optLongNullable("pb400mLagenFreeSplitMillis"),
-                    colorHex = obj.optLong("colorHex", 0xFF00E5FF),
-                    notes = obj.optString("notes", "").trim(),
-                    groupName = safeGroupName,
-                    customPbsJson = optStringNullable("customPbsJson")
-                )
+            val swimmerEntity = SwimmerEntity(
+                id = 0,
+                name = safeName.ifBlank { "Unbekannt" },
+                ageGroup = obj.optString("ageGroup", "Offen").trim().ifBlank { "Offen" },
+                favoriteStroke = obj.optString("favoriteStroke", "Freistil").trim().ifBlank { "Freistil" },
+                pb25mMillis = optLongNullable("pb25mMillis"),
+                pb50mMillis = optLongNullable("pb50mMillis"),
+                pb100mMillis = optLongNullable("pb100mMillis"),
+                pb100mLagenMillis = optLongNullable("pb100mLagenMillis"),
+                lagenFlySplitMillis = optLongNullable("lagenFlySplitMillis"),
+                lagenBackSplitMillis = optLongNullable("lagenBackSplitMillis"),
+                lagenBreastSplitMillis = optLongNullable("lagenBreastSplitMillis"),
+                lagenFreeSplitMillis = optLongNullable("lagenFreeSplitMillis"),
+                pb200mLagenMillis = optLongNullable("pb200mLagenMillis"),
+                pb400mLagenMillis = optLongNullable("pb400mLagenMillis"),
+                pb200mLagenFlySplitMillis = optLongNullable("pb200mLagenFlySplitMillis"),
+                pb200mLagenBackSplitMillis = optLongNullable("pb200mLagenBackSplitMillis"),
+                pb200mLagenBreastSplitMillis = optLongNullable("pb200mLagenBreastSplitMillis"),
+                pb200mLagenFreeSplitMillis = optLongNullable("pb200mLagenFreeSplitMillis"),
+                pb400mLagenFlySplitMillis = optLongNullable("pb400mLagenFlySplitMillis"),
+                pb400mLagenBackSplitMillis = optLongNullable("pb400mLagenBackSplitMillis"),
+                pb400mLagenBreastSplitMillis = optLongNullable("pb400mLagenBreastSplitMillis"),
+                pb400mLagenFreeSplitMillis = optLongNullable("pb400mLagenFreeSplitMillis"),
+                colorHex = obj.optLong("colorHex", 0xFF00E5FF),
+                notes = obj.optString("notes", "").trim(),
+                groupName = safeGroupName,
+                customPbsJson = optStringNullable("customPbsJson"),
+                manualPbsJson = importedManualPbs
             )
+            list.add(if (swimmerEntity.manualPbsJson == null) swimmerEntity.withManualPbsSnapshot() else swimmerEntity)
         }
         return list
     }

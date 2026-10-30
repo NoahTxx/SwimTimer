@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Groups
@@ -452,18 +453,24 @@ fun AssignSwimmerDialog(
                                     val hasSwimmer = leg.swimmerId != null
                                     val isLagen = PersonalBestEvaluator.isSameStroke(currentStrokeType, "Lagen")
                                     val isAnchorSlot = !isLagen && leg.legPosition == relayLegs.size && relayLegs.size >= 2
+                                    val shortStroke = formatShortStroke(leg.stroke)
                                     val slotHeader = if (isLagen) {
-                                        "${leg.legPosition}. ${formatShortStroke(leg.stroke)}"
+                                        "${leg.legPosition}. $shortStroke"
                                     } else if (isAnchorSlot) {
                                         "${leg.legPosition}. Schluss"
                                     } else {
                                         "${leg.legPosition}. Starter"
                                     }
+                                    val slotModifier = if (pair.size == 1) {
+                                        Modifier.fillMaxWidth().fillMaxHeight()
+                                    } else {
+                                        Modifier.weight(1f).fillMaxHeight()
+                                    }
 
                                     Surface(
                                         shape = RoundedCornerShape(12.dp),
                                         color = when {
-                                            isSelectedSlot -> AquaPrimary.copy(alpha = 0.18f)
+                                            isSelectedSlot -> AquaPrimary.copy(alpha = 0.20f)
                                             hasSwimmer -> Color(0xFF13273A)
                                             else -> Color(0xFF0E1A29)
                                         },
@@ -471,20 +478,18 @@ fun AssignSwimmerDialog(
                                             width = if (isSelectedSlot) 1.5.dp else 1.dp,
                                             color = when {
                                                 isSelectedSlot -> AquaPrimary
-                                                hasSwimmer -> PaceGreen.copy(alpha = 0.6f)
+                                                hasSwimmer -> PaceGreen.copy(alpha = 0.65f)
                                                 else -> Color(0xFF1E344B)
                                             }
                                         ),
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .fillMaxHeight()
+                                        modifier = slotModifier
                                             .clickable { activeLegIdx = idx }
                                     ) {
                                         Column(
-                                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 8.dp),
+                                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 7.dp),
                                             verticalArrangement = Arrangement.spacedBy(5.dp)
                                         ) {
-                                            // Top Row: Position Tag + Delete Icon / Distance
+                                            // Top Row: Position Tag + Time Badge + (Distance / Delete Icon)
                                             Row(
                                                 modifier = Modifier.fillMaxWidth(),
                                                 verticalAlignment = Alignment.CenterVertically,
@@ -493,9 +498,9 @@ fun AssignSwimmerDialog(
                                                 Surface(
                                                     shape = RoundedCornerShape(6.dp),
                                                     color = when {
-                                                        isSelectedSlot -> AquaPrimary.copy(alpha = 0.22f)
-                                                        hasSwimmer -> PaceGreen.copy(alpha = 0.2f)
-                                                        isAnchorSlot -> Color(0xFFFFD600).copy(alpha = 0.2f)
+                                                        isSelectedSlot -> AquaPrimary.copy(alpha = 0.25f)
+                                                        hasSwimmer -> PaceGreen.copy(alpha = 0.22f)
+                                                        isAnchorSlot -> Color(0xFFFFD600).copy(alpha = 0.22f)
                                                         else -> Color(0xFF16283C)
                                                     }
                                                 ) {
@@ -533,35 +538,76 @@ fun AssignSwimmerDialog(
                                                     }
                                                 }
 
-                                                if (hasSwimmer) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.Close,
-                                                        contentDescription = "Starter entfernen",
-                                                        tint = Color.LightGray,
-                                                        modifier = Modifier
-                                                            .size(16.dp)
-                                                            .clickable {
-                                                                val updated = relayLegs.toMutableList()
-                                                                updated[idx] = updated[idx].copy(
-                                                                    swimmerId = null,
-                                                                    swimmerName = "Starter ${idx + 1}",
-                                                                    timeMillis = null
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                ) {
+                                                    if (hasSwimmer && leg.timeMillis != null) {
+                                                        val estPrefix = if (leg.isEstimated) "~" else "PB "
+                                                        Surface(
+                                                            shape = RoundedCornerShape(5.dp),
+                                                            color = if (leg.isEstimated) Color(0xFFFFB74D).copy(alpha = 0.18f) else PaceGreen.copy(alpha = 0.2f),
+                                                            border = BorderStroke(0.5.dp, if (leg.isEstimated) Color(0xFFFFB74D).copy(alpha = 0.5f) else PaceGreen.copy(alpha = 0.5f))
+                                                        ) {
+                                                            Text(
+                                                                text = "$estPrefix${TimeFormatter.formatMillis(leg.timeMillis, shortFormat = true)}",
+                                                                fontFamily = FontFamily.Monospace,
+                                                                fontSize = 9.5.sp,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = if (leg.isEstimated) Color(0xFFFFB74D) else PaceGreen,
+                                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.5.dp),
+                                                                maxLines = 1
+                                                            )
+                                                        }
+                                                    } else if (!hasSwimmer) {
+                                                        Surface(
+                                                            shape = RoundedCornerShape(5.dp),
+                                                            color = Color(0xFF16283C)
+                                                        ) {
+                                                            Text(
+                                                                text = "${leg.distanceMeters}m",
+                                                                fontSize = 9.5.sp,
+                                                                fontWeight = FontWeight.Medium,
+                                                                color = Color(0xFF90A4AE),
+                                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.5.dp),
+                                                                maxLines = 1
+                                                            )
+                                                        }
+                                                    }
+
+                                                    if (hasSwimmer) {
+                                                        Surface(
+                                                            shape = CircleShape,
+                                                            color = Color(0xFF1F354D),
+                                                            modifier = Modifier
+                                                                .size(18.dp)
+                                                                .clickable {
+                                                                    val updated = relayLegs.toMutableList()
+                                                                    updated[idx] = updated[idx].copy(
+                                                                        swimmerId = null,
+                                                                        swimmerName = "Starter ${idx + 1}",
+                                                                        timeMillis = null,
+                                                                        isEstimated = false,
+                                                                        sourceLabel = ""
+                                                                    )
+                                                                    relayLegs = updated
+                                                                    activeLegIdx = idx
+                                                                }
+                                                        ) {
+                                                            Box(contentAlignment = Alignment.Center) {
+                                                                Icon(
+                                                                    imageVector = Icons.Default.Close,
+                                                                    contentDescription = "Starter entfernen",
+                                                                    tint = Color.LightGray,
+                                                                    modifier = Modifier.size(12.dp)
                                                                 )
-                                                                relayLegs = updated
-                                                                activeLegIdx = idx
                                                             }
-                                                    )
-                                                } else {
-                                                    Text(
-                                                        text = "${leg.distanceMeters}m",
-                                                        fontSize = 10.sp,
-                                                        color = Color(0xFF607D8B),
-                                                        fontWeight = FontWeight.Medium
-                                                    )
+                                                        }
+                                                    }
                                                 }
                                             }
 
-                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Spacer(modifier = Modifier.height(1.dp))
 
                                             // Athlete Info Row with Avatar
                                             Row(
@@ -583,20 +629,20 @@ fun AssignSwimmerDialog(
                                                             else -> Color(0xFF223A52)
                                                         }
                                                     ),
-                                                    modifier = Modifier.size(28.dp)
+                                                    modifier = Modifier.size(30.dp)
                                                 ) {
                                                     Box(contentAlignment = Alignment.Center) {
                                                         if (!hasSwimmer) {
                                                             Icon(
-                                                                imageVector = Icons.Default.Person,
+                                                                imageVector = if (isSelectedSlot) Icons.Default.Add else Icons.Default.Person,
                                                                 contentDescription = null,
-                                                                tint = Color.Gray,
-                                                                modifier = Modifier.size(15.dp)
+                                                                tint = if (isSelectedSlot) AquaPrimary else Color.Gray,
+                                                                modifier = Modifier.size(16.dp)
                                                             )
                                                         } else {
                                                             Text(
                                                                 text = leg.swimmerName.take(1).uppercase(),
-                                                                fontSize = 12.sp,
+                                                                fontSize = 13.sp,
                                                                 fontWeight = FontWeight.Black,
                                                                 color = PaceGreen
                                                             )
@@ -604,21 +650,35 @@ fun AssignSwimmerDialog(
                                                     }
                                                 }
 
-                                                Spacer(modifier = Modifier.width(7.dp))
+                                                Spacer(modifier = Modifier.width(8.dp))
 
                                                 Column(modifier = Modifier.weight(1f)) {
                                                     Text(
                                                         text = if (hasSwimmer) leg.swimmerName else "Frei (wählen)",
-                                                        fontSize = 14.sp,
-                                                        fontWeight = if (hasSwimmer) FontWeight.Bold else FontWeight.Normal,
-                                                        color = if (hasSwimmer) TextWhite else Color.Gray,
+                                                        fontSize = 13.5.sp,
+                                                        fontWeight = if (hasSwimmer) FontWeight.Bold else if (isSelectedSlot) FontWeight.SemiBold else FontWeight.Normal,
+                                                        color = if (hasSwimmer) TextWhite else if (isSelectedSlot) AquaPrimary else Color.Gray,
                                                         maxLines = 1,
                                                         overflow = TextOverflow.Ellipsis
                                                     )
+                                                    val subText = when {
+                                                        hasSwimmer && leg.sourceLabel.isNotBlank() && leg.isEstimated ->
+                                                            "${leg.distanceMeters}m $shortStroke • ${leg.sourceLabel}"
+                                                        hasSwimmer ->
+                                                            "${leg.distanceMeters}m $shortStroke"
+                                                        isSelectedSlot ->
+                                                            "Wähle unten einen Athleten"
+                                                        else ->
+                                                            "${leg.distanceMeters}m $shortStroke • Tippen zum Wählen"
+                                                    }
                                                     Text(
-                                                        text = if (hasSwimmer) "${leg.distanceMeters}m ${formatShortStroke(leg.stroke)}" else "Tippen zum Zuweisen",
-                                                        fontSize = 10.5.sp,
-                                                        color = if (hasSwimmer) Color(0xFF90A4AE) else AquaPrimary.copy(alpha = 0.75f),
+                                                        text = subText,
+                                                        fontSize = 10.sp,
+                                                        color = when {
+                                                            hasSwimmer -> Color(0xFF90A4AE)
+                                                            isSelectedSlot -> AquaPrimary.copy(alpha = 0.85f)
+                                                            else -> Color(0xFF607D8B)
+                                                        },
                                                         maxLines = 1,
                                                         overflow = TextOverflow.Ellipsis
                                                     )
@@ -626,9 +686,6 @@ fun AssignSwimmerDialog(
                                             }
                                         }
                                     }
-                                }
-                                if (pair.size == 1) {
-                                    Spacer(modifier = Modifier.weight(1f))
                                 }
                             }
                         }
@@ -691,7 +748,8 @@ fun AssignSwimmerDialog(
                     )
                 } else {
                     LazyColumn(
-                        modifier = Modifier.height(if (isRelayMode) 200.dp else 250.dp)
+                        modifier = Modifier.height(if (isRelayMode) 220.dp else 250.dp),
+                        verticalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
                         items(
                             items = filteredSwimmers,
@@ -702,6 +760,8 @@ fun AssignSwimmerDialog(
                             val currentAssignedLane = assignedSwimmers[swimmer.id]
                             val isAssignedToOtherLane = currentAssignedLane != null && currentAssignedLane != laneNumber
                             val isAssignedToThisLane = currentAssignedLane == laneNumber
+                            val isAssignedToCurrentActiveLeg = isRelayMode && relayLegs.getOrNull(activeLegIdx)?.swimmerId == swimmer.id
+                            val isAssignedToOtherLegInThisRelay = isRelayMode && existingRelayPos != -1 && existingRelayPos != activeLegIdx
 
                             val targetStrokeForPreview = if (isRelayMode) {
                                 relayLegs.getOrNull(activeLegIdx)?.stroke ?: currentStrokeType
@@ -712,10 +772,25 @@ fun AssignSwimmerDialog(
                                 RelayOptimizer.resolveSwimmerTime(swimmer, targetStrokeForPreview, effectiveLegDist)
                             }
 
-                            Row(
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = when {
+                                    isAssignedToCurrentActiveLeg -> AquaPrimary.copy(alpha = 0.16f)
+                                    isAssignedToOtherLegInThisRelay -> Color(0xFF0F2537)
+                                    isAssignedToThisLane -> AquaPrimary.copy(alpha = 0.12f)
+                                    else -> Color(0xFF0E1A29)
+                                },
+                                border = BorderStroke(
+                                    width = if (isAssignedToCurrentActiveLeg) 1.5.dp else 1.dp,
+                                    color = when {
+                                        isAssignedToCurrentActiveLeg -> AquaPrimary
+                                        isAssignedToOtherLegInThisRelay -> PaceGreen.copy(alpha = 0.5f)
+                                        isAssignedToThisLane -> AquaPrimary.copy(alpha = 0.5f)
+                                        else -> Color(0xFF1B2D40)
+                                    }
+                                ),
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .defaultMinSize(minHeight = 46.dp)
                                     .clickable {
                                         if (!isRelayMode) {
                                             onSelectSwimmer(swimmer)
@@ -727,7 +802,9 @@ fun AssignSwimmerDialog(
                                                 updated[oldIdx] = updated[oldIdx].copy(
                                                     swimmerId = null,
                                                     swimmerName = "Starter ${oldIdx + 1}",
-                                                    timeMillis = null
+                                                    timeMillis = null,
+                                                    isEstimated = false,
+                                                    sourceLabel = ""
                                                 )
                                             }
                                             val legStroke = updated[activeLegIdx].stroke
@@ -745,71 +822,125 @@ fun AssignSwimmerDialog(
                                             activeLegIdx = if (nextEmpty != -1) nextEmpty else (activeLegIdx + 1).coerceAtMost(updated.lastIndex)
                                         }
                                     }
-                                    .padding(vertical = 8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.weight(1f).padding(end = 8.dp)
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 10.dp, vertical = 7.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = Color(swimmer.colorHex),
-                                        modifier = Modifier.size(34.dp)
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f).padding(end = 8.dp)
                                     ) {
-                                        Box(contentAlignment = Alignment.Center) {
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = Color(swimmer.colorHex),
+                                            modifier = Modifier.size(32.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Text(
+                                                    text = swimmer.name.take(1).uppercase(),
+                                                    color = Color.Black,
+                                                    fontWeight = FontWeight.Black,
+                                                    fontSize = 13.sp
+                                                )
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.width(9.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                Text(
+                                                    text = swimmer.name,
+                                                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = 14.sp),
+                                                    color = TextWhite,
+                                                    fontWeight = FontWeight.Bold,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                if (isAssignedToCurrentActiveLeg) {
+                                                    Surface(
+                                                        shape = RoundedCornerShape(4.dp),
+                                                        color = AquaPrimary
+                                                    ) {
+                                                        Text(
+                                                            text = "HIER",
+                                                            fontSize = 8.5.sp,
+                                                            fontWeight = FontWeight.Black,
+                                                            color = Color.Black,
+                                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                            val subtitle = when {
+                                                isRelayMode && isAssignedToCurrentActiveLeg ->
+                                                    "Ausgewählt für ${activeLegIdx + 1}. Starter"
+                                                isRelayMode && existingRelayPos != -1 ->
+                                                    "In dieser Staffel: ${existingRelayPos + 1}. Starter"
+                                                !isRelayMode && isAssignedToThisLane ->
+                                                    "Auf dieser Bahn eingeteilt"
+                                                isAssignedToOtherLane ->
+                                                    "Bereits auf Bahn $currentAssignedLane"
+                                                swimmer.groupName != null ->
+                                                    "${swimmer.groupName} • Hauptlage: ${swimmer.favoriteStroke}"
+                                                else ->
+                                                    "Hauptlage: ${swimmer.favoriteStroke}"
+                                            }
+                                            val subtitleColor = when {
+                                                isRelayMode && isAssignedToCurrentActiveLeg -> AquaPrimary
+                                                isRelayMode && existingRelayPos != -1 -> PaceGreen
+                                                !isRelayMode && isAssignedToThisLane -> AquaPrimary
+                                                isAssignedToOtherLane -> Color(0xFFFFB74D)
+                                                else -> Color(0xFF90A4AE)
+                                            }
                                             Text(
-                                                text = swimmer.name.take(1).uppercase(),
-                                                color = Color.Black,
-                                                fontWeight = FontWeight.Black
+                                                text = subtitle,
+                                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.5.sp),
+                                                color = subtitleColor,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
                                             )
                                         }
                                     }
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = swimmer.name,
-                                            style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
-                                            color = TextWhite,
-                                            fontWeight = FontWeight.SemiBold,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        val subtitle = when {
-                                            isRelayMode && existingRelayPos != -1 -> "In dieser Staffel: ${existingRelayPos + 1}. Starter"
-                                            !isRelayMode && isAssignedToThisLane -> "Auf dieser Bahn eingeteilt"
-                                            isAssignedToOtherLane -> "Bereits auf Bahn $currentAssignedLane"
-                                            else -> "Hauptlage: ${swimmer.favoriteStroke}"
-                                        }
-                                        val subtitleColor = when {
-                                            isRelayMode && existingRelayPos != -1 -> PaceGreen
-                                            !isRelayMode && isAssignedToThisLane -> AquaPrimary
-                                            isAssignedToOtherLane -> Color(0xFFFFB74D)
-                                            else -> AquaPrimary
-                                        }
-                                        Text(
-                                            text = subtitle,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = subtitleColor,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
-                                }
 
-                                val pbToDisplay = resolvedLegTime?.millis
-                                    ?: swimmer.pb50mMillis
-                                    ?: swimmer.parseCustomPbsMap()[swimmer.favoriteStroke to 50]
-                                if (pbToDisplay != null) {
-                                    val isEst = resolvedLegTime?.isEstimated == true
-                                    val estPrefix = if (isEst) "~" else "PB: "
-                                    Text(
-                                        text = "$estPrefix${TimeFormatter.formatMillis(pbToDisplay, shortFormat = true)}",
-                                        style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
-                                        color = if (isEst) Color(0xFFFFB74D) else AquaPrimary,
-                                        maxLines = 1
-                                    )
+                                    // Time Badge on the right
+                                    val pbToDisplay = resolvedLegTime?.millis
+                                        ?: swimmer.pb50mMillis
+                                        ?: swimmer.parseCustomPbsMap()[swimmer.favoriteStroke to 50]
+                                    if (pbToDisplay != null) {
+                                        val isEst = resolvedLegTime?.isEstimated == true
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = if (isEst) Color(0xFFFFB74D).copy(alpha = 0.16f) else AquaPrimary.copy(alpha = 0.16f),
+                                            border = BorderStroke(0.5.dp, if (isEst) Color(0xFFFFB74D).copy(alpha = 0.45f) else AquaPrimary.copy(alpha = 0.45f))
+                                        ) {
+                                            Column(
+                                                horizontalAlignment = Alignment.End,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                            ) {
+                                                val strokeShort = formatShortStroke(targetStrokeForPreview)
+                                                Text(
+                                                    text = "${effectiveLegDist}m $strokeShort",
+                                                    fontSize = 8.5.sp,
+                                                    color = Color.LightGray,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                                val estPrefix = if (isEst) "~" else ""
+                                                Text(
+                                                    text = "$estPrefix${TimeFormatter.formatMillis(pbToDisplay, shortFormat = effectiveLegDist <= 50)}",
+                                                    fontFamily = FontFamily.Monospace,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = if (isEst) Color(0xFFFFB74D) else AquaPrimary
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }

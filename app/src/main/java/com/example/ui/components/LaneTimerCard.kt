@@ -409,14 +409,17 @@ private fun RelayLineupSection(
                         } else {
                             "${member.legPosition}. Starter"
                         }
+                        val legModifier = if (pair.size == 1) {
+                            Modifier.fillMaxWidth().fillMaxHeight()
+                        } else {
+                            Modifier.weight(1f).fillMaxHeight()
+                        }
 
                         Surface(
                             shape = RoundedCornerShape(12.dp),
                             color = cellBg,
                             border = BorderStroke(if (isActiveNow) 1.5.dp else 1.dp, cellBorder),
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
+                            modifier = legModifier
                                 .then(
                                     if (onLegClick != null) {
                                         Modifier.clickable { onLegClick(member.legPosition) }
@@ -539,13 +542,19 @@ private fun RelayLineupSection(
                                             )
                                         }
                                         else -> {
-                                            Text(
-                                                text = "${member.distanceMeters}m",
-                                                fontSize = 10.sp,
-                                                fontWeight = FontWeight.Medium,
-                                                color = Color(0xFF607D8B),
-                                                maxLines = 1
-                                            )
+                                            Surface(
+                                                shape = RoundedCornerShape(5.dp),
+                                                color = Color(0xFF142436)
+                                            ) {
+                                                Text(
+                                                    text = "${member.distanceMeters}m",
+                                                    fontSize = 9.5.sp,
+                                                    fontWeight = FontWeight.Medium,
+                                                    color = Color(0xFF90A4AE),
+                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.5.dp),
+                                                    maxLines = 1
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -634,9 +643,6 @@ private fun RelayLineupSection(
                                 }
                             }
                         }
-                    }
-                    if (pair.size == 1) {
-                        Spacer(modifier = Modifier.weight(1f))
                     }
                 }
             }

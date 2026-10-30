@@ -34,8 +34,9 @@ class FakeSwimRepository : ISwimRepository {
         _swimmers.value.find { it.id == id }
 
     override suspend fun insertSwimmer(swimmer: SwimmerEntity): Long {
-        val assignedId = if (swimmer.id > 0) swimmer.id else swimmerIdGen.getAndIncrement()
-        val newSwimmer = swimmer.copy(id = assignedId)
+        val swimmerWithBase = if (swimmer.manualPbsJson == null) swimmer.withManualPbsSnapshot() else swimmer
+        val assignedId = if (swimmerWithBase.id > 0) swimmerWithBase.id else swimmerIdGen.getAndIncrement()
+        val newSwimmer = swimmerWithBase.copy(id = assignedId)
         _swimmers.value = _swimmers.value + newSwimmer
         return assignedId
     }

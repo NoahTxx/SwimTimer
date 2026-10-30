@@ -1534,7 +1534,7 @@ internal fun SwimmerFormDialog(
                                         pb400mLagenBreastSplitMillis = TimeFormatter.parseTimeInputToMillis(pb400BreastText),
                                         pb400mLagenFreeSplitMillis = TimeFormatter.parseTimeInputToMillis(pb400FreeText),
                                         customPbsJson = SwimmerEntity.serializeCustomPbsMap(customMap)
-                                    )
+                                    ).withManualPbsSnapshot()
                                 )
                             }
                         },

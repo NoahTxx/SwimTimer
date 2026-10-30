@@ -51,8 +51,10 @@ class SwimRepository(private val database: AppDatabase) : ISwimRepository {
     override suspend fun getSwimmerById(id: Long): SwimmerEntity? =
         swimmerDao.getSwimmerByIdSync(id)
 
-    override suspend fun insertSwimmer(swimmer: SwimmerEntity): Long =
-        swimmerDao.insertSwimmer(swimmer)
+    override suspend fun insertSwimmer(swimmer: SwimmerEntity): Long {
+        val swimmerWithBase = if (swimmer.manualPbsJson == null) swimmer.withManualPbsSnapshot() else swimmer
+        return swimmerDao.insertSwimmer(swimmerWithBase)
+    }
 
     override suspend fun updateSwimmer(swimmer: SwimmerEntity) =
         swimmerDao.updateSwimmer(swimmer)

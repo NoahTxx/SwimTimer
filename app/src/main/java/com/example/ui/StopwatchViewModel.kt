@@ -1848,15 +1848,28 @@ class StopwatchViewModel(
                         splitDistanceMeters = currentState.splitDistanceMeters,
                         relayMembers = emptyList()
                     )
-                } else if (swimmer != null && lane.swimmerId == swimmer.id) {
-                    // Unassign swimmer from previous lane if already assigned elsewhere
-                    lane.copy(
-                        swimmerId = null,
-                        swimmerName = "Bahn ${lane.laneNumber}",
-                        relayMembers = emptyList()
-                    )
                 } else {
-                    lane
+                    val isSingleAssigned = swimmer != null && lane.swimmerId == swimmer.id
+                    val cleanedRelayMembers = if (swimmer != null && lane.relayMembers.any { it.swimmerId == swimmer.id }) {
+                        lane.relayMembers.map { m ->
+                            if (m.swimmerId == swimmer.id) {
+                                m.copy(swimmerId = null, swimmerName = "Starter ${m.legPosition}", timeMillis = null)
+                            } else m
+                        }
+                    } else lane.relayMembers
+
+                    if (isSingleAssigned) {
+                        // Unassign swimmer from previous single lane
+                        lane.copy(
+                            swimmerId = null,
+                            swimmerName = "Bahn ${lane.laneNumber}",
+                            relayMembers = emptyList()
+                        )
+                    } else if (cleanedRelayMembers != lane.relayMembers) {
+                        lane.copy(relayMembers = cleanedRelayMembers)
+                    } else {
+                        lane
+                    }
                 }
             }
             currentState.copy(
@@ -2163,7 +2176,7 @@ class StopwatchViewModel(
                 pb400mLagenBreastSplitMillis = pb400Breast,
                 pb400mLagenFreeSplitMillis = pb400Free,
                 customPbsJson = customJson
-            )
+            ).withManualPbsSnapshot()
             repository.insertSwimmer(swimmer)
         }
     }
@@ -2183,7 +2196,8 @@ class StopwatchViewModel(
         swimmers.forEach { swimmer ->
             val cleanKey = swimmer.name.trim().lowercase()
             if (cleanKey.isNotBlank() && existingNamesLower.add(cleanKey)) {
-                repository.insertSwimmer(swimmer.copy(id = 0, name = swimmer.name.trim()))
+                val swimmerToInsert = if (swimmer.manualPbsJson.isNullOrBlank()) swimmer.withManualPbsSnapshot() else swimmer
+                repository.insertSwimmer(swimmerToInsert.copy(id = 0, name = swimmer.name.trim()))
                 insertedCount++
             }
         }
@@ -2245,7 +2259,9 @@ class StopwatchViewModel(
 
     fun updateSwimmer(swimmer: SwimmerEntity) {
         viewModelScope.launch {
-            repository.updateSwimmer(swimmer)
+            val swimmerWithBase = if (swimmer.manualPbsJson == null) swimmer.withManualPbsSnapshot() else swimmer
+            repository.updateSwimmer(swimmerWithBase)
+            recalculateSwimmerPbs(swimmer.id)
             // Keep assigned lanes and relay legs in sync if swimmer was renamed
             val updatedLanes = _uiState.value.lanes.map { lane ->
                 val updatedMembers = if (lane.relayMembers.any { it.swimmerId == swimmer.id }) {
@@ -2291,7 +2307,7 @@ class StopwatchViewModel(
             repository.deleteSessionById(sessionId)
 
             affectedSwimmerIds.forEach { swimmerId ->
-                recalculateSwimmerPbs(swimmerId, deletedSession = sessionWithLaps)
+                recalculateSwimmerPbs(swimmerId)
             }
         }
     }
@@ -2308,67 +2324,13 @@ class StopwatchViewModel(
         )
     }
 
-    suspend fun recalculateSwimmerPbs(swimmerId: Long, deletedSession: SessionWithLaps? = null) {
+    suspend fun recalculateSwimmerPbs(swimmerId: Long) {
         val swimmer = repository.getSwimmerById(swimmerId) ?: return
         val remainingSessions = repository.allSessionsWithLapsSync().filter { session ->
             session.laps.any { it.swimmerId == swimmerId }
         }
 
-        val blankSwimmer = swimmer.copy(
-            pb25mMillis = null,
-            pb50mMillis = null,
-            pb100mMillis = null,
-            pb100mLagenMillis = null,
-            pb200mLagenMillis = null,
-            pb400mLagenMillis = null,
-            lagenFlySplitMillis = null,
-            lagenBackSplitMillis = null,
-            lagenBreastSplitMillis = null,
-            lagenFreeSplitMillis = null,
-            pb200mLagenFlySplitMillis = null,
-            pb200mLagenBackSplitMillis = null,
-            pb200mLagenBreastSplitMillis = null,
-            pb200mLagenFreeSplitMillis = null,
-            pb400mLagenFlySplitMillis = null,
-            pb400mLagenBackSplitMillis = null,
-            pb400mLagenBreastSplitMillis = null,
-            pb400mLagenFreeSplitMillis = null,
-            customPbsJson = null
-        )
-
-        var recalculated = if (deletedSession != null) {
-            val deletedEval = evaluateSessionOnSwimmer(blankSwimmer, deletedSession, swimmerId)
-            val deletedCustomMap = deletedEval.parseCustomPbsMap()
-            val preservedCustomMap = swimmer.parseCustomPbsMap().filterNot { (k, v) ->
-                deletedCustomMap[k] == v
-            }
-            fun keepIfNotFromDeleted(currentVal: Long?, deletedVal: Long?): Long? =
-                if (currentVal != null && currentVal == deletedVal) null else currentVal
-
-            swimmer.copy(
-                pb25mMillis = keepIfNotFromDeleted(swimmer.pb25mMillis, deletedEval.pb25mMillis),
-                pb50mMillis = keepIfNotFromDeleted(swimmer.pb50mMillis, deletedEval.pb50mMillis),
-                pb100mMillis = keepIfNotFromDeleted(swimmer.pb100mMillis, deletedEval.pb100mMillis),
-                pb100mLagenMillis = keepIfNotFromDeleted(swimmer.pb100mLagenMillis, deletedEval.pb100mLagenMillis),
-                pb200mLagenMillis = keepIfNotFromDeleted(swimmer.pb200mLagenMillis, deletedEval.pb200mLagenMillis),
-                pb400mLagenMillis = keepIfNotFromDeleted(swimmer.pb400mLagenMillis, deletedEval.pb400mLagenMillis),
-                lagenFlySplitMillis = keepIfNotFromDeleted(swimmer.lagenFlySplitMillis, deletedEval.lagenFlySplitMillis),
-                lagenBackSplitMillis = keepIfNotFromDeleted(swimmer.lagenBackSplitMillis, deletedEval.lagenBackSplitMillis),
-                lagenBreastSplitMillis = keepIfNotFromDeleted(swimmer.lagenBreastSplitMillis, deletedEval.lagenBreastSplitMillis),
-                lagenFreeSplitMillis = keepIfNotFromDeleted(swimmer.lagenFreeSplitMillis, deletedEval.lagenFreeSplitMillis),
-                pb200mLagenFlySplitMillis = keepIfNotFromDeleted(swimmer.pb200mLagenFlySplitMillis, deletedEval.pb200mLagenFlySplitMillis),
-                pb200mLagenBackSplitMillis = keepIfNotFromDeleted(swimmer.pb200mLagenBackSplitMillis, deletedEval.pb200mLagenBackSplitMillis),
-                pb200mLagenBreastSplitMillis = keepIfNotFromDeleted(swimmer.pb200mLagenBreastSplitMillis, deletedEval.pb200mLagenBreastSplitMillis),
-                pb200mLagenFreeSplitMillis = keepIfNotFromDeleted(swimmer.pb200mLagenFreeSplitMillis, deletedEval.pb200mLagenFreeSplitMillis),
-                pb400mLagenFlySplitMillis = keepIfNotFromDeleted(swimmer.pb400mLagenFlySplitMillis, deletedEval.pb400mLagenFlySplitMillis),
-                pb400mLagenBackSplitMillis = keepIfNotFromDeleted(swimmer.pb400mLagenBackSplitMillis, deletedEval.pb400mLagenBackSplitMillis),
-                pb400mLagenBreastSplitMillis = keepIfNotFromDeleted(swimmer.pb400mLagenBreastSplitMillis, deletedEval.pb400mLagenBreastSplitMillis),
-                pb400mLagenFreeSplitMillis = keepIfNotFromDeleted(swimmer.pb400mLagenFreeSplitMillis, deletedEval.pb400mLagenFreeSplitMillis),
-                customPbsJson = SwimmerEntity.serializeCustomPbsMap(preservedCustomMap)
-            )
-        } else {
-            swimmer
-        }
+        var recalculated = swimmer.toBaseSwimmer()
 
         remainingSessions.forEach { sessionWithLaps ->
             recalculated = evaluateSessionOnSwimmer(recalculated, sessionWithLaps, swimmerId)

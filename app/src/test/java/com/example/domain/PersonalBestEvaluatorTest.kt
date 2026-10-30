@@ -220,5 +220,49 @@ class PersonalBestEvaluatorTest {
         assertNull(result.updatedSwimmer.pb100mMillis)
         assertNull(result.updatedSwimmer.parseCustomPbsMap()["Freistil" to 100])
     }
+
+    @Test
+    fun evaluate_preservesLegacyPbsWhenUpdatingCustomPbs() {
+        // Swimmer has legacy pb50m = 30.0s (30000ms) and no customPbsJson initially
+        val swimmer = SwimmerEntity(
+            id = 1,
+            name = "Max",
+            favoriteStroke = "Freistil",
+            pb50mMillis = 30000L,
+            customPbsJson = null
+        )
+
+        // Swimmer swims 100m Brust in 75s (75000ms)
+        val lane = LaneState(
+            laneNumber = 1,
+            swimmerId = 1,
+            swimmerName = "Max",
+            status = LaneStatus.FINISHED,
+            finishTimeMillis = 75000L,
+            targetDistanceMeters = 100,
+            splitDistanceMeters = 50,
+            strokeType = "Brust",
+            laps = listOf(
+                LapItem(lapIndex = 1, splitTimeMillis = 36000L, lapTimeMillis = 36000L, seriesIndex = 1),
+                LapItem(lapIndex = 2, splitTimeMillis = 75000L, lapTimeMillis = 39000L, seriesIndex = 1)
+            )
+        )
+
+        val result = PersonalBestEvaluator.evaluate(
+            swimmer = swimmer,
+            lane = lane,
+            targetDistanceMeters = 100,
+            splitDistanceMeters = 50,
+            strokeType = "Brust"
+        )
+
+        assertTrue(result.hasImproved)
+        val customMap = result.updatedSwimmer.parseCustomPbsMap()
+        // Legacy 50m Freistil PB MUST be preserved in customMap and pb50mMillis!
+        assertEquals(30000L, result.updatedSwimmer.pb50mMillis)
+        assertEquals(30000L, customMap["Freistil" to 50])
+        // New 100m Brust PB is recorded
+        assertEquals(75000L, customMap["Brust" to 100])
+    }
 }
 

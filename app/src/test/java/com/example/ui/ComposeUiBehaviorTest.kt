@@ -11,6 +11,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import com.example.data.model.SwimmerEntity
 import com.example.ui.components.StrokeRateCalculatorDialog
 import com.example.ui.components.SwimPaceCalculatorDialog
 import com.example.ui.theme.SwimTimerTheme
@@ -203,6 +204,36 @@ class ComposeUiBehaviorTest {
         // When relay mode is enabled, the redundant split section should not exist
         composeTestRule.onNodeWithText("Zwischenzeiten (Splits alle):").assertDoesNotExist()
         composeTestRule.onNodeWithText("Staffel-Wechsel (pro Starter):").assertDoesNotExist()
+    }
+
+    @Test
+    fun assignSwimmerDialog_relayModeRendersStarterBubblesAndSwimmerList() {
+        val testSwimmers = listOf(
+            SwimmerEntity(id = 1, name = "Lukas Weber", favoriteStroke = "Freistil", pb50mMillis = 26400L),
+            SwimmerEntity(id = 2, name = "Sophie Müller", favoriteStroke = "Brust", pb50mMillis = 33200L)
+        )
+
+        composeTestRule.setContent {
+            SwimTimerTheme {
+                com.example.ui.components.AssignSwimmerDialog(
+                    laneNumber = 1,
+                    currentLane = LaneState(laneNumber = 1, swimmerName = "Bahn 1"),
+                    swimmers = testSwimmers,
+                    currentStrokeType = "Freistil",
+                    currentSplitDistanceMeters = 50,
+                    initialRelayLegPosition = 1,
+                    onDismiss = {},
+                    onSelectRelayTeam = { _, _ -> },
+                    onSelectSwimmer = {}
+                )
+            }
+        }
+
+        // Check that relay starter slot tags are rendered
+        composeTestRule.onNodeWithText("1. Starter").assertExists()
+        composeTestRule.onNodeWithText("4. Schluss ", substring = true).assertExists()
+        // Check that swimmer item is rendered in the list
+        composeTestRule.onNodeWithText("Lukas Weber").assertExists()
     }
 }
 
