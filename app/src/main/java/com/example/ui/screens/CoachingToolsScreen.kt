@@ -1,6 +1,5 @@
 package com.example.ui.screens
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -33,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -45,6 +45,7 @@ import com.example.ui.components.RelayRandomizerComponent
 import com.example.ui.theme.AquaPrimary
 import com.example.ui.theme.DeepOceanBackground
 import com.example.ui.theme.OceanSurface
+import com.example.ui.theme.TextWhite
 
 enum class CoachingToolSection(val label: String, val icon: ImageVector) {
     DRILLS("Technik-Drills", Icons.AutoMirrored.Filled.MenuBook),
@@ -67,11 +68,11 @@ fun CoachingToolsScreen(
             .background(DeepOceanBackground)
             .padding(horizontal = 12.dp, vertical = 8.dp),
     ) {
-        // Compact, Flat Top Tool Selector Tabs
+        // Sleek Segmented Top Tool Selector Tabs
         Surface(
             shape = RoundedCornerShape(14.dp),
             color = OceanSurface,
-            border = BorderStroke(1.dp, Color(0xFF1B2E46)),
+            border = null,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 10.dp),
@@ -80,39 +81,41 @@ fun CoachingToolsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(IntrinsicSize.Min)
-                    .padding(3.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 CoachingToolSection.entries.forEach { section ->
                     val isSelected = selectedSection == section
                     Surface(
                         shape = RoundedCornerShape(10.dp),
-                        color = if (isSelected) AquaPrimary else Color.Transparent,
+                        color = if (isSelected) AquaPrimary else Color(0xFF0E1B2A),
+                        border = null,
                         modifier = Modifier
                             .weight(1f)
                             .clickable { selectedSection = section }
                             .testTag("tool_tab_${section.name.lowercase()}")
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 7.dp),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
                         ) {
                             Icon(
                                 imageVector = section.icon,
                                 contentDescription = section.label,
-                                tint = if (isSelected) Color.Black else Color.LightGray,
-                                modifier = Modifier.size(15.dp)
+                                tint = if (isSelected) Color.Black else AquaPrimary,
+                                modifier = Modifier.size(16.dp)
                             )
-                            Spacer(modifier = Modifier.width(5.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = section.label,
                                 style = MaterialTheme.typography.labelMedium.copy(
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
-                                    fontSize = 12.sp
+                                    fontWeight = if (isSelected) FontWeight.Black else FontWeight.SemiBold,
+                                    fontSize = 13.sp,
+                                    platformStyle = PlatformTextStyle(includeFontPadding = false)
                                 ),
-                                color = if (isSelected) Color.Black else Color.LightGray,
+                                color = if (isSelected) Color.Black else TextWhite,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 textAlign = TextAlign.Center

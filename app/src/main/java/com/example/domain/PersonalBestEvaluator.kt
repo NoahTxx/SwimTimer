@@ -43,6 +43,7 @@ object PersonalBestEvaluator {
         splitDistanceMeters: Int
     ): List<LapItem> {
         if (laps.isEmpty()) return emptyList()
+        val isRelayLane = laps.any { it.swimmerName.contains(" • ") }
         val totalSplitsNeeded = (targetDistanceMeters / splitDistanceMeters).coerceAtLeast(1)
         val result = mutableListOf<LapItem>()
         var currentSeriesIndex = 1
@@ -50,32 +51,51 @@ object PersonalBestEvaluator {
         var prevSplitMillis = -1L
 
         for (entity in laps.sortedBy { it.lapIndex }) {
-            val rawInSeriesIdx = ((entity.lapIndex - 1).coerceAtLeast(0) % totalSplitsNeeded) + 1
-            val rawSeriesIdx = ((entity.lapIndex - 1).coerceAtLeast(0) / totalSplitsNeeded) + 1
-
-            if (rawSeriesIdx > currentSeriesIndex) {
-                currentSeriesIndex = rawSeriesIdx
-            } else if (prevSplitMillis >= 0L && (entity.splitTimeMillis < prevSplitMillis || rawInSeriesIdx <= prevInSeriesIdx)) {
-                currentSeriesIndex++
-            }
-
-            val lapIdxInSeries = if (prevSplitMillis >= 0L && entity.splitTimeMillis < prevSplitMillis && rawInSeriesIdx > 1 && rawSeriesIdx == 1) {
-                1
-            } else {
-                rawInSeriesIdx
-            }
-
-            prevInSeriesIdx = lapIdxInSeries
-            prevSplitMillis = entity.splitTimeMillis
-            result.add(
-                LapItem(
-                    lapIndex = lapIdxInSeries,
-                    splitTimeMillis = entity.splitTimeMillis,
-                    lapTimeMillis = entity.lapTimeMillis,
-                    strokeRateSpm = entity.strokeRateSpm,
-                    seriesIndex = currentSeriesIndex
+            if (isRelayLane) {
+                if (prevSplitMillis >= 0L && entity.splitTimeMillis < prevSplitMillis) {
+                    currentSeriesIndex++
+                    prevInSeriesIdx = 0
+                }
+                val lapIdxInSeries = prevInSeriesIdx + 1
+                prevInSeriesIdx = lapIdxInSeries
+                prevSplitMillis = entity.splitTimeMillis
+                result.add(
+                    LapItem(
+                        lapIndex = lapIdxInSeries,
+                        splitTimeMillis = entity.splitTimeMillis,
+                        lapTimeMillis = entity.lapTimeMillis,
+                        strokeRateSpm = entity.strokeRateSpm,
+                        seriesIndex = currentSeriesIndex
+                    )
                 )
-            )
+            } else {
+                val rawInSeriesIdx = ((entity.lapIndex - 1).coerceAtLeast(0) % totalSplitsNeeded) + 1
+                val rawSeriesIdx = ((entity.lapIndex - 1).coerceAtLeast(0) / totalSplitsNeeded) + 1
+
+                if (rawSeriesIdx > currentSeriesIndex) {
+                    currentSeriesIndex = rawSeriesIdx
+                } else if (prevSplitMillis >= 0L && (entity.splitTimeMillis < prevSplitMillis || rawInSeriesIdx <= prevInSeriesIdx)) {
+                    currentSeriesIndex++
+                }
+
+                val lapIdxInSeries = if (prevSplitMillis >= 0L && entity.splitTimeMillis < prevSplitMillis && rawInSeriesIdx > 1 && rawSeriesIdx == 1) {
+                    1
+                } else {
+                    rawInSeriesIdx
+                }
+
+                prevInSeriesIdx = lapIdxInSeries
+                prevSplitMillis = entity.splitTimeMillis
+                result.add(
+                    LapItem(
+                        lapIndex = lapIdxInSeries,
+                        splitTimeMillis = entity.splitTimeMillis,
+                        lapTimeMillis = entity.lapTimeMillis,
+                        strokeRateSpm = entity.strokeRateSpm,
+                        seriesIndex = currentSeriesIndex
+                    )
+                )
+            }
         }
         return result
     }
@@ -257,9 +277,11 @@ object PersonalBestEvaluator {
 
         runs.forEach { seriesLaps ->
             val hasTargetLap = seriesLaps.any { it.lapIndex == expectedSplitsForFullDistance }
-            val completedFullDistance = hasTargetLap ||
-                    (seriesLaps.size >= expectedSplitsForFullDistance) ||
-                    (seriesLaps.isNotEmpty() && (lane.status == LaneStatus.FINISHED || lane.status == LaneStatus.REST_COUNTDOWN || lane.finishTimeMillis != null))
+            // A swimmer has completed the full distance ONLY if the target lap was recorded or
+            // at least expectedSplitsForFullDistance splits were completed.
+            // Early stops via "Ziel" / "Stopp Alle" before all splits were swum MUST NOT award
+            // a PB for the full unswum target distance!
+            val completedFullDistance = hasTargetLap || (seriesLaps.size >= expectedSplitsForFullDistance)
 
             val finishTime = if (completedFullDistance) {
                 seriesLaps.find { it.lapIndex == expectedSplitsForFullDistance }?.splitTimeMillis
@@ -623,60 +645,81 @@ object PersonalBestEvaluator {
                 val swimmerPairs = seriesPairs.filter { it.first.swimmerId == swimmerId }
                 if (swimmerPairs.isEmpty()) continue
 
-                val legDist = swimmerPairs.size * s.splitDistanceMeters
-                val firstLapItem = swimmerPairs.first().second
-                val legNumber = ((firstLapItem.lapIndex - 1) / swimmerPairs.size.coerceAtLeast(1)) + 1
-                val legStroke = if (isSameStroke(s.strokeType, "Lagen")) {
-                    LAGEN_STAFFEL_STROKES.getOrElse((legNumber - 1).coerceIn(0, 3)) { "Freistil" }
-                } else {
-                    s.strokeType
+                // Group into contiguous relay leg chunks (in case a swimmer swims multiple legs)
+                val contiguousLegs = mutableListOf<MutableList<Pair<LapRecordEntity, LapItem>>>()
+                for (pair in swimmerPairs) {
+                    val lastGroup = contiguousLegs.lastOrNull()
+                    if (lastGroup != null && pair.second.lapIndex == lastGroup.last().second.lapIndex + 1) {
+                        lastGroup.add(pair)
+                    } else {
+                        contiguousLegs.add(mutableListOf(pair))
+                    }
                 }
 
-                // Verify that the preceding split (if legNumber > 1) was actually recorded
-                val startLapIdx = firstLapItem.lapIndex - 1
-                val startSplitMs = if (startLapIdx == 0) {
-                    0L
-                } else {
-                    seriesPairs.find { it.second.lapIndex == startLapIdx }?.second?.splitTimeMillis
-                }
-                val endSplitMs = swimmerPairs.last().second.splitTimeMillis
+                for (legPairs in contiguousLegs) {
+                    val legDist = legPairs.size * s.splitDistanceMeters
+                    val firstLapItem = legPairs.first().second
+                    val rawName = legPairs.first().first.swimmerName
+                    val parsedLegNumber = rawName.substringAfter(" • ", "")
+                        .substringBefore(".")
+                        .trim()
+                        .toIntOrNull()
+                    val legNumber = parsedLegNumber
+                        ?: (((firstLapItem.lapIndex - 1) / legPairs.size.coerceAtLeast(1)) + 1)
+                    val legStroke = if (isSameStroke(s.strokeType, "Lagen")) {
+                        LAGEN_STAFFEL_STROKES.getOrElse((legNumber - 1).coerceAtLeast(0) % 4) { "Freistil" }
+                    } else {
+                        s.strokeType
+                    }
 
-                val validLegTime = if (startSplitMs != null && endSplitMs > startSplitMs) {
-                    endSplitMs - startSplitMs
-                } else {
-                    swimmerPairs.sumOf { it.second.lapTimeMillis }.takeIf { startLapIdx == 0 && it > 0L } ?: 0L
-                }
+                    // Verify that the preceding split (if legNumber > 1) was actually recorded
+                    val startLapIdx = firstLapItem.lapIndex - 1
+                    val startSplitMs = if (startLapIdx == 0) {
+                        0L
+                    } else {
+                        seriesPairs.find { it.second.lapIndex == startLapIdx }?.second?.splitTimeMillis
+                    }
+                    val endSplitMs = legPairs.last().second.splitTimeMillis
 
-                if (validLegTime > 0L) {
-                    val normalizedLaps = swimmerPairs.mapIndexed { idx, (_, item) ->
-                        val relSplit = if (startSplitMs != null) {
-                            (item.splitTimeMillis - startSplitMs).coerceAtLeast(0L)
-                        } else {
-                            item.splitTimeMillis
+                    val validLegTime = if (startSplitMs != null && endSplitMs > startSplitMs) {
+                        endSplitMs - startSplitMs
+                    } else {
+                        legPairs.sumOf { it.second.lapTimeMillis }.takeIf { it > 0L } ?: 0L
+                    }
+
+                    if (validLegTime > 0L) {
+                        var runningRelMs = 0L
+                        val normalizedLaps = legPairs.mapIndexed { idx, (_, item) ->
+                            val relSplit = if (startSplitMs != null && item.splitTimeMillis >= startSplitMs) {
+                                (item.splitTimeMillis - startSplitMs).coerceAtLeast(0L)
+                            } else {
+                                runningRelMs += item.lapTimeMillis
+                                runningRelMs
+                            }
+                            LapItem(
+                                lapIndex = idx + 1,
+                                splitTimeMillis = relSplit,
+                                lapTimeMillis = item.lapTimeMillis,
+                                strokeRateSpm = item.strokeRateSpm,
+                                seriesIndex = seriesIdx
+                            )
                         }
-                        LapItem(
-                            lapIndex = idx + 1,
-                            splitTimeMillis = relSplit,
-                            lapTimeMillis = item.lapTimeMillis,
-                            strokeRateSpm = item.strokeRateSpm,
-                            seriesIndex = seriesIdx
+                        val teamTitle = rawName.substringBefore(" • ").trim()
+                        val label = buildString {
+                            if (teamTitle.isNotBlank()) append("$teamTitle • ")
+                            append("$legNumber. Teilstrecke (${legDist}m $legStroke)")
+                        }
+                        performances.add(
+                            SwimmerSessionPerformance(
+                                strokeType = legStroke,
+                                distanceMeters = legDist,
+                                bestTimeMillis = validLegTime,
+                                isRelayLeg = true,
+                                relayLegLabel = label,
+                                laps = normalizedLaps
+                            )
                         )
                     }
-                    val teamTitle = swimmerPairs.first().first.swimmerName.substringBefore(" • ").trim()
-                    val label = buildString {
-                        if (teamTitle.isNotBlank()) append("$teamTitle • ")
-                        append("$legNumber. Teilstrecke (${legDist}m $legStroke)")
-                    }
-                    performances.add(
-                        SwimmerSessionPerformance(
-                            strokeType = legStroke,
-                            distanceMeters = legDist,
-                            bestTimeMillis = validLegTime,
-                            isRelayLeg = true,
-                            relayLegLabel = label,
-                            laps = normalizedLaps
-                        )
-                    )
                 }
             }
         }

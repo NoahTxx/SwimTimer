@@ -6,6 +6,7 @@ import com.example.ui.LaneStatus
 import com.example.ui.LapItem
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -145,4 +146,79 @@ class PersonalBestEvaluatorTest {
         assertEquals(2, reconstructed[3].seriesIndex)
         assertEquals(2, reconstructed[3].lapIndex)
     }
+
+    @Test
+    fun extractSwimmerSessionPerformances_5SwimmerRelayWith100mSessionTarget_evaluates5thSwimmerLegCorrectly() {
+        val savedLaps = listOf(
+            com.example.data.model.LapRecordEntity(sessionId = 1, swimmerId = 1L, swimmerName = "Lukas • 1. Starter (Freistil)", laneNumber = 2, lapIndex = 1, splitTimeMillis = 15000L, lapTimeMillis = 15000L),
+            com.example.data.model.LapRecordEntity(sessionId = 1, swimmerId = 2L, swimmerName = "Sophie • 2. Starter (Freistil)", laneNumber = 2, lapIndex = 2, splitTimeMillis = 31000L, lapTimeMillis = 16000L),
+            com.example.data.model.LapRecordEntity(sessionId = 1, swimmerId = 3L, swimmerName = "Leon • 3. Starter (Freistil)", laneNumber = 2, lapIndex = 3, splitTimeMillis = 46500L, lapTimeMillis = 15500L),
+            com.example.data.model.LapRecordEntity(sessionId = 1, swimmerId = 4L, swimmerName = "Emma • 4. Starter (Freistil)", laneNumber = 2, lapIndex = 4, splitTimeMillis = 61000L, lapTimeMillis = 14500L),
+            com.example.data.model.LapRecordEntity(sessionId = 1, swimmerId = 5L, swimmerName = "Noah • 5. Starter (Freistil)", laneNumber = 2, lapIndex = 5, splitTimeMillis = 76200L, lapTimeMillis = 15200L)
+        )
+
+        val sessionWithLaps = com.example.data.model.SessionWithLaps(
+            session = com.example.data.model.SessionEntity(
+                id = 1L,
+                title = "Staffel-Wettkampf (Freistil)",
+                strokeType = "Freistil",
+                poolLengthMeters = 25,
+                targetDistanceMeters = 100, // Session target is 100m (4x25m), while lane 2 swam 5x25m (125m)
+                splitDistanceMeters = 25
+            ),
+            laps = savedLaps
+        )
+
+        val fifthSwimmerPerfs = PersonalBestEvaluator.extractSwimmerSessionPerformances(
+            swimmerId = 5L,
+            sessionWithLaps = sessionWithLaps
+        )
+
+        assertEquals(1, fifthSwimmerPerfs.size)
+        assertEquals(25, fifthSwimmerPerfs[0].distanceMeters)
+        assertEquals("Freistil", fifthSwimmerPerfs[0].strokeType)
+        assertEquals(15200L, fifthSwimmerPerfs[0].bestTimeMillis)
+        assertEquals(15200L, fifthSwimmerPerfs[0].laps.single().lapTimeMillis)
+    }
+
+    @Test
+    fun evaluateSingleSwimmerLane_earlyFinishDoesNotAwardFullDistancePb() {
+        val swimmer = SwimmerEntity(
+            id = 1,
+            name = "Lukas",
+            favoriteStroke = "Freistil",
+            pb25mMillis = 15000L,
+            pb50mMillis = null,
+            pb100mMillis = null
+        )
+
+        // Swimmer stopped early after 1 split (25m swum in 14.5s) on a 100m race without completing all 4 splits
+        val earlyLane = LaneState(
+            laneNumber = 1,
+            swimmerId = 1,
+            swimmerName = "Lukas",
+            status = LaneStatus.PAUSED, // stopped early without full distance
+            finishTimeMillis = null,
+            targetDistanceMeters = 100,
+            splitDistanceMeters = 25,
+            strokeType = "Freistil",
+            laps = listOf(
+                LapItem(lapIndex = 1, splitTimeMillis = 14500L, lapTimeMillis = 14500L, seriesIndex = 1)
+            )
+        )
+
+        val result = PersonalBestEvaluator.evaluate(
+            swimmer = swimmer,
+            lane = earlyLane,
+            targetDistanceMeters = 100,
+            splitDistanceMeters = 25,
+            strokeType = "Freistil"
+        )
+
+        // Swimmer improved 25m Freistil (14.5s < 15.0s), BUT 100m PB MUST NOT be awarded!
+        assertEquals(14500L, result.updatedSwimmer.pb25mMillis)
+        assertNull(result.updatedSwimmer.pb100mMillis)
+        assertNull(result.updatedSwimmer.parseCustomPbsMap()["Freistil" to 100])
+    }
 }
+

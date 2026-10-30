@@ -548,4 +548,110 @@ class StopwatchViewModelTest {
 
         viewModel.onResetAll()
     }
+
+    @Test
+    fun `uneven relay teams 4x25m and 5x25m saves 5th swimmer individual time and recalculates properly`() = runTest(testDispatcher) {
+        for (i in 1L..9L) {
+            fakeRepository.insertSwimmer(SwimmerEntity(id = i, name = "Swimmer$i", favoriteStroke = "Freistil"))
+        }
+        testScheduler.advanceTimeBy(100)
+
+        val teams = listOf(
+            com.example.domain.RelayTeamPlan(
+                teamIndex = 0,
+                teamTitle = "Team 1 (4x25m)",
+                legs = (1..4).map { idx ->
+                    com.example.domain.RelayLegAssignment(idx, idx.toLong(), "Swimmer$idx", "Freistil", 25, 15_000L)
+                },
+                totalTimeMillis = 60_000L,
+                averageLegMillis = 15_000L,
+                deltaToFastestMillis = 0L,
+                hasEstimatedTimes = false
+            ),
+            com.example.domain.RelayTeamPlan(
+                teamIndex = 1,
+                teamTitle = "Team 2 (5x25m)",
+                legs = (1..5).map { idx ->
+                    val id = (idx + 4).toLong()
+                    com.example.domain.RelayLegAssignment(idx, id, "Swimmer$id", "Freistil", 25, 15_000L, isEstimated = idx == 5)
+                },
+                totalTimeMillis = 75_000L,
+                averageLegMillis = 15_000L,
+                deltaToFastestMillis = 0L,
+                hasEstimatedTimes = true
+            )
+        )
+
+        viewModel.applyRelayTeamsToStopwatch(
+            teams = teams,
+            strokeType = "Freistil",
+            legDistanceMeters = 25
+        )
+
+        val state = viewModel.uiState.value
+        assertEquals(2, state.lanes.size)
+        assertEquals(100, state.lanes[0].effectiveTargetDistanceMeters)
+        assertEquals(125, state.lanes[1].effectiveTargetDistanceMeters)
+        assertEquals(true, state.lanes[1].relayMembers[4].isEstimated)
+
+        // Start both lanes and swim 4 legs for Lane 1 (100m) and 5 legs for Lane 2 (125m)
+        viewModel.onStartAll()
+        // Split 1..4 for Lane 1
+        listOf(114_000L, 129_000L, 144_000L, 158_500L).forEach { t ->
+            fakeClock.currentMillis = t
+            viewModel.onLapLane(laneNumber = 1, exactRealtime = t)
+        }
+        assertEquals(LaneStatus.FINISHED, viewModel.uiState.value.lanes[0].status)
+
+        // Split 1..5 for Lane 2 (5th swimmer swims 14.2s between 160.0s and 174.2s)
+        listOf(115_000L, 130_000L, 145_000L, 160_000L, 174_200L).forEach { t ->
+            fakeClock.currentMillis = t
+            viewModel.onLapLane(laneNumber = 2, exactRealtime = t)
+        }
+        assertEquals(LaneStatus.FINISHED, viewModel.uiState.value.lanes[1].status)
+        assertEquals(74_200L, viewModel.uiState.value.lanes[1].finishTimeMillis)
+
+        viewModel.saveCurrentSession()
+        testScheduler.advanceTimeBy(200)
+
+        // Check that 5th swimmer (id = 9L) got their exact 14.20s (14_200L) 25m PB, NOT 74_200L!
+        val fifthSwimmer = fakeRepository.getSwimmerById(9L)!!
+        assertEquals(14_200L, fifthSwimmer.pb25mMillis)
+        assertEquals(null, fifthSwimmer.pb100mMillis)
+
+        viewModel.onResetAll()
+    }
+
+    @Test
+    fun `onStopAll with paused lane creates finish lap and enables session save`() = runTest(testDispatcher) {
+        val swimmer = SwimmerEntity(id = 1, name = "Max", favoriteStroke = "Freistil")
+        fakeRepository.insertSwimmer(swimmer)
+        viewModel.assignSwimmerToLane(1, swimmer)
+
+        viewModel.onStartSingleLane(1)
+        fakeClock.currentMillis = 115_000L // 15s elapsed
+        viewModel.onPauseLane(1)
+        assertEquals(LaneStatus.PAUSED, viewModel.uiState.value.lanes[0].status)
+        assertEquals(0, viewModel.uiState.value.lanes[0].laps.size)
+
+        // Stop all while paused
+        viewModel.onStopAll()
+        val laneAfterStop = viewModel.uiState.value.lanes[0]
+        assertEquals(LaneStatus.FINISHED, laneAfterStop.status)
+        assertEquals(1, laneAfterStop.laps.size)
+        assertEquals(15_000L, laneAfterStop.laps[0].splitTimeMillis)
+        assertEquals(2, laneAfterStop.laps[0].lapIndex) // Target = 100m, split = 50m -> totalSplitsNeeded = 2
+
+        // Save session
+        viewModel.saveCurrentSession()
+        testScheduler.advanceTimeBy(200)
+
+        val sessions = fakeRepository.allSessionsWithLapsSync()
+        assertEquals(1, sessions.size)
+        assertEquals(1, sessions[0].laps.size)
+        assertEquals(15_000L, sessions[0].laps[0].splitTimeMillis)
+
+        viewModel.onResetAll()
+    }
 }
+

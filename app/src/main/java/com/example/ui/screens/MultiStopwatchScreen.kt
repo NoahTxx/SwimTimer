@@ -135,16 +135,33 @@ fun MultiStopwatchScreen(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             val isRelayActive = remember(uiState.lanes) { uiState.lanes.any { it.relayMembers.isNotEmpty() } }
+                            val relayCounts = remember(uiState.lanes) {
+                                uiState.lanes.filter { it.relayMembers.isNotEmpty() }.map { it.relayMembers.size }.distinct()
+                            }
+                            val relayHeaderText = remember(isRelayActive, relayCounts, uiState.splitDistanceMeters, uiState.strokeType, uiState.targetDistanceMeters) {
+                                if (isRelayActive) {
+                                    when {
+                                        relayCounts.size == 1 -> {
+                                            val c = relayCounts.first()
+                                            "${c}×${uiState.splitDistanceMeters}m ${uiState.strokeType} (${c * uiState.splitDistanceMeters}m)"
+                                        }
+                                        relayCounts.size > 1 -> {
+                                            val minC = relayCounts.min()
+                                            val maxC = relayCounts.max()
+                                            "${minC}–${maxC}×${uiState.splitDistanceMeters}m ${uiState.strokeType} (${minC * uiState.splitDistanceMeters}–${maxC * uiState.splitDistanceMeters}m)"
+                                        }
+                                        else -> "4×${uiState.splitDistanceMeters}m ${uiState.strokeType} (${uiState.targetDistanceMeters}m)"
+                                    }
+                                } else {
+                                    "${uiState.targetDistanceMeters}m ${uiState.strokeType}"
+                                }
+                            }
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.Center
                             ) {
                                 Text(
-                                    text = if (isRelayActive) {
-                                        "4×${uiState.splitDistanceMeters}m ${uiState.strokeType} (${uiState.targetDistanceMeters}m)"
-                                    } else {
-                                        "${uiState.targetDistanceMeters}m ${uiState.strokeType}"
-                                    },
+                                    text = relayHeaderText,
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         fontWeight = FontWeight.Black,
                                         fontSize = 16.sp
@@ -520,6 +537,9 @@ fun MultiStopwatchScreen(
         // Dialogs
         if (isConfigDialogOpen) {
             val isRelayActive = remember(uiState.lanes) { uiState.lanes.any { it.relayMembers.isNotEmpty() } }
+            val currentRelayCount = remember(uiState.lanes) {
+                uiState.lanes.firstOrNull { it.relayMembers.isNotEmpty() }?.relayMembers?.size ?: 4
+            }
             IntervalConfigDialog(
                 currentStartMode = uiState.startMode,
                 currentIntervalSec = uiState.intervalOffsetSeconds,
@@ -529,8 +549,9 @@ fun MultiStopwatchScreen(
                 currentStroke = uiState.strokeType,
                 currentSeriesConfig = uiState.seriesConfig,
                 isRelayActive = isRelayActive,
+                currentRelayStarterCount = currentRelayCount,
                 onDismiss = { isConfigDialogOpen = false },
-                onSaveWithRelay = { mode, interval, pool, dist, splitDist, stroke, seriesConfig, relaySelected ->
+                onSaveWithRelayCount = { mode, interval, pool, dist, splitDist, stroke, seriesConfig, relaySelected, starterCount ->
                     viewModel.configureStopwatchSettings(
                         mode = mode,
                         intervalSec = interval,
@@ -539,7 +560,8 @@ fun MultiStopwatchScreen(
                         splitDistance = splitDist,
                         stroke = stroke,
                         seriesConfig = seriesConfig,
-                        isRelayMode = relaySelected
+                        isRelayMode = relaySelected,
+                        relayStarterCount = starterCount
                     )
                 }
             )

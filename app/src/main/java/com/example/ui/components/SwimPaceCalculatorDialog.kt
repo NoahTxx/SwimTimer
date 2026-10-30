@@ -421,6 +421,7 @@ fun SwimPaceCalculatorDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+                    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
                     OutlinedTextField(
                         value = targetTimeInput,
                         onValueChange = { targetTimeInput = it },
@@ -430,7 +431,12 @@ fun SwimPaceCalculatorDialog(
                             keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal,
                             imeAction = androidx.compose.ui.text.input.ImeAction.Done
                         ),
-                        keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { focusManager.clearFocus() }),
+                        keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                            onDone = {
+                                focusManager.clearFocus()
+                                keyboardController?.hide()
+                            }
+                        ),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = TextWhite,
                             unfocusedTextColor = TextWhite,

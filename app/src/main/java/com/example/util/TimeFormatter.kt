@@ -67,13 +67,25 @@ object TimeFormatter {
         val seconds = totalSeconds % 60
         val hundredths = (totalHundredths % 100L).toInt()
 
-        if (shortFormat && (minutes == 0)) {
-            return buildString(6) {
-                if (seconds < 10) append('0')
-                append(seconds)
-                append('.')
-                if (hundredths < 10) append('0')
-                append(hundredths)
+        if (shortFormat) {
+            if (minutes == 0) {
+                return buildString(6) {
+                    if (seconds < 10) append('0')
+                    append(seconds)
+                    append('.')
+                    if (hundredths < 10) append('0')
+                    append(hundredths)
+                }
+            } else {
+                return buildString(8) {
+                    append(minutes)
+                    append(':')
+                    if (seconds < 10) append('0')
+                    append(seconds)
+                    append('.')
+                    if (hundredths < 10) append('0')
+                    append(hundredths)
+                }
             }
         }
 

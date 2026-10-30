@@ -94,14 +94,31 @@ class SwimRepository(private val database: AppDatabase) : ISwimRepository {
             val lapsWithNewIdAndResolvedSwimmers = laps.map { lap ->
                 var resolvedSwimmerId = lap.swimmerId
 
-                val swimmerName = lap.swimmerName.trim()
-                if (swimmerName.isNotEmpty()) {
-                    val normalizedName = swimmerName.lowercase()
+                // Extract clean athlete name if formatted as relay leg (e.g. "Team • 1. Lukas" -> "Lukas")
+                val rawSwimmerName = lap.swimmerName.trim()
+                val extractedName = if (rawSwimmerName.contains(" • ")) {
+                    rawSwimmerName.substringAfterLast(" • ")
+                        .replaceFirst(Regex("""^\d+\.\s*"""), "")
+                        .substringBefore(" (")
+                        .trim()
+                } else {
+                    rawSwimmerName
+                }
+
+                // Check whether this is a placeholder or generic lane name
+                val isPlaceholder = extractedName.isBlank() ||
+                        extractedName.equals("Unbekannt", ignoreCase = true) ||
+                        extractedName.matches(Regex("""^(Bahn|Lane)\s*\d+$""", RegexOption.IGNORE_CASE)) ||
+                        extractedName.matches(Regex("""^Staffel\s+Bahn\s*\d+$""", RegexOption.IGNORE_CASE)) ||
+                        extractedName.matches(Regex("""^Starter\s*\d+$""", RegexOption.IGNORE_CASE))
+
+                if (!isPlaceholder) {
+                    val normalizedName = extractedName.lowercase()
                     val matchedSwimmer = swimmerMapByNormalizedName[normalizedName]
                     if (matchedSwimmer != null) {
                         resolvedSwimmerId = matchedSwimmer.id
                     } else {
-                        val newSwimmer = SwimmerEntity(id = 0, name = swimmerName)
+                        val newSwimmer = SwimmerEntity(id = 0, name = extractedName)
                         val newSwimmerId = swimmerDao.insertSwimmer(newSwimmer)
                         val createdEntity = newSwimmer.copy(id = newSwimmerId)
                         swimmerMapByNormalizedName[normalizedName] = createdEntity
@@ -112,6 +129,8 @@ class SwimRepository(private val database: AppDatabase) : ISwimRepository {
                     if (!swimmerExists) {
                         resolvedSwimmerId = null
                     }
+                } else {
+                    resolvedSwimmerId = null
                 }
 
                 val finalLap = if (resolvedSwimmerId != null) {

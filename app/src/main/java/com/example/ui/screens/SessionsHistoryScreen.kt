@@ -432,14 +432,22 @@ private fun SessionHistoryCard(
                         val activeLagenShortNames = if (isRelaySession) ExportHelper.LAGEN_STAFFEL_SHORT_NAMES else ExportHelper.LAGEN_SHORT_NAMES
                         val lagenLegLength = (s.targetDistanceMeters / 4).coerceAtLeast(1)
 
-                        laneLaps.zip(seriesItems).forEach { (lap, lapItem) ->
-                            val lapLagenStroke = if (isLagen) {
-                                val legIdx = (((lapItem.lapIndex - 1) * s.splitDistanceMeters) / lagenLegLength).coerceIn(0, 3)
-                                activeLagenShortNames[legIdx]
-                            } else null
+                        laneLaps.zip(seriesItems).forEachIndexed { idx, (lap, lapItem) ->
                             val relayStarterName = if (lap.swimmerName.contains(" • ")) {
                                 lap.swimmerName.substringAfter(" • ").trim()
                             } else null
+                            val lapLagenStroke = if (isLagen) {
+                                val legIdx = if (isRelaySession) {
+                                    val parsedNum = relayStarterName?.substringBefore(".")?.trim()?.toIntOrNull()
+                                    ((parsedNum ?: lapItem.lapIndex) - 1).coerceAtLeast(0) % activeLagenShortNames.size
+                                } else {
+                                    (((lapItem.lapIndex - 1) * s.splitDistanceMeters) / lagenLegLength).coerceIn(0, 3)
+                                }
+                                activeLagenShortNames[legIdx]
+                            } else null
+
+                            val lapsInThisSeries = seriesItems.filter { it.seriesIndex == lapItem.seriesIndex }
+                            val isOnlyLapInSeries = lapsInThisSeries.size == 1
 
                             Row(
                                 modifier = Modifier
@@ -451,31 +459,56 @@ private fun SessionHistoryCard(
                                 Column(
                                     modifier = Modifier.weight(1.8f).padding(end = 4.dp)
                                 ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            text = if (hasMultipleSeries) "S${lapItem.seriesIndex} L${lapItem.lapIndex}" else "L${lapItem.lapIndex}",
-                                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                                            color = AquaPrimary,
-                                            maxLines = 1
-                                        )
-                                        if (lapLagenStroke != null) {
-                                            Spacer(modifier = Modifier.width(4.dp))
+                                    if (isRelaySession && !relayStarterName.isNullOrBlank()) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            if (hasMultipleSeries) {
+                                                Text(
+                                                    text = "S${lapItem.seriesIndex} ",
+                                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                                    color = AquaPrimary,
+                                                    maxLines = 1
+                                                )
+                                            }
                                             Text(
-                                                text = lapLagenStroke,
-                                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold),
-                                                color = Color(0xFFFFD600),
+                                                text = relayStarterName,
+                                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                                                color = TextWhite,
+                                                maxLines = 1,
+                                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                            )
+                                            if (lapLagenStroke != null) {
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    text = lapLagenStroke,
+                                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold),
+                                                    color = Color(0xFFFFD600),
+                                                    maxLines = 1
+                                                )
+                                            }
+                                        }
+                                    } else {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            val labelText = if (isOnlyLapInSeries) {
+                                                if (hasMultipleSeries) "S${lapItem.seriesIndex} Ziel" else "Ziel"
+                                            } else {
+                                                if (hasMultipleSeries) "S${lapItem.seriesIndex} L${lapItem.lapIndex}" else "L${lapItem.lapIndex}"
+                                            }
+                                            Text(
+                                                text = labelText,
+                                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                                color = AquaPrimary,
                                                 maxLines = 1
                                             )
+                                            if (lapLagenStroke != null) {
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    text = lapLagenStroke,
+                                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold),
+                                                    color = Color(0xFFFFD600),
+                                                    maxLines = 1
+                                                )
+                                            }
                                         }
-                                    }
-                                    if (!relayStarterName.isNullOrBlank()) {
-                                        Text(
-                                            text = relayStarterName,
-                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold),
-                                            color = TextWhite.copy(alpha = 0.9f),
-                                            maxLines = 1,
-                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                                        )
                                     }
                                 }
                                 Text(
@@ -505,14 +538,22 @@ private fun SessionHistoryCard(
                                             maxLines = 1
                                         )
                                     } else {
-                                        val isLastLapInSeries = (lapItem == seriesItems.lastOrNull { it.seriesIndex == lapItem.seriesIndex })
-                                        val prevCumDist = ((lapItem.lapIndex - 1) * s.splitDistanceMeters).coerceAtMost(s.targetDistanceMeters)
-                                        val currentCumDist = if (isLastLapInSeries) {
-                                            s.targetDistanceMeters
+                                        val lapDistance = if (isRelaySession) {
+                                            s.splitDistanceMeters.coerceAtLeast(25)
                                         } else {
-                                            (lapItem.lapIndex * s.splitDistanceMeters).coerceAtMost(s.targetDistanceMeters)
+                                            val prevLap = if (idx > 0) seriesItems[idx - 1].takeIf { it.seriesIndex == lapItem.seriesIndex } else null
+                                            val prevCumDist = if (prevLap != null) {
+                                                val isPrevLast = (prevLap == lapsInThisSeries.lastOrNull())
+                                                if (isPrevLast) s.targetDistanceMeters else (prevLap.lapIndex * s.splitDistanceMeters).coerceAtMost(s.targetDistanceMeters)
+                                            } else 0
+                                            val isLastLapInSeries = (lapItem == lapsInThisSeries.lastOrNull())
+                                            val currentCumDist = if (isLastLapInSeries) {
+                                                s.targetDistanceMeters
+                                            } else {
+                                                (lapItem.lapIndex * s.splitDistanceMeters).coerceAtMost(s.targetDistanceMeters)
+                                            }
+                                            (currentCumDist - prevCumDist).coerceAtLeast(s.splitDistanceMeters)
                                         }
-                                        val lapDistance = (currentCumDist - prevCumDist).coerceAtLeast(s.splitDistanceMeters)
                                         Text(
                                             text = TimeFormatter.formatPacePer100m(lap.lapTimeMillis, lapDistance),
                                             style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),

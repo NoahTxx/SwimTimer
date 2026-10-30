@@ -76,7 +76,19 @@ fun IntervalConfigDialog(
     currentStroke: String,
     currentSeriesConfig: SeriesConfig = SeriesConfig(),
     isRelayActive: Boolean = false,
+    currentRelayStarterCount: Int = 4,
     onDismiss: () -> Unit,
+    onSaveWithRelayCount: ((
+        mode: StartMode,
+        intervalSec: Int,
+        poolLength: Int,
+        distance: Int,
+        splitDistance: Int,
+        stroke: String,
+        seriesConfig: SeriesConfig,
+        isRelayMode: Boolean,
+        relayStarterCount: Int,
+    ) -> Unit)? = null,
     onSaveWithRelay: ((
         mode: StartMode,
         intervalSec: Int,
@@ -101,6 +113,7 @@ fun IntervalConfigDialog(
     val keyboardController = LocalSoftwareKeyboardController.current
 
     var isRelaySelected by remember { mutableStateOf(isRelayActive) }
+    var relayStarterCount by remember { mutableIntStateOf(currentRelayStarterCount.coerceIn(2, 8)) }
     var mode by remember { mutableStateOf(currentStartMode) }
     var intervalSec by remember { mutableIntStateOf(currentIntervalSec) }
     var poolLength by remember { mutableIntStateOf(currentPoolLength) }
@@ -129,14 +142,16 @@ fun IntervalConfigDialog(
     val poolOptions = listOf(25, 50)
     val strokeOptions = listOf("Freistil", "Brust", "Rücken", "Schmetterling", "Lagen")
 
-    val distanceOptions = if (stroke == "Lagen" || isRelaySelected) {
+    val distanceOptions = if (isRelaySelected) {
+        listOf(25, 50, 100).map { it * relayStarterCount }
+    } else if (stroke == "Lagen") {
         listOf(100, 200, 400)
     } else {
         listOf(25, 50, 100, 200, 400, 800, 1500)
     }
 
-    val availableSplitOptions = remember(distance, isRelaySelected) {
-        if (isRelaySelected) listOf((distance / 4).coerceAtLeast(25)) else getAvailableSplitOptions(distance)
+    val availableSplitOptions = remember(distance, isRelaySelected, relayStarterCount) {
+        if (isRelaySelected) listOf((distance / relayStarterCount.coerceAtLeast(1)).coerceAtLeast(25)) else getAvailableSplitOptions(distance)
     }
     val effectiveSplitDistance = if (splitDistance in availableSplitOptions) splitDistance else availableSplitOptions.first()
 
@@ -373,28 +388,21 @@ fun IntervalConfigDialog(
 
                         if (stroke == "Lagen") {
                             Spacer(modifier = Modifier.height(6.dp))
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = Color(0xFF132738),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    text = if (isRelaySelected) {
-                                        "Offizielle Lagen-Staffel-Reihenfolge:\n1. Rücken • 2. Brust • 3. Schmetterling • 4. Freistil"
-                                    } else {
-                                        "Offizielle Lagen-Reihenfolge:\n1. Schmetterling • 2. Rücken • 3. Brust • 4. Freistil"
-                                    },
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = AquaPrimary,
-                                    modifier = Modifier.padding(8.dp)
-                                )
-                            }
+                            Text(
+                                text = if (isRelaySelected) {
+                                    "1. Rücken • 2. Brust • 3. Schmett. • 4. Freistil"
+                                } else {
+                                    "1. Schmett. • 2. Rücken • 3. Brust • 4. Freistil"
+                                },
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                color = Color(0xFFFFD600)
+                            )
                         }
 
                         Spacer(modifier = Modifier.height(12.dp))
 
                         Text(
-                            text = if (isRelaySelected) "Staffel-Gesamtstrecke (4×):" else "Zielstrecke:",
+                            text = if (isRelaySelected) "Staffel-Gesamtstrecke (${relayStarterCount}×):" else "Zielstrecke:",
                             style = MaterialTheme.typography.labelMedium,
                             color = Color.LightGray,
                             maxLines = 1
@@ -415,7 +423,11 @@ fun IntervalConfigDialog(
                                             if (d == 25) {
                                                 poolLength = 25
                                                 splitDistance = 25
-                                            } else if (isRelaySelected || stroke == "Lagen") {
+                                            } else if (isRelaySelected) {
+                                                val legDist = (d / relayStarterCount.coerceAtLeast(1)).coerceAtLeast(25)
+                                                splitDistance = legDist
+                                                if (legDist == 25) poolLength = 25
+                                            } else if (stroke == "Lagen") {
                                                 val legDist = (d / 4).coerceAtLeast(25)
                                                 splitDistance = legDist
                                                 if (legDist == 25) poolLength = 25
@@ -730,11 +742,9 @@ fun IntervalConfigDialog(
                                     if (enabled) {
                                         isSeriesEnabled = false
                                         mode = StartMode.MASS
-                                        if (distance !in listOf(100, 200, 400)) {
-                                            distance = 200
-                                        }
-                                        val legDist = (distance / 4).coerceAtLeast(25)
+                                        val legDist = if (splitDistance in listOf(25, 50, 100)) splitDistance else 50
                                         splitDistance = legDist
+                                        distance = legDist * relayStarterCount
                                         if (legDist == 25) {
                                             poolLength = 25
                                         }
@@ -754,7 +764,45 @@ fun IntervalConfigDialog(
                             Spacer(modifier = Modifier.height(10.dp))
 
                             Text(
-                                text = "Teilstrecke pro Starter (4× Starter):",
+                                text = "Starter pro Staffel (Anzahl):",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.LightGray,
+                                maxLines = 1
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                                FlowRow(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    (2..8).forEach { count ->
+                                        FilterChip(
+                                            selected = relayStarterCount == count,
+                                            onClick = {
+                                                focusManager.clearFocus()
+                                                val currentLegDist = (distance / relayStarterCount.coerceAtLeast(1)).takeIf { it in listOf(25, 50, 100) }
+                                                    ?: splitDistance.takeIf { it in listOf(25, 50, 100) }
+                                                    ?: 50
+                                                relayStarterCount = count
+                                                splitDistance = currentLegDist
+                                                distance = currentLegDist * count
+                                            },
+                                            label = { Text("${count}×", maxLines = 1) },
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = AquaPrimary,
+                                                selectedLabelColor = Color.Black
+                                            ),
+                                            modifier = Modifier.testTag("config_relay_count_$count")
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            Text(
+                                text = "Teilstrecke pro Starter (${relayStarterCount}× Starter):",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = Color.LightGray,
                                 maxLines = 1
@@ -768,9 +816,9 @@ fun IntervalConfigDialog(
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     relayLegOptions.forEach { legDist ->
-                                        val totalRelayDist = legDist * 4
+                                        val totalRelayDist = legDist * relayStarterCount
                                         FilterChip(
-                                            selected = distance == totalRelayDist,
+                                            selected = effectiveSplitDistance == legDist,
                                             onClick = {
                                                 focusManager.clearFocus()
                                                 distance = totalRelayDist
@@ -779,7 +827,7 @@ fun IntervalConfigDialog(
                                                     poolLength = 25
                                                 }
                                             },
-                                            label = { Text("4×${legDist}m", maxLines = 1) },
+                                            label = { Text("${relayStarterCount}×${legDist}m", maxLines = 1) },
                                             colors = FilterChipDefaults.filterChipColors(
                                                 selectedContainerColor = AquaPrimary,
                                                 selectedLabelColor = Color.Black
@@ -791,7 +839,7 @@ fun IntervalConfigDialog(
 
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "Im Staffel-Modus erhält jede Bahn 4 Startpositionen (1.–4. Starter), die du direkt auf der Bahn-Karte antippen und besetzen kannst.",
+                                text = "Jede Bahn erhält $relayStarterCount Startpositionen (1.–$relayStarterCount. Starter). Du kannst die Anzahl auch pro Bahn individuell anpassen.",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = Color.LightGray
                             )
@@ -832,10 +880,35 @@ fun IntervalConfigDialog(
                                 sendOffDurationSeconds = sendOffDurationSec,
                                 maxSeriesCount = parsedMaxCount
                             )
-                            if (onSaveWithRelay != null) {
-                                onSaveWithRelay(mode, intervalSec, poolLength, distance, effectiveSplitDistance, stroke, newConfig, isRelaySelected)
-                            } else {
-                                onSave(mode, intervalSec, poolLength, distance, effectiveSplitDistance, stroke, newConfig)
+                            when {
+                                onSaveWithRelayCount != null -> {
+                                    onSaveWithRelayCount(
+                                        mode,
+                                        intervalSec,
+                                        poolLength,
+                                        distance,
+                                        effectiveSplitDistance,
+                                        stroke,
+                                        newConfig,
+                                        isRelaySelected,
+                                        relayStarterCount
+                                    )
+                                }
+                                onSaveWithRelay != null -> {
+                                    onSaveWithRelay(
+                                        mode,
+                                        intervalSec,
+                                        poolLength,
+                                        distance,
+                                        effectiveSplitDistance,
+                                        stroke,
+                                        newConfig,
+                                        isRelaySelected
+                                    )
+                                }
+                                else -> {
+                                    onSave(mode, intervalSec, poolLength, distance, effectiveSplitDistance, stroke, newConfig)
+                                }
                             }
                             onDismiss()
                         },

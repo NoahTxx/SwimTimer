@@ -30,7 +30,9 @@ import androidx.compose.material.icons.filled.Balance
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -41,13 +43,14 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -60,6 +63,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -202,6 +207,9 @@ fun RelayRandomizerComponent(
     var selectedLegDistance by rememberSaveable { mutableIntStateOf(50) }
     var selectedStroke by rememberSaveable { mutableStateOf("Freistil") }
     var selectedGroup by rememberSaveable { mutableStateOf<String?>(null) }
+    var starterCountPerTeam by rememberSaveable { mutableIntStateOf(4) }
+    // For BALANCED / RANDOM: 0 = Auto (distribute all selected swimmers), 2..8 = fixed starter count per team
+    var customStarterLimit by rememberSaveable { mutableIntStateOf(0) }
 
     val groupSwimmers = remember(dbSwimmers, selectedGroup) {
         if (selectedGroup == null) dbSwimmers
@@ -223,6 +231,13 @@ fun RelayRandomizerComponent(
 
     val presentSwimmers = remember(dbSwimmers, selectedSwimmerIds) {
         dbSwimmers.filter { selectedSwimmerIds.contains(it.id) }
+    }
+
+    val effectiveStarterPrefix = when (selectedMode) {
+        RelayOptimizationMode.MEDLEY_OPTIMAL -> "4×"
+        RelayOptimizationMode.FASTEST_SINGLE -> "${starterCountPerTeam}×"
+        RelayOptimizationMode.BALANCED, RelayOptimizationMode.RANDOM ->
+            if (customStarterLimit in 2..8) "${customStarterLimit}×" else "4×"
     }
 
     fun calculateRelays() {
@@ -249,8 +264,9 @@ fun RelayRandomizerComponent(
                 )
             }
             RelayOptimizationMode.FASTEST_SINGLE -> {
-                if (presentSwimmers.size < 4) {
-                    statusHintMessage = "Für eine 4× $selectedStroke-Staffel bitte mindestens 4 Athleten auswählen (aktuell: ${presentSwimmers.size})."
+                val needed = starterCountPerTeam.coerceIn(2, 8)
+                if (presentSwimmers.size < needed) {
+                    statusHintMessage = "Für eine ${needed}× $selectedStroke-Staffel bitte mindestens $needed Athleten auswählen (aktuell: ${presentSwimmers.size})."
                     generatedTeams = emptyList()
                     return
                 }
@@ -258,7 +274,8 @@ fun RelayRandomizerComponent(
                     swimmers = presentSwimmers,
                     stroke = selectedStroke,
                     legDistanceMeters = selectedLegDistance,
-                    maxTeams = 4
+                    maxTeams = 4,
+                    legsPerTeam = needed
                 )
             }
             RelayOptimizationMode.BALANCED -> {
@@ -273,7 +290,8 @@ fun RelayRandomizerComponent(
                     guestNames = guestNames,
                     teamCount = teamCount,
                     stroke = selectedStroke,
-                    legDistanceMeters = selectedLegDistance
+                    legDistanceMeters = selectedLegDistance,
+                    legsPerTeam = customStarterLimit.takeIf { it in 2..8 }
                 )
             }
             RelayOptimizationMode.RANDOM -> {
@@ -288,29 +306,26 @@ fun RelayRandomizerComponent(
                     guestNames = guestNames,
                     teamCount = teamCount,
                     stroke = selectedStroke,
-                    legDistanceMeters = selectedLegDistance
+                    legDistanceMeters = selectedLegDistance,
+                    legsPerTeam = customStarterLimit.takeIf { it in 2..8 }
                 )
             }
         }
     }
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 28.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        // --- 1. MODUS-AUSWAHL ---
-        item(key = "mode_selector") {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = "Staffel-Modus:",
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                    color = AquaPrimary,
-                    modifier = Modifier.padding(bottom = 6.dp)
-                )
-
+    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+        LazyColumn(
+            modifier = modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // --- 1. MODUS-AUSWAHL (Sleek 2x2 Grid Cards) ---
+            item(key = "mode_selector") {
                 val modePairs = remember { RelayOptimizationMode.entries.chunked(2) }
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
                     modePairs.forEach { rowModes ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -324,406 +339,532 @@ fun RelayRandomizerComponent(
                                     RelayOptimizationMode.BALANCED -> Icons.Default.Balance
                                     RelayOptimizationMode.RANDOM -> Icons.Default.Shuffle
                                 }
-                                FilterChip(
-                                    selected = isSelected,
-                                    onClick = {
-                                        selectedMode = mode
-                                        statusHintMessage = null
-                                    },
-                                    label = {
-                                        Text(
-                                            text = mode.shortLabel,
-                                            fontSize = 11.5.sp,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    },
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = icon,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(14.dp)
-                                        )
-                                    },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = AquaPrimary,
-                                        selectedLabelColor = Color.Black,
-                                        selectedLeadingIconColor = Color.Black,
-                                        containerColor = OceanSurface,
-                                        labelColor = Color.LightGray,
-                                        iconColor = AquaPrimary
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (isSelected) AquaPrimary else OceanSurface,
+                                    border = BorderStroke(
+                                        width = if (isSelected) 1.5.dp else 1.dp,
+                                        color = if (isSelected) AquaPrimary else Color(0xFF1E344B)
                                     ),
                                     modifier = Modifier
                                         .weight(1f)
+                                        .clickable {
+                                            selectedMode = mode
+                                            statusHintMessage = null
+                                        }
                                         .testTag("relay_mode_${mode.name.lowercase()}")
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // --- 2. STRECKE & LAGE KONFIGURATION ---
-        item(key = "distance_and_stroke_config") {
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = OceanSurface,
-                border = BorderStroke(1.dp, Color(0xFF1B2E46)),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Teilstrecke:",
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                            color = TextWhite
-                        )
-
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            RelayOptimizer.ALLOWED_LEG_DISTANCES.forEach { dist ->
-                                val isSelected = selectedLegDistance == dist
-                                FilterChip(
-                                    selected = isSelected,
-                                    onClick = { selectedLegDistance = dist },
-                                    label = {
-                                        Text(
-                                            text = "4×${dist}m",
-                                            fontSize = 11.sp,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = icon,
+                                            contentDescription = null,
+                                            tint = if (isSelected) Color.Black else AquaPrimary,
+                                            modifier = Modifier.size(16.dp)
                                         )
-                                    },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = AquaPrimary,
-                                        selectedLabelColor = Color.Black,
-                                        containerColor = Color(0xFF0E1B2A),
-                                        labelColor = Color.LightGray
-                                    )
-                                )
-                            }
-                        }
-                    }
-
-                    if (selectedMode == RelayOptimizationMode.MEDLEY_OPTIMAL) {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "Offizielle Lagenstaffel-Folge: 1. Rücken • 2. Brust • 3. Schmett • 4. Freistil",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFFFFD600)
-                        )
-                    } else {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            RelayOptimizer.SINGLE_STROKES.forEach { stroke ->
-                                val isSelected = selectedStroke == stroke
-                                FilterChip(
-                                    selected = isSelected,
-                                    onClick = { selectedStroke = stroke },
-                                    label = {
+                                        Spacer(modifier = Modifier.width(6.dp))
                                         Text(
-                                            text = stroke,
-                                            fontSize = 11.sp,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                            text = mode.shortLabel,
+                                            fontSize = 12.5.sp,
+                                            fontWeight = if (isSelected) FontWeight.Black else FontWeight.SemiBold,
+                                            color = if (isSelected) Color.Black else TextWhite,
+                                            style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false)),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
-                                    },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = AquaPrimary,
-                                        selectedLabelColor = Color.Black,
-                                        containerColor = Color(0xFF0E1B2A),
-                                        labelColor = Color.LightGray
-                                    )
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // --- 3. TRAININGSGRUPPE & ANWESENDE ATHLETEN ---
-        item(key = "swimmer_selection") {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                if (groupsToDisplay.isNotEmpty()) {
-                    Text(
-                        text = "1. Trainingsgruppe wählen:",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = AquaPrimary,
-                        modifier = Modifier.padding(bottom = 4.dp)
-                    )
-
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.padding(bottom = 10.dp)
-                    ) {
-                        item(key = "all_chip") {
-                            FilterChip(
-                                selected = selectedGroup == null,
-                                onClick = {
-                                    selectedGroup = null
-                                    savedSwimmerIds = dbSwimmers.map { it.id }.toSet()
-                                },
-                                label = {
-                                    Text(
-                                        "Alle (${dbSwimmers.size})",
-                                        fontSize = 12.sp,
-                                        fontWeight = if (selectedGroup == null) FontWeight.Bold else FontWeight.Normal
-                                    )
-                                },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = AquaPrimary,
-                                    selectedLabelColor = Color.Black,
-                                    containerColor = OceanSurface,
-                                    labelColor = Color.LightGray
-                                )
-                            )
-                        }
-                        items(groupsToDisplay, key = { it }) { group ->
-                            val isSelected = selectedGroup == group
-                            val groupCount = groupCounts[group.lowercase()] ?: 0
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = {
-                                    selectedGroup = group
-                                    val newSwimmers = dbSwimmers.filter { it.groupName.equals(group, ignoreCase = true) }
-                                    savedSwimmerIds = newSwimmers.map { it.id }.toSet()
-                                },
-                                label = {
-                                    Text(
-                                        "$group ($groupCount)",
-                                        fontSize = 12.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                    )
-                                },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = AquaPrimary,
-                                    selectedLabelColor = Color.Black,
-                                    containerColor = OceanSurface,
-                                    labelColor = Color.LightGray
-                                )
-                            )
-                        }
-                    }
-                }
-
-                if (groupSwimmers.isNotEmpty()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "2. Anwesende Athleten (${selectedSwimmerIds.size} / ${groupSwimmers.size}):",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = AquaPrimary
-                        )
-
-                        Text(
-                            text = if (selectedSwimmerIds.size == groupSwimmers.size) "Alle abwählen" else "Alle auswählen",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.LightGray,
-                            modifier = Modifier
-                                .padding(start = 8.dp)
-                                .noRippleClickable {
-                                    savedSwimmerIds = if (selectedSwimmerIds.size == groupSwimmers.size) {
-                                        emptySet()
-                                    } else {
-                                        groupSwimmers.map { it.id }.toSet()
                                     }
                                 }
-                        )
-                    }
-
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                        modifier = Modifier.padding(bottom = 6.dp)
-                    ) {
-                        groupSwimmers.forEach { swimmer ->
-                            val isSelected = selectedSwimmerIds.contains(swimmer.id)
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = {
-                                    savedSwimmerIds = if (isSelected) {
-                                        selectedSwimmerIds - swimmer.id
-                                    } else {
-                                        selectedSwimmerIds + swimmer.id
-                                    }
-                                },
-                                label = { Text(swimmer.name, fontSize = 12.sp) },
-                                leadingIcon = if (isSelected) {
-                                    { Icon(imageVector = Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp)) }
-                                } else null,
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = AquaPrimary,
-                                    selectedLabelColor = Color.Black,
-                                    containerColor = OceanSurface,
-                                    labelColor = Color.Gray
-                                )
-                            )
+                            }
                         }
                     }
                 }
             }
-        }
 
-        // --- 4. GÄSTE & TEAM-ANZAHL (FÜR FAIR-MATCH & ZUFALL) + BERECHNEN BUTTON ---
-        item(key = "controls_and_action") {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                if (selectedMode == RelayOptimizationMode.BALANCED || selectedMode == RelayOptimizationMode.RANDOM) {
-                    OutlinedTextField(
-                        value = manualInputText,
-                        onValueChange = { manualInputText = it },
-                        placeholder = { Text("Gäste / Zusätzliche Namen (Komma-getrennt)...", color = Color.Gray, fontSize = 12.sp) },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = OceanSurface,
-                            unfocusedContainerColor = OceanSurface,
-                            focusedBorderColor = AquaPrimary,
-                            unfocusedBorderColor = Color(0xFF1B2E46),
-                            focusedTextColor = TextWhite,
-                            unfocusedTextColor = TextWhite
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 8.dp)
-                    )
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(imageVector = Icons.Default.Groups, contentDescription = null, tint = AquaPrimary, modifier = Modifier.size(20.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(text = "Anzahl Teams:", style = MaterialTheme.typography.bodyMedium, color = TextWhite)
-                        }
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(
-                                onClick = { if (teamCount > 2) teamCount-- },
-                                enabled = teamCount > 2
-                            ) {
-                                Text("-", style = MaterialTheme.typography.titleLarge, color = if (teamCount > 2) AquaPrimary else Color.Gray)
-                            }
-                            Text(
-                                text = "$teamCount Teams",
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                color = AquaPrimary,
-                                modifier = Modifier.padding(horizontal = 8.dp)
-                            )
-                            IconButton(
-                                onClick = { if (teamCount < 6) teamCount++ },
-                                enabled = teamCount < 6
-                            ) {
-                                Text("+", style = MaterialTheme.typography.titleLarge, color = if (teamCount < 6) AquaPrimary else Color.Gray)
-                            }
-                        }
-                    }
-                }
-
-                val actionButtonLabel = when (selectedMode) {
-                    RelayOptimizationMode.MEDLEY_OPTIMAL -> "OPTIMALE 4× LAGEN-STAFFEL BERECHNEN"
-                    RelayOptimizationMode.FASTEST_SINGLE -> "4× ${selectedStroke.uppercase()}-STAFFEL BERECHNEN"
-                    RelayOptimizationMode.BALANCED -> "FAIRE TEAMS NACH PB BERECHNEN"
-                    RelayOptimizationMode.RANDOM -> "TEAMS ZUFÄLLIG AUSLOSEN"
-                }
-
-                Button(
-                    onClick = { calculateRelays() },
+            // --- 2. STRECKE, LAGE & STARTER-ANZAHL KONFIGURATION ---
+            item(key = "distance_and_stroke_config") {
+                Surface(
                     shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = AquaPrimary, contentColor = Color.Black),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(46.dp)
-                        .testTag("calculate_relay_button")
+                    color = OceanSurface,
+                    border = BorderStroke(1.dp, Color(0xFF1B2E46)),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(
-                        imageVector = when (selectedMode) {
-                            RelayOptimizationMode.MEDLEY_OPTIMAL -> Icons.Default.AutoAwesome
-                            RelayOptimizationMode.FASTEST_SINGLE -> Icons.Default.EmojiEvents
-                            RelayOptimizationMode.BALANCED -> Icons.Default.Balance
-                            RelayOptimizationMode.RANDOM -> Icons.Default.Shuffle
-                        },
-                        contentDescription = null,
-                        tint = Color.Black,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = actionButtonLabel,
-                        fontWeight = FontWeight.Black,
-                        fontSize = 12.5.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                statusHintMessage?.let { hint ->
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = hint,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFFFFB74D)
-                    )
-                }
-
-                if (generatedTeams.isNotEmpty() && onApplyTeamsToStopwatch != null) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    val targetStroke = if (selectedMode == RelayOptimizationMode.MEDLEY_OPTIMAL) "Lagen" else selectedStroke
-                    FilledTonalButton(
-                        onClick = {
-                            onApplyTeamsToStopwatch(generatedTeams, targetStroke, selectedLegDistance)
-                        },
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = Color(0xFF142B3E),
-                            contentColor = AquaPrimary
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("apply_relay_to_stopwatch_button")
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(imageVector = Icons.Default.Timer, contentDescription = null, modifier = Modifier.size(17.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Direkt auf Stoppuhr übernehmen (${generatedTeams.size} Bahnen)",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.5.sp
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Teilstrecke:",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = TextWhite
+                            )
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                RelayOptimizer.ALLOWED_LEG_DISTANCES.forEach { dist ->
+                                    val isSelected = selectedLegDistance == dist
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = { selectedLegDistance = dist },
+                                        label = {
+                                            Text(
+                                                text = "$effectiveStarterPrefix${dist}m",
+                                                fontSize = 11.5.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                            )
+                                        },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = AquaPrimary,
+                                            selectedLabelColor = Color.Black,
+                                            containerColor = Color(0xFF0E1B2A),
+                                            labelColor = Color.LightGray
+                                        )
+                                    )
+                                }
+                            }
+                        }
+
+                        if (selectedMode == RelayOptimizationMode.MEDLEY_OPTIMAL) {
+                            Text(
+                                text = "1. Rücken • 2. Brust • 3. Schmett. • 4. Freistil",
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
+                                color = Color(0xFFFFD600)
+                            )
+                        } else {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                RelayOptimizer.SINGLE_STROKES.forEach { stroke ->
+                                    val isSelected = selectedStroke == stroke
+                                    val shortLabel = if (stroke == "Schmetterling") "Schmett." else stroke
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = if (isSelected) AquaPrimary else Color(0xFF0E1B2A),
+                                        border = BorderStroke(
+                                            1.dp,
+                                            if (isSelected) AquaPrimary else Color(0xFF1E344B)
+                                        ),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clickable { selectedStroke = stroke }
+                                    ) {
+                                        Box(
+                                            contentAlignment = Alignment.Center,
+                                            modifier = Modifier.padding(vertical = 7.dp, horizontal = 4.dp)
+                                        ) {
+                                            Text(
+                                                text = shortLabel,
+                                                fontSize = 11.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                color = if (isSelected) Color.Black else Color.LightGray,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Starter pro Staffel (for non-Medley modes)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Person,
+                                        contentDescription = null,
+                                        tint = AquaPrimary,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(5.dp))
+                                    Text(
+                                        text = "Starter / Team:",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                        color = Color.LightGray
+                                    )
+                                }
+
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if (selectedMode == RelayOptimizationMode.BALANCED || selectedMode == RelayOptimizationMode.RANDOM) {
+                                        val isAuto = customStarterLimit == 0
+                                        Surface(
+                                            shape = RoundedCornerShape(7.dp),
+                                            color = if (isAuto) AquaPrimary else Color(0xFF0E1B2A),
+                                            border = BorderStroke(1.dp, if (isAuto) AquaPrimary else Color(0xFF1E344B)),
+                                            modifier = Modifier
+                                                .clickable { customStarterLimit = 0 }
+                                                .testTag("relay_starters_auto")
+                                        ) {
+                                            Text(
+                                                text = "Auto",
+                                                fontSize = 10.5.sp,
+                                                fontWeight = if (isAuto) FontWeight.Bold else FontWeight.Medium,
+                                                color = if (isAuto) Color.Black else Color.LightGray,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                            )
+                                        }
+                                    }
+
+                                    listOf(2, 3, 4, 5, 6).forEach { count ->
+                                        val isSelected = if (selectedMode == RelayOptimizationMode.FASTEST_SINGLE) {
+                                            starterCountPerTeam == count
+                                        } else {
+                                            customStarterLimit == count
+                                        }
+                                        Surface(
+                                            shape = RoundedCornerShape(7.dp),
+                                            color = if (isSelected) AquaPrimary else Color(0xFF0E1B2A),
+                                            border = BorderStroke(1.dp, if (isSelected) AquaPrimary else Color(0xFF1E344B)),
+                                            modifier = Modifier
+                                                .clickable {
+                                                    if (selectedMode == RelayOptimizationMode.FASTEST_SINGLE) {
+                                                        starterCountPerTeam = count
+                                                    } else {
+                                                        customStarterLimit = count
+                                                    }
+                                                }
+                                                .testTag("relay_starters_$count")
+                                        ) {
+                                            Text(
+                                                text = "${count}×",
+                                                fontSize = 10.5.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                color = if (isSelected) Color.Black else Color.LightGray,
+                                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
-        }
 
-        // --- 5. ERGEBNIS-KARTEN ---
-        itemsIndexed(
-            items = generatedTeams,
-            key = { index, team -> "${team.teamTitle}_$index" },
-            contentType = { _, _ -> "RelayTeamCard" }
-        ) { index, teamPlan ->
-            val teamColor = TEAM_COLORS.getOrElse(index % TEAM_COLORS.size) { AquaPrimary }
-            RelayTeamResultCard(
-                teamPlan = teamPlan,
-                teamColor = teamColor,
-                isMedleyMode = selectedMode == RelayOptimizationMode.MEDLEY_OPTIMAL,
-                showAnchorBadge = selectedMode != RelayOptimizationMode.RANDOM && teamPlan.legs.size >= 2
-            )
+            // --- 3. TRAININGSGRUPPE & ANWESENDE ATHLETEN ---
+            item(key = "swimmer_selection") {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = OceanSurface,
+                    border = BorderStroke(1.dp, Color(0xFF1B2E46)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (groupsToDisplay.isNotEmpty()) {
+                            Text(
+                                text = "Trainingsgruppe:",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = AquaPrimary
+                            )
+
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                item(key = "all_chip") {
+                                    FilterChip(
+                                        selected = selectedGroup == null,
+                                        onClick = {
+                                            selectedGroup = null
+                                            savedSwimmerIds = dbSwimmers.map { it.id }.toSet()
+                                        },
+                                        label = {
+                                            Text(
+                                                "Alle (${dbSwimmers.size})",
+                                                fontSize = 11.5.sp,
+                                                fontWeight = if (selectedGroup == null) FontWeight.Bold else FontWeight.Normal
+                                            )
+                                        },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = AquaPrimary,
+                                            selectedLabelColor = Color.Black,
+                                            containerColor = Color(0xFF0E1B2A),
+                                            labelColor = Color.LightGray
+                                        )
+                                    )
+                                }
+                                items(groupsToDisplay, key = { it }) { group ->
+                                    val isSelected = selectedGroup == group
+                                    val groupCount = groupCounts[group.lowercase()] ?: 0
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = {
+                                            selectedGroup = group
+                                            val newSwimmers = dbSwimmers.filter { it.groupName.equals(group, ignoreCase = true) }
+                                            savedSwimmerIds = newSwimmers.map { it.id }.toSet()
+                                        },
+                                        label = {
+                                            Text(
+                                                "$group ($groupCount)",
+                                                fontSize = 11.5.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                            )
+                                        },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = AquaPrimary,
+                                            selectedLabelColor = Color.Black,
+                                            containerColor = Color(0xFF0E1B2A),
+                                            labelColor = Color.LightGray
+                                        )
+                                    )
+                                }
+                            }
+                        }
+
+                        if (groupSwimmers.isNotEmpty()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Anwesende Athleten (${selectedSwimmerIds.size} / ${groupSwimmers.size}):",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = AquaPrimary
+                                )
+
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color(0xFF0E1B2A),
+                                    border = BorderStroke(1.dp, Color(0xFF1E344B)),
+                                    modifier = Modifier.noRippleClickable {
+                                        savedSwimmerIds = if (selectedSwimmerIds.size == groupSwimmers.size) {
+                                            emptySet()
+                                        } else {
+                                            groupSwimmers.map { it.id }.toSet()
+                                        }
+                                    }
+                                ) {
+                                    Text(
+                                        text = if (selectedSwimmerIds.size == groupSwimmers.size) "Alle abwählen" else "Alle auswählen",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
+                                        color = Color.LightGray,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                    )
+                                }
+                            }
+
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                groupSwimmers.forEach { swimmer ->
+                                    val isSelected = selectedSwimmerIds.contains(swimmer.id)
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = {
+                                            savedSwimmerIds = if (isSelected) {
+                                                selectedSwimmerIds - swimmer.id
+                                            } else {
+                                                selectedSwimmerIds + swimmer.id
+                                            }
+                                        },
+                                        label = { Text(swimmer.name, fontSize = 11.5.sp) },
+                                        leadingIcon = if (isSelected) {
+                                            { Icon(imageVector = Icons.Default.Check, contentDescription = null, modifier = Modifier.size(13.dp)) }
+                                        } else null,
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = AquaPrimary,
+                                            selectedLabelColor = Color.Black,
+                                            containerColor = Color(0xFF0E1B2A),
+                                            labelColor = Color.Gray
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // --- 4. GÄSTE & TEAM-ANZAHL (FÜR FAIR-MATCH & ZUFALL) + BERECHNEN BUTTON ---
+            item(key = "controls_and_action") {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    if (selectedMode == RelayOptimizationMode.BALANCED || selectedMode == RelayOptimizationMode.RANDOM) {
+                        OutlinedTextField(
+                            value = manualInputText,
+                            onValueChange = { manualInputText = it },
+                            placeholder = { Text("Gäste / Zusätzliche Namen (Komma-getrennt)...", color = Color.Gray, fontSize = 12.sp) },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                            keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = OceanSurface,
+                                unfocusedContainerColor = OceanSurface,
+                                focusedBorderColor = AquaPrimary,
+                                unfocusedBorderColor = Color(0xFF1B2E46),
+                                focusedTextColor = TextWhite,
+                                unfocusedTextColor = TextWhite
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp)
+                        )
+
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = OceanSurface,
+                            border = BorderStroke(1.dp, Color(0xFF1B2E46)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(imageVector = Icons.Default.Groups, contentDescription = null, tint = AquaPrimary, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(text = "Anzahl Teams:", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold), color = TextWhite)
+                                }
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = if (teamCount > 2) AquaPrimary.copy(alpha = 0.16f) else Color.Transparent,
+                                        modifier = Modifier
+                                            .size(28.dp)
+                                            .clickable(enabled = teamCount > 2) { if (teamCount > 2) teamCount-- }
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Text("−", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = if (teamCount > 2) AquaPrimary else Color.Gray)
+                                        }
+                                    }
+                                    Text(
+                                        text = "$teamCount Teams",
+                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = AquaPrimary,
+                                        modifier = Modifier.padding(horizontal = 6.dp)
+                                    )
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = if (teamCount < 6) AquaPrimary.copy(alpha = 0.16f) else Color.Transparent,
+                                        modifier = Modifier
+                                            .size(28.dp)
+                                            .clickable(enabled = teamCount < 6) { if (teamCount < 6) teamCount++ }
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Text("+", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = if (teamCount < 6) AquaPrimary else Color.Gray)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    val actionButtonLabel = when (selectedMode) {
+                        RelayOptimizationMode.MEDLEY_OPTIMAL -> "OPTIMALE 4× LAGEN-STAFFEL BERECHNEN"
+                        RelayOptimizationMode.FASTEST_SINGLE -> "${starterCountPerTeam}× ${selectedStroke.uppercase()}-STAFFEL BERECHNEN"
+                        RelayOptimizationMode.BALANCED -> "FAIRE TEAMS NACH PB BERECHNEN"
+                        RelayOptimizationMode.RANDOM -> "TEAMS ZUFÄLLIG AUSLOSEN"
+                    }
+
+                    Button(
+                        onClick = { calculateRelays() },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = AquaPrimary, contentColor = Color.Black),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp)
+                            .testTag("calculate_relay_button")
+                    ) {
+                        Icon(
+                            imageVector = when (selectedMode) {
+                                RelayOptimizationMode.MEDLEY_OPTIMAL -> Icons.Default.AutoAwesome
+                                RelayOptimizationMode.FASTEST_SINGLE -> Icons.Default.EmojiEvents
+                                RelayOptimizationMode.BALANCED -> Icons.Default.Balance
+                                RelayOptimizationMode.RANDOM -> Icons.Default.Shuffle
+                            },
+                            contentDescription = null,
+                            tint = Color.Black,
+                            modifier = Modifier.size(17.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = actionButtonLabel,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 12.5.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    statusHintMessage?.let { hint ->
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = hint,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFFFFB74D)
+                        )
+                    }
+
+                    if (generatedTeams.isNotEmpty() && onApplyTeamsToStopwatch != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        val targetStroke = if (selectedMode == RelayOptimizationMode.MEDLEY_OPTIMAL) "Lagen" else selectedStroke
+                        FilledTonalButton(
+                            onClick = {
+                                onApplyTeamsToStopwatch(generatedTeams, targetStroke, selectedLegDistance)
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = Color(0xFF142B3E),
+                                contentColor = AquaPrimary
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(42.dp)
+                                .testTag("apply_relay_to_stopwatch_button")
+                        ) {
+                            Icon(imageVector = Icons.Default.Timer, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Direkt auf Stoppuhr übernehmen (${generatedTeams.size} Bahnen)",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.5.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+            // --- 5. ERGEBNIS-KARTEN ---
+            itemsIndexed(
+                items = generatedTeams,
+                key = { index, team -> "${team.teamTitle}_$index" },
+                contentType = { _, _ -> "RelayTeamCard" }
+            ) { index, teamPlan ->
+                val teamColor = TEAM_COLORS.getOrElse(index % TEAM_COLORS.size) { AquaPrimary }
+                RelayTeamResultCard(
+                    teamPlan = teamPlan,
+                    teamColor = teamColor,
+                    isMedleyMode = selectedMode == RelayOptimizationMode.MEDLEY_OPTIMAL,
+                    showAnchorBadge = selectedMode != RelayOptimizationMode.RANDOM && teamPlan.legs.size >= 2
+                )
+            }
         }
     }
 }
@@ -735,6 +876,9 @@ private fun RelayTeamResultCard(
     isMedleyMode: Boolean,
     showAnchorBadge: Boolean
 ) {
+    val legDist = teamPlan.legs.firstOrNull()?.distanceMeters ?: 50
+    val totalDist = teamPlan.legs.size * legDist
+
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = OceanSurface),
@@ -774,7 +918,7 @@ private fun RelayTeamResultCard(
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = "${teamPlan.legs.size} Schwimmer" + if (teamPlan.hasEstimatedTimes) " • inkl. Richtzeit (~)" else "",
+                            text = "${teamPlan.legs.size}×${legDist}m (${totalDist}m)" + if (teamPlan.hasEstimatedTimes) " • inkl. Richtzeit (~)" else "",
                             style = MaterialTheme.typography.labelSmall,
                             color = Color.Gray
                         )
@@ -841,7 +985,7 @@ private fun RelayLegRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 3.dp),
+            .padding(vertical = 3.5.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -866,7 +1010,7 @@ private fun RelayLegRow(
                     border = BorderStroke(1.dp, strokeColor.copy(alpha = 0.55f)),
                     modifier = Modifier.padding(end = 8.dp)
                 ) {
-                    val shortStroke = if (leg.stroke == "Schmetterling") "Schmett" else leg.stroke
+                    val shortStroke = if (leg.stroke == "Schmetterling") "Schmett." else leg.stroke
                     Text(
                         text = shortStroke,
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 10.sp),
@@ -887,26 +1031,43 @@ private fun RelayLegRow(
 
             if (isAnchor) {
                 Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "★ Schluss",
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold),
-                    color = Color(0xFFFFD600)
-                )
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = Color(0xFFFFD600).copy(alpha = 0.15f),
+                    border = BorderStroke(1.dp, Color(0xFFFFD600).copy(alpha = 0.45f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Star,
+                            contentDescription = null,
+                            tint = Color(0xFFFFD600),
+                            modifier = Modifier.size(11.dp)
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text(
+                            text = "Schluss",
+                            style = TextStyle(
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFFFD600),
+                                platformStyle = PlatformTextStyle(includeFontPadding = false)
+                            ),
+                            maxLines = 1
+                        )
+                    }
+                }
             }
         }
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (leg.timeMillis != null) {
-                if (leg.sourceLabel.isNotBlank() && leg.sourceLabel != "PB") {
-                    Text(
-                        text = leg.sourceLabel,
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.5.sp),
-                        color = if (leg.isEstimated) Color(0xFFFFB74D) else AquaPrimary,
-                        modifier = Modifier.padding(end = 6.dp)
-                    )
-                }
+                val estPrefix = if (leg.isEstimated) "~" else ""
                 Text(
-                    text = TimeFormatter.formatMillis(leg.timeMillis, shortFormat = leg.distanceMeters <= 50),
+                    text = "$estPrefix${TimeFormatter.formatMillis(leg.timeMillis, shortFormat = leg.distanceMeters <= 50)}",
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold

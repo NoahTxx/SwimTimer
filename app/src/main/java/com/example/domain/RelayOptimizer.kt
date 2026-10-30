@@ -312,16 +312,18 @@ object RelayOptimizer {
     }
 
     /**
-     * Builds the fastest 4x single-stroke relays (A-Staffel, B-Staffel, ...) and orders legs in
-     * classic race order: 2nd fastest (Lead-off) -> 3rd -> 4th -> 1st fastest (Anchor / Schlussschwimmer).
+     * Builds the fastest single-stroke relays (A-Staffel, B-Staffel, ...) and orders legs in
+     * classic race order: 2nd fastest (Lead-off) -> middle legs -> 1st fastest (Anchor / Schlussschwimmer).
      */
     fun optimizeFastestSingleStrokeRelays(
         swimmers: List<SwimmerEntity>,
         stroke: String = "Freistil",
         legDistanceMeters: Int = 50,
-        maxTeams: Int = 4
+        maxTeams: Int = 4,
+        legsPerTeam: Int = 4
     ): List<RelayTeamPlan> {
-        if (swimmers.size < 4) return emptyList()
+        val teamSize = legsPerTeam.coerceIn(2, 8)
+        if (swimmers.size < teamSize) return emptyList()
 
         val resolvedMap = swimmers.associate { s ->
             s.id to resolveSwimmerTime(s, stroke, legDistanceMeters)
@@ -335,12 +337,16 @@ object RelayOptimizer {
         )
 
         val safeMaxTeams = maxTeams.coerceIn(1, 6)
-        val chunks = sorted.chunked(4).filter { it.size == 4 }.take(safeMaxTeams)
+        val chunks = sorted.chunked(teamSize).filter { it.size == teamSize }.take(safeMaxTeams)
 
-        val teams = chunks.mapIndexed { teamIdx, groupOfFour ->
-            // Group is sorted [fastest (0), 2nd (1), 3rd (2), 4th (3)]
-            // Race order: Pos 1 = 2nd fastest, Pos 2 = 3rd fastest, Pos 3 = 4th fastest, Pos 4 = 1st fastest (Anchor)
-            val raceOrdered = listOf(groupOfFour[1], groupOfFour[2], groupOfFour[3], groupOfFour[0])
+        val teams = chunks.mapIndexed { teamIdx, group ->
+            // Group is sorted [fastest (0), 2nd (1), ..., slowest (teamSize - 1)]
+            // Race order: Pos 1 = 2nd fastest, Middle = 3rd..slowest, Last Pos = 1st fastest (Anchor)
+            val raceOrdered = if (group.size >= 2) {
+                listOf(group[1]) + group.drop(2) + listOf(group[0])
+            } else {
+                group
+            }
             val legs = raceOrdered.mapIndexed { idx, swimmer ->
                 val resolved = resolvedMap[swimmer.id]
                 RelayLegAssignment(
@@ -382,7 +388,8 @@ object RelayOptimizer {
         guestNames: List<String> = emptyList(),
         teamCount: Int = 2,
         stroke: String = "Freistil",
-        legDistanceMeters: Int = 50
+        legDistanceMeters: Int = 50,
+        legsPerTeam: Int? = null
     ): List<RelayTeamPlan> {
         data class Participant(
             val id: Long?,
@@ -424,11 +431,17 @@ object RelayOptimizer {
 
         fun effectiveWeight(p: Participant): Long = p.resolved?.millis ?: medianMillis
 
-        val sorted = participants.sortedWith(
+        val sortedAll = participants.sortedWith(
             compareBy<Participant> { it.resolved == null }
                 .thenBy { effectiveWeight(it) }
                 .thenBy { it.name.lowercase() }
         )
+
+        val sorted = if (legsPerTeam != null && legsPerTeam in 2..8) {
+            sortedAll.take(k * legsPerTeam)
+        } else {
+            sortedAll
+        }
 
         val buckets = List(k) { mutableListOf<Participant>() }
         val bucketSums = LongArray(k)
@@ -492,7 +505,7 @@ object RelayOptimizer {
         }
 
         val hasAnyKnownTime = knownTimes.isNotEmpty()
-        val teams = buckets.mapIndexed { idx, members ->
+        val teams = buckets.filter { it.isNotEmpty() }.mapIndexed { idx, members ->
             // Put fastest swimmer last as anchor
             val orderedMembers = if (members.size >= 2 && hasAnyKnownTime) {
                 val bySpeed = members.sortedBy { effectiveWeight(it) }
@@ -544,6 +557,7 @@ object RelayOptimizer {
         teamCount: Int = 2,
         stroke: String = "Freistil",
         legDistanceMeters: Int = 50,
+        legsPerTeam: Int? = null,
         random: kotlin.random.Random = kotlin.random.Random.Default
     ): List<RelayTeamPlan> {
         data class Participant(
@@ -576,13 +590,18 @@ object RelayOptimizer {
 
         if (participants.size < 2) return emptyList()
         val k = teamCount.coerceIn(2, participants.size.coerceAtMost(6))
-        val shuffled = participants.shuffled(random)
+        val shuffledAll = participants.shuffled(random)
+        val shuffled = if (legsPerTeam != null && legsPerTeam in 2..8) {
+            shuffledAll.take(k * legsPerTeam)
+        } else {
+            shuffledAll
+        }
         val buckets = List(k) { mutableListOf<Participant>() }
         shuffled.forEachIndexed { idx, p ->
             buckets[idx % k].add(p)
         }
 
-        val teams = buckets.mapIndexed { idx, members ->
+        val teams = buckets.filter { it.isNotEmpty() }.mapIndexed { idx, members ->
             val legs = members.mapIndexed { legIdx, p ->
                 RelayLegAssignment(
                     legPosition = legIdx + 1,
@@ -615,10 +634,19 @@ object RelayOptimizer {
     }
 
     private fun attachDeltas(teams: List<RelayTeamPlan>): List<RelayTeamPlan> {
-        val fastestTotal = teams.mapNotNull { it.totalTimeMillis }.minOrNull() ?: return teams
-        return teams.map { team ->
-            val delta = team.totalTimeMillis?.let { (it - fastestTotal).coerceAtLeast(0L) }
-            team.copy(deltaToFastestMillis = delta)
+        val sameSize = teams.map { it.legs.size }.distinct().size <= 1
+        if (sameSize) {
+            val fastestTotal = teams.mapNotNull { it.totalTimeMillis }.minOrNull() ?: return teams
+            return teams.map { team ->
+                val delta = team.totalTimeMillis?.let { (it - fastestTotal).coerceAtLeast(0L) }
+                team.copy(deltaToFastestMillis = delta)
+            }
+        } else {
+            val fastestAvg = teams.mapNotNull { it.averageLegMillis }.minOrNull() ?: return teams
+            return teams.map { team ->
+                val delta = team.averageLegMillis?.let { (it - fastestAvg).coerceAtLeast(0L) }
+                team.copy(deltaToFastestMillis = delta)
+            }
         }
     }
 }

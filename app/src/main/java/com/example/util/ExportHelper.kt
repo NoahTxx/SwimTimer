@@ -35,7 +35,7 @@ object ExportHelper {
         sb.append("\nERGEBNISSE & SPLITS:\n")
 
         val isLagen = s.strokeType.equals("Lagen", ignoreCase = true)
-        val isRelaySession = s.title.contains("Staffel", ignoreCase = true)
+        val isRelaySession = com.example.domain.PersonalBestEvaluator.isRelaySession(s.title, sessionWithLaps.laps)
         val activeLagenNames = if (isRelaySession) LAGEN_STAFFEL_LEG_NAMES else LAGEN_LEG_NAMES
         val legDist = (s.targetDistanceMeters / 4).coerceAtLeast(1)
 
@@ -53,17 +53,31 @@ object ExportHelper {
             val totalTime = laps.lastOrNull()?.splitTimeMillis ?: 0L
             sb.append("\nBahn $lane: $laneTitle (Gesamt: ${TimeFormatter.formatMillis(totalTime)})\n")
             laps.zip(seriesItems).forEach { (lap, lapItem) ->
+                val relayStarterName = if (lap.swimmerName.contains(" • ")) {
+                    lap.swimmerName.substringAfter(" • ").trim()
+                } else null
                 val strokeTag = if (isLagen) {
-                    val legIdx = (((lapItem.lapIndex - 1) * s.splitDistanceMeters) / legDist).coerceIn(0, 3)
+                    val legIdx = if (isRelaySession) {
+                        val parsedNum = relayStarterName?.substringBefore(".")?.trim()?.toIntOrNull()
+                        ((parsedNum ?: lapItem.lapIndex) - 1).coerceAtLeast(0) % activeLagenNames.size
+                    } else {
+                        (((lapItem.lapIndex - 1) * s.splitDistanceMeters) / legDist).coerceIn(0, 3)
+                    }
                     " (${activeLagenNames[legIdx]})"
                 } else ""
-                val starterTag = if (lap.swimmerName.contains(" • ")) {
-                    " [${lap.swimmerName.substringAfter(" • ").trim()}]"
+                val starterTag = if (!relayStarterName.isNullOrBlank()) {
+                    " [$relayStarterName]"
                 } else ""
                 val paceDelta = if (lap.deltaTargetMillis != null) {
                     " [Pace: ${TimeFormatter.formatDelta(lap.deltaTargetMillis)}]"
                 } else ""
-                val lapPrefix = if (hasMultipleSeries) "S${lapItem.seriesIndex} Lap ${lapItem.lapIndex}" else "Lap ${lapItem.lapIndex}"
+                val lapsInThisSeries = seriesItems.filter { it.seriesIndex == lapItem.seriesIndex }
+                val isOnlyLap = lapsInThisSeries.size == 1
+                val lapPrefix = if (hasMultipleSeries) {
+                    if (isOnlyLap) "S${lapItem.seriesIndex} Ziel" else "S${lapItem.seriesIndex} Lap ${lapItem.lapIndex}"
+                } else {
+                    if (isOnlyLap) "Ziel" else "Lap ${lapItem.lapIndex}"
+                }
                 sb.append("  • $lapPrefix$starterTag$strokeTag: Split ${TimeFormatter.formatMillis(lap.splitTimeMillis)} | Runde: ${TimeFormatter.formatMillis(lap.lapTimeMillis)}$paceDelta\n")
             }
         }
@@ -75,7 +89,7 @@ object ExportHelper {
     fun generateCsv(sessionWithLaps: SessionWithLaps): String {
         val s = sessionWithLaps.session
         val isLagen = s.strokeType.equals("Lagen", ignoreCase = true)
-        val isRelaySession = s.title.contains("Staffel", ignoreCase = true)
+        val isRelaySession = com.example.domain.PersonalBestEvaluator.isRelaySession(s.title, sessionWithLaps.laps)
         val activeLagenNames = if (isRelaySession) LAGEN_STAFFEL_LEG_NAMES else LAGEN_LEG_NAMES
         val legDist = (s.targetDistanceMeters / 4).coerceAtLeast(1)
 
@@ -103,7 +117,13 @@ object ExportHelper {
             )
             sortedLaps.zip(seriesItems).forEach { (lap, lapItem) ->
                 val strokeName = if (isLagen) {
-                    val legIdx = (((lapItem.lapIndex - 1) * s.splitDistanceMeters) / legDist).coerceIn(0, 3)
+                    val legIdx = if (isRelaySession) {
+                        val starterName = if (lap.swimmerName.contains(" • ")) lap.swimmerName.substringAfter(" • ").trim() else null
+                        val parsedNum = starterName?.substringBefore(".")?.trim()?.toIntOrNull()
+                        ((parsedNum ?: lapItem.lapIndex) - 1).coerceAtLeast(0) % activeLagenNames.size
+                    } else {
+                        (((lapItem.lapIndex - 1) * s.splitDistanceMeters) / legDist).coerceIn(0, 3)
+                    }
                     activeLagenNames[legIdx]
                 } else s.strokeType
                 sb.append("${lap.laneNumber};${escapeCsv(lap.swimmerName)};${lap.lapIndex};${escapeCsv(strokeName)};${lap.splitTimeMillis};${TimeFormatter.formatMillis(lap.splitTimeMillis)};${lap.lapTimeMillis};${TimeFormatter.formatMillis(lap.lapTimeMillis)};${lap.targetLapMillis ?: ""};${lap.deltaTargetMillis ?: ""};${lap.strokeRateSpm ?: ""}\n")

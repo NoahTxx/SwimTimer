@@ -7,11 +7,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -26,6 +29,7 @@ import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -50,6 +54,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -107,8 +113,9 @@ fun LaneTimerCard(
     }
 
     val isRelay = lane.relayMembers.isNotEmpty()
+    val effectiveTargetDist = lane.effectiveTargetDistanceMeters
     val splitsPerLeg = if (isRelay) {
-        val legDist = (lane.targetDistanceMeters / lane.relayMembers.size.coerceAtLeast(1)).coerceAtLeast(lane.splitDistanceMeters)
+        val legDist = (effectiveTargetDist / lane.relayMembers.size.coerceAtLeast(1)).coerceAtLeast(lane.splitDistanceMeters)
         (legDist / lane.splitDistanceMeters).coerceAtLeast(1)
     } else 1
     val activeRelayLegIdx = if (isRelay) {
@@ -173,7 +180,7 @@ fun LaneTimerCard(
 
             LaneProgressAndLaps(
                 status = lane.status,
-                targetDistanceMeters = lane.targetDistanceMeters,
+                targetDistanceMeters = effectiveTargetDist,
                 splitDistanceMeters = lane.splitDistanceMeters,
                 strokeType = lane.strokeType,
                 currentRunLaps = lane.laps,
@@ -202,7 +209,7 @@ fun LaneTimerCard(
 
             LaneLapsHistory(
                 status = lane.status,
-                targetDistanceMeters = lane.targetDistanceMeters,
+                targetDistanceMeters = effectiveTargetDist,
                 isExpanded = isExpanded,
                 allLaps = lane.allLaps,
                 seriesCount = lane.seriesCount,
@@ -360,7 +367,9 @@ private fun RelayLineupSection(
         ) {
             relayMembers.chunked(2).forEachIndexed { rowIdx, pair ->
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(IntrinsicSize.Min),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     pair.forEachIndexed { colIdx, member ->
@@ -392,10 +401,11 @@ private fun RelayLineupSection(
                             member.stroke.equals("Schmetterling", ignoreCase = true) -> "Schmett."
                             else -> member.stroke
                         }
+                        val isAnchorLeg = !isLagenRelay && member.legPosition == relayMembers.size && relayMembers.size >= 2
                         val posLabel = if (isLagenRelay) {
                             "${member.legPosition}. $shortStroke"
-                        } else if (member.legPosition == 4 && relayMembers.size == 4) {
-                            "4. ★ Schluss"
+                        } else if (isAnchorLeg) {
+                            "${member.legPosition}. Schluss"
                         } else {
                             "${member.legPosition}. Starter"
                         }
@@ -406,6 +416,7 @@ private fun RelayLineupSection(
                             border = BorderStroke(if (isActiveNow) 1.5.dp else 1.dp, cellBorder),
                             modifier = Modifier
                                 .weight(1f)
+                                .fillMaxHeight()
                                 .then(
                                     if (onLegClick != null) {
                                         Modifier.clickable { onLegClick(member.legPosition) }
@@ -417,26 +428,64 @@ private fun RelayLineupSection(
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 8.dp, vertical = 6.dp)
+                                    .fillMaxHeight()
+                                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                                verticalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Row(
-                                    modifier = Modifier.fillMaxWidth(),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 18.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Text(
-                                        text = posLabel,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = when {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f, fill = false).padding(end = 4.dp)
+                                    ) {
+                                        val headerColor = when {
                                             isActiveNow -> AquaPrimary
                                             isCompleted -> PaceGreen
+                                            isAnchorLeg -> Color(0xFFFFD600)
                                             else -> Color.Gray
-                                        },
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.weight(1f, fill = false)
-                                    )
+                                        }
+                                        if (isAnchorLeg) {
+                                            Text(
+                                                text = "${member.legPosition}. ",
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = headerColor,
+                                                style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false)),
+                                                maxLines = 1
+                                            )
+                                            Icon(
+                                                imageVector = Icons.Default.Star,
+                                                contentDescription = null,
+                                                tint = Color(0xFFFFD600),
+                                                modifier = Modifier.size(11.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(2.dp))
+                                            Text(
+                                                text = "Schluss",
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = headerColor,
+                                                style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false)),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        } else {
+                                            Text(
+                                                text = posLabel,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = headerColor,
+                                                style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false)),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
 
                                     when {
                                         completedLegTimeMs != null -> {
@@ -466,11 +515,13 @@ private fun RelayLineupSection(
                                             }
                                         }
                                         member.timeMillis != null && !isFinished -> {
+                                            val estPrefix = if (member.isEstimated) "~" else ""
                                             Text(
-                                                text = TimeFormatter.formatMillis(member.timeMillis, shortFormat = true),
+                                                text = "$estPrefix${TimeFormatter.formatMillis(member.timeMillis, shortFormat = true)}",
                                                 fontFamily = FontFamily.Monospace,
                                                 fontSize = 10.sp,
-                                                color = AquaPrimary.copy(alpha = 0.8f),
+                                                fontWeight = if (member.isEstimated) FontWeight.SemiBold else FontWeight.Normal,
+                                                color = if (member.isEstimated) Color(0xFFFFB74D) else AquaPrimary.copy(alpha = 0.85f),
                                                 maxLines = 1,
                                                 softWrap = false
                                             )
@@ -714,7 +765,7 @@ private fun LaneProgressAndLaps(
     isExpanded: Boolean,
     onExpandClick: () -> Unit
 ) {
-    val completedDistance = if (status == LaneStatus.FINISHED) {
+    val completedDistance = if (status == LaneStatus.FINISHED || status == LaneStatus.REST_COUNTDOWN) {
         targetDistanceMeters
     } else {
         (currentRunLaps.size * splitDistanceMeters).coerceAtMost(targetDistanceMeters)
@@ -999,8 +1050,6 @@ private fun LaneLapsHistory(
     relayMembers: List<RelayLegAssignment> = emptyList(),
     splitsPerLeg: Int = 1
 ) {
-    val totalSplitsNeeded = (targetDistanceMeters / splitDistanceMeters).coerceAtLeast(1)
-
     AnimatedVisibility(visible = isExpanded && allLaps.isNotEmpty()) {
         Column(
             modifier = Modifier
@@ -1014,7 +1063,7 @@ private fun LaneLapsHistory(
 
             allLaps.forEach { lap ->
                 val isLastLapInRun = lap == allLaps.lastOrNull { it.seriesIndex == lap.seriesIndex }
-                val lapCumDist = if ((status == LaneStatus.FINISHED && isLastLapInRun) || lap.lapIndex == totalSplitsNeeded) {
+                val lapCumDist = if ((status == LaneStatus.FINISHED || status == LaneStatus.REST_COUNTDOWN) && isLastLapInRun) {
                     targetDistanceMeters
                 } else {
                     (lap.lapIndex * splitDistanceMeters).coerceAtMost(targetDistanceMeters)
@@ -1068,8 +1117,13 @@ private fun LaneLapsHistory(
                                 )
                             }
                         } else {
+                            val lapLabel = if (allLaps.count { it.seriesIndex == lap.seriesIndex } == 1 && (status == LaneStatus.FINISHED || status == LaneStatus.REST_COUNTDOWN)) {
+                                "Ziel (${lapCumDist}m)"
+                            } else {
+                                "Lap ${lap.lapIndex} (${lapCumDist}m)"
+                            }
                             Text(
-                                text = "Lap ${lap.lapIndex} (${lapCumDist}m)",
+                                text = lapLabel,
                                 fontSize = 12.sp,
                                 color = TextWhite.copy(alpha = 0.85f),
                                 fontWeight = FontWeight.Normal,
