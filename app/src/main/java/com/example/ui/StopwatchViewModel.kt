@@ -1145,8 +1145,22 @@ class StopwatchViewModel(
         undoStack.clear()
 
         _uiState.update { currentState ->
-            val resetLanes = currentState.lanes.map {
-                it.copy(
+            val resetLanes = currentState.lanes.map { lane ->
+                val resetRelayMembers = if (lane.relayMembers.isNotEmpty()) {
+                    lane.relayMembers.mapIndexed { idx, leg ->
+                        leg.copy(
+                            swimmerId = null,
+                            swimmerName = "Starter ${idx + 1}",
+                            timeMillis = null,
+                            isEstimated = false,
+                            sourceLabel = ""
+                        )
+                    }
+                } else {
+                    emptyList()
+                }
+
+                lane.copy(
                     status = LaneStatus.IDLE,
                     laneStartTimeRealtime = null,
                     finishTimeMillis = null,
@@ -1157,7 +1171,8 @@ class StopwatchViewModel(
                     laps = emptyList(),
                     completedSeriesLaps = emptyList(),
                     seriesCount = 1,
-                    countdownRemainingSeconds = 0
+                    countdownRemainingSeconds = 0,
+                    relayMembers = resetRelayMembers
                 )
             }
 

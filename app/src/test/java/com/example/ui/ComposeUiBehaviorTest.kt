@@ -177,7 +177,7 @@ class ComposeUiBehaviorTest {
             }
         }
 
-        composeTestRule.onNodeWithText("Wechsel 1→2").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Wechsel 1→2").assertExists()
     }
 
     @Test

@@ -134,6 +134,28 @@ class StopwatchViewModelTest {
     }
 
     @Test
+    fun onResetAll_resetsAssignedRelaySwimmersForReassignment() = runTest(testDispatcher) {
+        val assignedRelayLegs = listOf(
+            com.example.domain.RelayLegAssignment(1, 101L, "Max", "Freistil", 50, 28_000L),
+            com.example.domain.RelayLegAssignment(2, 102L, "Ben", "Freistil", 50, 29_000L),
+            com.example.domain.RelayLegAssignment(3, 103L, "Clara", "Freistil", 50, 30_000L),
+            com.example.domain.RelayLegAssignment(4, 104L, "Nina", "Freistil", 50, 27_000L)
+        )
+        viewModel.assignRelayTeamToLane(1, "Vereinsstaffel 1", assignedRelayLegs)
+
+        val laneBefore = viewModel.uiState.value.lanes.first { it.laneNumber == 1 }
+        assertEquals(101L, laneBefore.relayMembers[0].swimmerId)
+
+        viewModel.onResetAll()
+
+        val laneAfter = viewModel.uiState.value.lanes.first { it.laneNumber == 1 }
+        assertEquals(4, laneAfter.relayMembers.size)
+        assertTrue("All relay members should be reset to null swimmerId", laneAfter.relayMembers.all { it.swimmerId == null })
+        assertEquals("Starter 1", laneAfter.relayMembers[0].swimmerName)
+        assertEquals("Starter 2", laneAfter.relayMembers[1].swimmerName)
+    }
+
+    @Test
     fun assignSwimmerToLane_assignsCorrectly() = runTest(testDispatcher) {
         val swimmer = SwimmerEntity(id = 42L, name = "Michael Phelps", groupName = "Elite")
         viewModel.assignSwimmerToLane(laneNumber = 1, swimmer = swimmer)
