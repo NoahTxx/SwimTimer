@@ -1128,7 +1128,7 @@ class StopwatchViewModel(
                     }
                     currentState
                 }
-                if (anyRunning) startTicker()
+                if (anyRunning) startTicker() else stopTickerIfAllIdle()
             }
             is UndoAction.LaneFinished -> {
                 _uiState.update { currentState ->
@@ -1208,14 +1208,7 @@ class StopwatchViewModel(
                     val lanes = currentState.lanes.toMutableList()
                     val idx = lanes.indexOfFirst { it.laneNumber == action.laneNumber }
                     if (idx != -1) {
-                        val now = clock.nowMillis()
-                        val restored = if (action.previousLaneState.status == LaneStatus.RUNNING) {
-                            action.previousLaneState.copy(
-                                laneStartTimeRealtime = now - action.previousLaneState.currentElapsedMillis
-                            )
-                        } else {
-                            action.previousLaneState
-                        }
+                        val restored = action.previousLaneState
                         lanes[idx] = restored
                         anyRunning = lanes.any { it.status == LaneStatus.RUNNING || it.status == LaneStatus.COUNTDOWN || it.status == LaneStatus.PAUSED || it.status == LaneStatus.REST_COUNTDOWN }
                         return@update currentState.copy(

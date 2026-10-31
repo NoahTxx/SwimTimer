@@ -267,14 +267,17 @@ class StopwatchViewModelTest {
 
         assertEquals(LaneStatus.PAUSED, viewModel.uiState.value.lanes.find { it.laneNumber == 1 }!!.status)
 
-        // Undo pause -> should be RUNNING again
+        // Undo pause -> should be RUNNING again and restore continuous start time (100_000L)
         fakeClock.currentMillis = 130_000L
         viewModel.performUndo()
         val resumedByUndo = viewModel.uiState.value.lanes.find { it.laneNumber == 1 }!!
         assertEquals(LaneStatus.RUNNING, resumedByUndo.status)
-        assertEquals(25_000L, resumedByUndo.currentElapsedMillis)
+        assertEquals(100_000L, resumedByUndo.laneStartTimeRealtime)
+        val elapsedAtUndo = fakeClock.currentMillis - resumedByUndo.laneStartTimeRealtime!!
+        assertEquals(30_000L, elapsedAtUndo)
 
-        // Pause again, then resume, then undo resume -> should be PAUSED again
+        // Pause again, then resume, then undo resume -> should be PAUSED again at paused elapsed time
+        fakeClock.currentMillis = 135_000L
         viewModel.onPauseLane(laneNumber = 1)
         fakeClock.currentMillis = 140_000L
         viewModel.onResumeLane(laneNumber = 1)
@@ -283,7 +286,67 @@ class StopwatchViewModelTest {
         viewModel.performUndo()
         val pausedByUndo = viewModel.uiState.value.lanes.find { it.laneNumber == 1 }!!
         assertEquals(LaneStatus.PAUSED, pausedByUndo.status)
-        assertEquals(25_000L, pausedByUndo.currentElapsedMillis)
+        assertEquals(35_000L, pausedByUndo.currentElapsedMillis)
+
+        viewModel.onResetAll()
+    }
+
+    @Test
+    fun performUndo_undoPause_restoresContinuousRunningTimeWithoutPauseGap() = runTest(testDispatcher) {
+        viewModel.onStartSingleLane(laneNumber = 1)
+        fakeClock.currentMillis = 120_000L // 20s elapsed
+        viewModel.onPauseLane(laneNumber = 1)
+
+        fakeClock.currentMillis = 130_000L // 10s passed while paused
+        viewModel.performUndo()
+
+        val lane = viewModel.uiState.value.lanes.find { it.laneNumber == 1 }!!
+        assertEquals(LaneStatus.RUNNING, lane.status)
+        assertEquals(100_000L, lane.laneStartTimeRealtime)
+        assertEquals(30_000L, fakeClock.currentMillis - lane.laneStartTimeRealtime!!)
+
+        viewModel.onResetAll()
+    }
+
+    @Test
+    fun performUndo_undoPauseWithLaps_preservesLapsAndContinuousTime() = runTest(testDispatcher) {
+        viewModel.onStartSingleLane(laneNumber = 1)
+        fakeClock.currentMillis = 115_000L // 15s elapsed
+        viewModel.onLapLane(laneNumber = 1)
+
+        fakeClock.currentMillis = 125_000L // 25s elapsed
+        viewModel.onPauseLane(laneNumber = 1)
+
+        fakeClock.currentMillis = 135_000L // 10s passed while paused
+        viewModel.performUndo() // Undo Pause
+
+        val lane = viewModel.uiState.value.lanes.find { it.laneNumber == 1 }!!
+        assertEquals(LaneStatus.RUNNING, lane.status)
+        assertEquals(1, lane.laps.size)
+        assertEquals(15_000L, lane.laps[0].splitTimeMillis)
+        assertEquals(35_000L, fakeClock.currentMillis - lane.laneStartTimeRealtime!!)
+
+        viewModel.onResetAll()
+    }
+
+    @Test
+    fun performUndo_undoFinishWhenPaused_restoresPausedState() = runTest(testDispatcher) {
+        viewModel.onStartSingleLane(laneNumber = 1)
+        fakeClock.currentMillis = 120_000L // 20s elapsed
+        viewModel.onPauseLane(laneNumber = 1)
+
+        fakeClock.currentMillis = 125_000L
+        viewModel.onFinishLane(laneNumber = 1)
+
+        val finishedLane = viewModel.uiState.value.lanes.find { it.laneNumber == 1 }!!
+        assertEquals(LaneStatus.FINISHED, finishedLane.status)
+        assertEquals(20_000L, finishedLane.finishTimeMillis)
+
+        viewModel.performUndo() // Undo Finish
+
+        val restoredLane = viewModel.uiState.value.lanes.find { it.laneNumber == 1 }!!
+        assertEquals(LaneStatus.PAUSED, restoredLane.status)
+        assertEquals(20_000L, restoredLane.currentElapsedMillis)
 
         viewModel.onResetAll()
     }
