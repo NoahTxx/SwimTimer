@@ -63,7 +63,6 @@ import com.example.ui.SeriesModeType
 import com.example.ui.StartMode
 import com.example.ui.StopwatchViewModel
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.ui.components.AssignSwimmerDialog
@@ -427,8 +426,6 @@ fun MultiStopwatchScreen(
                             message = "Die erfassten Zeiten wurden noch nicht gespeichert. Möchtest du wirklich alle Bahnen zurücksetzen?",
                             confirmButtonText = "Zurücksetzen",
                             confirmButtonColor = Color(0xFFFF5252),
-                            icon = Icons.Default.Refresh,
-                            iconTint = Color(0xFFFF5252),
                             onConfirm = {
                                 HapticUtil.vibrateHeavy(context)
                                 viewModel.onResetAll()
@@ -464,8 +461,6 @@ fun MultiStopwatchScreen(
                         message = "Die erfassten Zeiten des vorherigen Laufs wurden noch nicht gespeichert. Möchtest du wirklich einen neuen Lauf starten und die alten Zeiten verwerfen?",
                         confirmButtonText = "Neu starten",
                         confirmButtonColor = Color(0xFFFF5252),
-                        icon = Icons.Default.PlayArrow,
-                        iconTint = Color(0xFFFF5252),
                         onConfirm = {
                             HapticUtil.vibrateHeavy(context)
                             viewModel.onStartAll()
@@ -684,8 +679,6 @@ private fun CenteredConfirmDialog(
     message: String,
     confirmButtonText: String,
     confirmButtonColor: Color = Color(0xFFFF5252),
-    icon: ImageVector,
-    iconTint: Color = Color(0xFFFF5252),
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -694,43 +687,26 @@ private fun CenteredConfirmDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Surface(
-            shape = RoundedCornerShape(26.dp),
-            color = OceanSurface,
-            border = BorderStroke(1.dp, OceanBorder),
+            shape = RoundedCornerShape(22.dp),
+            color = Color(0xFF0A131F),
+            border = BorderStroke(1.dp, Color(0xFF1E314B)),
             shadowElevation = 24.dp,
             modifier = Modifier
-                .fillMaxWidth(0.90f)
-                .padding(horizontal = 16.dp)
+                .fillMaxWidth(0.92f)
+                .padding(horizontal = 8.dp)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 24.dp),
+                    .padding(horizontal = 20.dp, vertical = 22.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Centered Icon Badge
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .background(iconTint.copy(alpha = 0.15f), shape = CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = iconTint,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
                 // Centered Title
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp
+                        fontSize = 19.sp
                     ),
                     color = TextWhite,
                     textAlign = TextAlign.Center,
@@ -743,54 +719,61 @@ private fun CenteredConfirmDialog(
                 Text(
                     text = message,
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        lineHeight = 22.sp
+                        lineHeight = 21.sp,
+                        fontSize = 14.sp
                     ),
                     color = Color(0xFFB0BEC5),
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(22.dp))
 
                 // Centered, balanced action buttons with equal weight
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     FilledTonalButton(
                         onClick = onDismiss,
-                        shape = RoundedCornerShape(14.dp),
+                        shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = OceanSurfaceVariant,
+                            containerColor = Color(0xFF152234),
                             contentColor = Color(0xFFCFD8DC)
                         ),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                         modifier = Modifier
                             .weight(1f)
-                            .height(48.dp)
+                            .height(46.dp)
                     ) {
                         Text(
                             text = "Abbrechen",
                             fontWeight = FontWeight.SemiBold,
-                            fontSize = 15.sp
+                            fontSize = 14.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
 
                     Button(
                         onClick = onConfirm,
-                        shape = RoundedCornerShape(14.dp),
+                        shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = confirmButtonColor,
                             contentColor = Color.White
                         ),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                         modifier = Modifier
                             .weight(1f)
-                            .height(48.dp)
+                            .height(46.dp)
                     ) {
                         Text(
                             text = confirmButtonText,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp
+                            fontSize = 14.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
