@@ -10,7 +10,10 @@ class AndroidMonotonicClock : MonotonicClock {
     override fun nowMillis(): Long = SystemClock.elapsedRealtime()
 }
 
-@Suppress("unused")
 class FakeClock(var currentMillis: Long = 0L) : MonotonicClock {
     override fun nowMillis(): Long = currentMillis
+
+    fun advance(millis: Long) {
+        currentMillis += millis
+    }
 }

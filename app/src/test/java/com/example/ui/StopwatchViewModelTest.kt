@@ -833,5 +833,198 @@ class StopwatchViewModelTest {
 
         viewModel.onResetAll()
     }
+
+    @Test
+    fun hardwareKeys_toggleAndSetEnabled() = runTest(testDispatcher) {
+        assertFalse(viewModel.uiState.value.isHardwareKeysEnabled)
+
+        viewModel.toggleHardwareKeys()
+        assertTrue(viewModel.uiState.value.isHardwareKeysEnabled)
+
+        viewModel.toggleHardwareKeys()
+        assertFalse(viewModel.uiState.value.isHardwareKeysEnabled)
+
+        viewModel.setHardwareKeysEnabled(true)
+        assertTrue(viewModel.uiState.value.isHardwareKeysEnabled)
+    }
+
+    @Test
+    fun hardwareVolumeUp_startsAllWhenIdle() = runTest(testDispatcher) {
+        assertFalse(viewModel.uiState.value.hasOpenRun)
+
+        viewModel.onHardwareVolumeUp()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.hasOpenRun)
+        assertEquals(LaneStatus.RUNNING, state.lanes[0].status)
+        assertEquals(LaneStatus.RUNNING, state.lanes[1].status)
+
+        viewModel.onResetAll()
+    }
+
+    @Test
+    fun hardwareVolumeUp_sequentialLapDistributionAcrossLanes() = runTest(testDispatcher) {
+        viewModel.onStartAll()
+        testScheduler.advanceTimeBy(100)
+
+        // Advance fake clock for lap 1 of lane 1
+        fakeClock.advance(30_000L)
+        viewModel.onHardwareVolumeUp() // Should give lap to lane 1 (0 laps vs 0 laps)
+
+        var lanes = viewModel.uiState.value.lanes
+        assertEquals(1, lanes[0].laps.size)
+        assertEquals(0, lanes[1].laps.size)
+        assertEquals(0, lanes[2].laps.size)
+        assertEquals(0, lanes[3].laps.size)
+
+        // Advance clock for lap 1 of lane 2
+        fakeClock.advance(2_000L)
+        viewModel.onHardwareVolumeUp() // Should give lap to lane 2 (min laps = 0)
+
+        lanes = viewModel.uiState.value.lanes
+        assertEquals(1, lanes[0].laps.size)
+        assertEquals(1, lanes[1].laps.size)
+        assertEquals(0, lanes[2].laps.size)
+
+        // Lane 3
+        fakeClock.advance(2_000L)
+        viewModel.onHardwareVolumeUp() // Should give lap to lane 3
+        lanes = viewModel.uiState.value.lanes
+        assertEquals(1, lanes[2].laps.size)
+
+        // Lane 4
+        fakeClock.advance(2_000L)
+        viewModel.onHardwareVolumeUp() // Should give lap to lane 4
+        lanes = viewModel.uiState.value.lanes
+        assertEquals(1, lanes[3].laps.size)
+
+        // Now all lanes have 1 lap. The next press should round-robin back to Lane 1!
+        fakeClock.advance(30_000L)
+        viewModel.onHardwareVolumeUp() // Should give lap 2 to lane 1 (target distance reached -> finished)
+
+        lanes = viewModel.uiState.value.lanes
+        // Since targetDistance is 100m and splitDistance is 50m (2 splits), Lap 2 finishes lane 1!
+        assertEquals(LaneStatus.FINISHED, lanes[0].status)
+        assertEquals(2, lanes[0].allLaps.size)
+
+        // Next press should go to lane 2 (which is still RUNNING with 1 lap)
+        fakeClock.advance(1_000L)
+        viewModel.onHardwareVolumeUp()
+        lanes = viewModel.uiState.value.lanes
+        assertEquals(LaneStatus.FINISHED, lanes[1].status)
+
+        viewModel.onResetAll()
+    }
+
+    @Test
+    fun hardwareVolumeDown_stopsAllRunningLanes() = runTest(testDispatcher) {
+        viewModel.onStartAll()
+        assertTrue(viewModel.uiState.value.hasOpenRun)
+
+        fakeClock.advance(10_000L)
+        viewModel.onHardwareVolumeDown()
+
+        val state = viewModel.uiState.value
+        assertTrue("All lanes should be stopped/finished", state.lanes.all { it.status == LaneStatus.FINISHED || it.status == LaneStatus.IDLE })
+
+        viewModel.onResetAll()
+    }
+
+    @Test
+    fun multipleStartStopWithoutSeries_doesNotAccumulateSplitsOrSeries() = runTest(testDispatcher) {
+        assertFalse(viewModel.uiState.value.seriesConfig.isEnabled)
+
+        // 1. Run
+        viewModel.onStartAll()
+        fakeClock.advance(25_000L)
+        viewModel.onStopAll()
+
+        var lane1 = viewModel.uiState.value.lanes[0]
+        assertEquals(LaneStatus.FINISHED, lane1.status)
+        assertEquals(1, lane1.laps.size)
+        assertEquals(0, lane1.completedSeriesLaps.size)
+        assertEquals(1, lane1.allLaps.size)
+        assertEquals(1, lane1.seriesCount)
+
+        // 2. Run without series mode
+        viewModel.onStartAll()
+        fakeClock.advance(26_000L)
+        viewModel.onStopAll()
+
+        lane1 = viewModel.uiState.value.lanes[0]
+        assertEquals(LaneStatus.FINISHED, lane1.status)
+        assertEquals(1, lane1.laps.size)
+        assertEquals(0, lane1.completedSeriesLaps.size)
+        assertEquals(1, lane1.allLaps.size) // Must still be 1 split, NOT 2!
+        assertEquals(1, lane1.seriesCount) // Series count must remain 1!
+
+        // 3. Run without series mode
+        viewModel.onStartAll()
+        fakeClock.advance(27_000L)
+        viewModel.onStopAll()
+
+        lane1 = viewModel.uiState.value.lanes[0]
+        assertEquals(LaneStatus.FINISHED, lane1.status)
+        assertEquals(1, lane1.laps.size)
+        assertEquals(0, lane1.completedSeriesLaps.size)
+        assertEquals(1, lane1.allLaps.size) // Must still be 1 split, NOT 3!
+        assertEquals(1, lane1.seriesCount)
+
+        viewModel.onResetAll()
+    }
+
+    @Test
+    fun multipleStartStopWithSeries_accumulatesSeriesAndSplits() = runTest(testDispatcher) {
+        viewModel.setSeriesConfig(SeriesConfig(isEnabled = true, mode = SeriesModeType.MANUAL))
+        assertTrue(viewModel.uiState.value.seriesConfig.isEnabled)
+
+        // 1. Run (Series 1)
+        viewModel.onStartAll()
+        fakeClock.advance(25_000L)
+        viewModel.onStopAll()
+
+        var lane1 = viewModel.uiState.value.lanes[0]
+        assertEquals(LaneStatus.FINISHED, lane1.status)
+        assertEquals(1, lane1.laps.size)
+        assertEquals(0, lane1.completedSeriesLaps.size)
+        assertEquals(1, lane1.allLaps.size)
+        assertEquals(1, lane1.seriesCount)
+
+        // 2. Run (Series 2)
+        viewModel.onStartAll()
+        fakeClock.advance(26_000L)
+        viewModel.onStopAll()
+
+        lane1 = viewModel.uiState.value.lanes[0]
+        assertEquals(LaneStatus.FINISHED, lane1.status)
+        assertEquals(1, lane1.laps.size)
+        assertEquals(1, lane1.completedSeriesLaps.size)
+        assertEquals(2, lane1.allLaps.size)
+        assertEquals(2, lane1.seriesCount)
+
+        viewModel.onResetAll()
+    }
+
+    @Test
+    fun hardwareVolumeUp_whenLanesFinishedAndUnsavedWithoutSeries_doesNotWipeTimes() = runTest(testDispatcher) {
+        assertFalse(viewModel.uiState.value.seriesConfig.isEnabled)
+
+        viewModel.onStartAll()
+        fakeClock.advance(30_000L)
+        viewModel.onStopAll()
+
+        val stateAfterStop = viewModel.uiState.value
+        assertEquals(LaneStatus.FINISHED, stateAfterStop.lanes[0].status)
+        assertEquals(1, stateAfterStop.lanes[0].allLaps.size)
+
+        // Accidental volume up press while times are finished and unsaved
+        viewModel.onHardwareVolumeUp()
+
+        val stateAfterAccidentalPress = viewModel.uiState.value
+        assertEquals(LaneStatus.FINISHED, stateAfterAccidentalPress.lanes[0].status)
+        assertEquals(1, stateAfterAccidentalPress.lanes[0].allLaps.size)
+
+        viewModel.onResetAll()
+    }
 }
 

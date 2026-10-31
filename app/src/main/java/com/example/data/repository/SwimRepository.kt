@@ -13,13 +13,11 @@ interface ISwimRepository {
     val allSessionsWithLaps: Flow<List<SessionWithLaps>>
 
     suspend fun allSessionsWithLapsSync(): List<SessionWithLaps>
-    fun getSessionWithLaps(sessionId: Long): Flow<SessionWithLaps?>
     suspend fun getSessionWithLapsSync(sessionId: Long): SessionWithLaps?
     suspend fun getSwimmerById(id: Long): SwimmerEntity?
     suspend fun insertSwimmer(swimmer: SwimmerEntity): Long
     suspend fun updateSwimmer(swimmer: SwimmerEntity)
     suspend fun deleteSwimmer(swimmer: SwimmerEntity)
-    suspend fun deleteSwimmerById(id: Long)
     suspend fun renameGroupForAllSwimmers(oldName: String, newName: String)
     suspend fun clearGroupForAllSwimmers(groupName: String)
     suspend fun saveSessionWithLaps(
@@ -41,10 +39,6 @@ class SwimRepository(private val database: AppDatabase) : ISwimRepository {
     override suspend fun allSessionsWithLapsSync(): List<SessionWithLaps> =
         sessionDao.getAllSessionsWithLapsSync()
 
-    @Suppress("unused")
-    override fun getSessionWithLaps(sessionId: Long): Flow<SessionWithLaps?> =
-        sessionDao.getSessionWithLaps(sessionId)
-
     override suspend fun getSessionWithLapsSync(sessionId: Long): SessionWithLaps? =
         sessionDao.getSessionWithLapsSync(sessionId)
 
@@ -61,10 +55,6 @@ class SwimRepository(private val database: AppDatabase) : ISwimRepository {
 
     override suspend fun deleteSwimmer(swimmer: SwimmerEntity) =
         swimmerDao.deleteSwimmer(swimmer)
-
-    @Suppress("unused")
-    override suspend fun deleteSwimmerById(id: Long) =
-        swimmerDao.deleteSwimmerById(id)
 
     override suspend fun renameGroupForAllSwimmers(oldName: String, newName: String) =
         swimmerDao.renameGroupForAllSwimmers(oldName, newName)

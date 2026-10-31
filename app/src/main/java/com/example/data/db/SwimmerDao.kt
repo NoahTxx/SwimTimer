@@ -32,17 +32,11 @@ interface SwimmerDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSwimmer(swimmer: SwimmerEntity): Long
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertSwimmers(swimmers: List<SwimmerEntity>)
-
     @Update
     suspend fun updateSwimmer(swimmer: SwimmerEntity)
 
     @Delete
     suspend fun deleteSwimmer(swimmer: SwimmerEntity)
-
-    @Query("DELETE FROM swimmers WHERE id = :id")
-    suspend fun deleteSwimmerById(id: Long)
 
     @Query("SELECT COUNT(*) FROM swimmers")
     suspend fun getSwimmerCount(): Int

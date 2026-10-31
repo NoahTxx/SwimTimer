@@ -264,5 +264,49 @@ class PersonalBestEvaluatorTest {
         // New 100m Brust PB is recorded
         assertEquals(75000L, customMap["Brust" to 100])
     }
+
+    @Test
+    fun evaluate_whenFavoriteStrokeIsLagen_seedsFreistilAndPreservesLegacyPbs() {
+        val swimmer = SwimmerEntity(
+            id = 5L,
+            name = "Lagen Pro",
+            favoriteStroke = "Lagen",
+            pb50mMillis = 28000L, // Legacy favorite split (Freistil fallback)
+            pb100mLagenMillis = 68000L
+        )
+
+        val lane = LaneState(
+            laneNumber = 1,
+            swimmerId = 5L,
+            swimmerName = "Lagen Pro",
+            status = LaneStatus.FINISHED,
+            finishTimeMillis = 67000L,
+            targetDistanceMeters = 100,
+            splitDistanceMeters = 25,
+            strokeType = "Lagen",
+            laps = listOf(
+                LapItem(1, 14500L, 14500L),
+                LapItem(2, 31500L, 17000L),
+                LapItem(3, 50000L, 18500L),
+                LapItem(4, 67000L, 17000L)
+            )
+        )
+
+        val result = PersonalBestEvaluator.evaluate(
+            swimmer = swimmer,
+            lane = lane,
+            targetDistanceMeters = 100,
+            splitDistanceMeters = 25,
+            strokeType = "Lagen"
+        )
+
+        assertTrue(result.hasImproved)
+        assertEquals(67000L, result.updatedSwimmer.pb100mLagenMillis)
+        // pb50mMillis should NOT be overridden or corrupted by Lagen finish time
+        assertEquals(28000L, result.updatedSwimmer.pb50mMillis)
+        val customMap = result.updatedSwimmer.parseCustomPbsMap()
+        assertEquals(28000L, customMap["Freistil" to 50])
+        assertEquals(67000L, customMap["Lagen" to 100])
+    }
 }
 

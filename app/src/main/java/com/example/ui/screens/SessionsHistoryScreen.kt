@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Pool
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -205,7 +206,10 @@ fun SessionsHistoryScreen(
                         key = { (session) -> session.id },
                         contentType = { "SessionHistoryCard" }
                     ) { item ->
-                        val onShare = remember(context, item, coroutineScope) {
+                        val onShareReport = remember(context, item) {
+                            { ExportHelper.shareTrainingReport(context, item) }
+                        }
+                        val onShareCsv = remember(context, item, coroutineScope) {
                             {
                                 coroutineScope.launch { ExportHelper.shareSession(context, item) }
                                 Unit
@@ -215,7 +219,8 @@ fun SessionsHistoryScreen(
 
                         SessionHistoryCard(
                             sessionWithLaps = item,
-                            onShare = onShare,
+                            onShareReport = onShareReport,
+                            onShareCsv = onShareCsv,
                             onDelete = onDeleteRequest
                         )
                     }
@@ -262,7 +267,8 @@ fun SessionsHistoryScreen(
 @Composable
 private fun SessionHistoryCard(
     sessionWithLaps: SessionWithLaps,
-    onShare: () -> Unit,
+    onShareReport: () -> Unit,
+    onShareCsv: () -> Unit,
     onDelete: () -> Unit
 ) {
     var isExpanded by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(value = false) }
@@ -312,12 +318,43 @@ private fun SessionHistoryCard(
                     }
                 }
 
-                Row {
-                    IconButton(onClick = onShare) {
-                        Icon(imageVector = Icons.Default.Share, contentDescription = "Teilen", tint = AquaPrimary)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    FilledTonalButton(
+                        onClick = onShareReport,
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = AquaPrimary.copy(alpha = 0.15f),
+                            contentColor = AquaPrimary
+                        ),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                        modifier = Modifier.height(32.dp).testTag("share_report_btn_${s.id}")
+                    ) {
+                        Icon(imageVector = Icons.Default.Share, contentDescription = null, modifier = Modifier.size(15.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            "Bericht",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            )
+                        )
                     }
-                    IconButton(onClick = onDelete) {
-                        Icon(imageVector = Icons.Default.Delete, contentDescription = "Löschen", tint = Color(0xFFFF5252))
+                    Spacer(modifier = Modifier.width(2.dp))
+                    IconButton(onClick = onShareCsv, modifier = Modifier.size(32.dp).testTag("share_csv_btn_${s.id}")) {
+                        Icon(
+                            imageVector = Icons.Default.FileDownload,
+                            contentDescription = "CSV Export",
+                            tint = Color.LightGray,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    IconButton(onClick = onDelete, modifier = Modifier.size(32.dp).testTag("delete_btn_${s.id}")) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Löschen",
+                            tint = Color(0xFFFF5252),
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
                 }
             }

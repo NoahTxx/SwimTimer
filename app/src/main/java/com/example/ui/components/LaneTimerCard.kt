@@ -672,7 +672,7 @@ private fun DigitalTimerDisplay(
     val sendOffMs = sendOffDurationSec * 1000L
     val isSendOffMode = isSeriesEnabled && seriesMode == SeriesModeType.SEND_OFF && sendOffMs > 0
 
-    LaunchedEffect(status, laneStartTimeRealtime, pausedElapsedMillis, finishTimeMillis, finishRealtimeMillis, restTargetRealtime, isSeriesEnabled, seriesMode, sendOffDurationSec) {
+    LaunchedEffect(status, laneStartTimeRealtime, pausedElapsedMillis, finishTimeMillis, finishRealtimeMillis, restTargetRealtime, isSeriesEnabled, seriesMode, sendOffDurationSec, countdownRemainingSeconds) {
         if (status == LaneStatus.RUNNING && laneStartTimeRealtime != null) {
             while (true) {
                 withFrameMillis {

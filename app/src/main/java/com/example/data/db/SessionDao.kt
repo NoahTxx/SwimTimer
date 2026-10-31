@@ -1,7 +1,6 @@
 package com.example.data.db
 
 import androidx.room.Dao
-import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
@@ -25,42 +24,11 @@ interface SessionDao {
 
     @Transaction
     @Query("SELECT * FROM sessions WHERE id = :sessionId")
-    fun getSessionWithLaps(sessionId: Long): Flow<SessionWithLaps?>
-
-    @Transaction
-    @Query("SELECT * FROM sessions WHERE id = :sessionId")
     suspend fun getSessionWithLapsSync(sessionId: Long): SessionWithLaps?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSession(session: SessionEntity): Long
 
-    @Suppress("unused")
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertSessions(sessions: List<SessionEntity>): List<Long>
-
-    @Delete
-    suspend fun deleteSession(session: SessionEntity)
-
     @Query("DELETE FROM sessions WHERE id = :sessionId")
     suspend fun deleteSessionById(sessionId: Long)
-
-    @Suppress("unused")
-    @Query(
-        """
-        SELECT 
-            COUNT(id) AS totalLapsSwum,
-            MIN(lapTimeMillis) AS fastestLapMillis,
-            AVG(lapTimeMillis) AS averageLapMillis
-        FROM lap_records 
-        WHERE swimmerId = :swimmerId
-        """,
-    )
-    fun getSwimmerStatsFlow(swimmerId: Long): Flow<SwimmerStatsSummary>
 }
-
-@androidx.compose.runtime.Immutable
-data class SwimmerStatsSummary(
-    val totalLapsSwum: Int,
-    val fastestLapMillis: Long?,
-    val averageLapMillis: Double?,
-)

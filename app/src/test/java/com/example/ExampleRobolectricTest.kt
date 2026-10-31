@@ -414,6 +414,7 @@ class ExampleRobolectricTest {
 
     val vm = com.example.ui.StopwatchViewModel(repository, prefsRepo)
     vm.initializeLanes(2)
+    vm.setSeriesConfig(com.example.ui.SeriesConfig(isEnabled = true, mode = com.example.ui.SeriesModeType.MANUAL))
 
     val lane1Initial = vm.uiState.value.lanes.first { it.laneNumber == 1 }
     assertEquals(1, lane1Initial.seriesCount)

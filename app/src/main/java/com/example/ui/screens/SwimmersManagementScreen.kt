@@ -69,7 +69,6 @@ import com.example.ui.theme.OceanSurface
 import com.example.util.ExportHelper
 import com.example.ui.theme.PaceGreen
 import com.example.ui.theme.TextWhite
-import com.example.util.TimeFormatter
 
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
@@ -646,6 +645,7 @@ private fun ManageGroupsDialog(
                         focusManager.clearFocus()
                         if (newGroupName.isNotBlank()) {
                             onCreateGroup(newGroupName.trim())
+                            newGroupName = ""
                         }
                     }),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -746,7 +746,10 @@ private fun ManageGroupsDialog(
                     if (newGroupName.isNotBlank()) {
                         Spacer(modifier = Modifier.width(8.dp))
                         Button(
-                            onClick = { onCreateGroup(newGroupName.trim()) },
+                            onClick = {
+                                onCreateGroup(newGroupName.trim())
+                                newGroupName = ""
+                            },
                             colors = ButtonDefaults.buttonColors(containerColor = AquaPrimary),
                             modifier = Modifier.sizeIn(minHeight = 48.dp)
                         ) {

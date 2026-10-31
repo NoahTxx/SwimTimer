@@ -8,12 +8,12 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.example.data.model.SwimmerEntity
-import com.example.ui.components.StrokeRateCalculatorDialog
-import com.example.ui.components.SwimPaceCalculatorDialog
+import com.example.ui.screens.MultiStopwatchScreen
 import com.example.ui.theme.SwimTimerTheme
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -28,42 +28,6 @@ class ComposeUiBehaviorTest {
 
     @get:Rule
     val composeTestRule = createComposeRule()
-
-    @Test
-    fun strokeRateCalculatorDialog_displaysLaneAndDismisses() {
-        var dismissed = false
-
-        composeTestRule.setContent {
-            SwimTimerTheme {
-                StrokeRateCalculatorDialog(
-                    targetLane = 3,
-                    onDismiss = { dismissed = true }
-                )
-            }
-        }
-
-        composeTestRule.onNodeWithText("Schlagfrequenz").assertIsDisplayed()
-        composeTestRule.onNodeWithContentDescription("Schließen").performClick()
-        assertTrue("onDismiss callback should be invoked when clicking close button", dismissed)
-    }
-
-    @Test
-    fun swimPaceCalculatorDialog_rendersStrategyAndInputs() {
-        composeTestRule.setContent {
-            SwimTimerTheme {
-                SwimPaceCalculatorDialog(
-                    initialDistance = 100,
-                    initialStroke = "Freistil",
-                    onDismiss = {}
-                )
-            }
-        }
-
-        composeTestRule.onNodeWithText("Pace- & Split-Rechner", substring = true)
-            .assertIsDisplayed()
-        composeTestRule.onNodeWithText("Gleichmäßig", substring = true)
-            .assertExists()
-    }
 
     @Test
     fun verifyStateRestoration_preservesComponentState() {
@@ -234,6 +198,70 @@ class ComposeUiBehaviorTest {
         composeTestRule.onNodeWithText("4. Schluss ", substring = true).assertExists()
         // Check that swimmer item is rendered in the list
         composeTestRule.onNodeWithText("Lukas Weber").assertExists()
+    }
+
+    @Test
+    fun multiStopwatchScreen_hardwareKeysToggleButton_togglesState() {
+        val fakeRepo = com.example.data.repository.FakeSwimRepository()
+        val viewModel = StopwatchViewModel(
+            repository = fakeRepo,
+            soundPlayer = com.example.util.NoOpSoundPlayer()
+        )
+
+        composeTestRule.setContent {
+            SwimTimerTheme {
+                MultiStopwatchScreen(viewModel = viewModel)
+            }
+        }
+
+        composeTestRule.onNodeWithTag("hardware_keys_toggle_button").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("Hardware-Tasten inaktiv").assertExists()
+
+        composeTestRule.onNodeWithTag("hardware_keys_toggle_button").performClick()
+
+        assertTrue(viewModel.uiState.value.isHardwareKeysEnabled)
+        composeTestRule.onNodeWithContentDescription("Hardware-Tasten aktiv").assertExists()
+    }
+
+    @Test
+    fun exportHelper_generateTrainingReport_formatsReportCorrectly() {
+        val session = com.example.data.model.SessionEntity(
+            id = 1L,
+            timestamp = 1730372400000L,
+            title = "100m Freistil Test",
+            poolLengthMeters = 50,
+            targetDistanceMeters = 100,
+            strokeType = "Freistil",
+            startMode = "MASS",
+            intervalOffsetSeconds = 5,
+            laneCount = 2,
+            splitDistanceMeters = 50
+        )
+        val laps = listOf(
+            com.example.data.model.LapRecordEntity(
+                sessionId = 1L,
+                swimmerName = "Max Mustermann",
+                laneNumber = 1,
+                lapIndex = 1,
+                splitTimeMillis = 28000L,
+                lapTimeMillis = 28000L
+            ),
+            com.example.data.model.LapRecordEntity(
+                sessionId = 1L,
+                swimmerName = "Max Mustermann",
+                laneNumber = 1,
+                lapIndex = 2,
+                splitTimeMillis = 58500L,
+                lapTimeMillis = 30500L
+            )
+        )
+        val report = com.example.util.ExportHelper.generateTrainingReport(
+            com.example.data.model.SessionWithLaps(session = session, laps = laps)
+        )
+
+        assertTrue(report.contains("SWIMTIMER – TRAININGSBERICHT"))
+        assertTrue(report.contains("Max Mustermann"))
+        assertTrue(report.contains("0:58.50"))
     }
 }
 

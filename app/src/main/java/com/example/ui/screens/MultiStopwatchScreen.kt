@@ -16,17 +16,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.EdgesensorHigh
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.automirrored.filled.Undo
+import com.example.util.ExportHelper
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledIconButton
@@ -62,7 +65,6 @@ import com.example.ui.StopwatchViewModel
 import com.example.ui.components.AssignSwimmerDialog
 import com.example.ui.components.IntervalConfigDialog
 import com.example.ui.components.LaneTimerCard
-import com.example.ui.components.SwimPaceCalculatorDialog
 import com.example.util.HapticUtil
 import com.example.util.TimeFormatter
 import com.example.ui.theme.AquaPrimary
@@ -95,8 +97,20 @@ fun MultiStopwatchScreen(
     LaunchedEffect(uiState.isSessionSavedSuccess) {
         if (uiState.isSessionSavedSuccess) {
             val msg = uiState.saveNotificationMessage ?: "Trainingseinheit erfolgreich gespeichert!"
+            val lastSaved = uiState.lastSavedSessionWithLaps
             viewModel.clearSavedSuccess()
-            snackbarHostState.showSnackbar(msg)
+            if (lastSaved != null) {
+                val actionResult = snackbarHostState.showSnackbar(
+                    message = msg,
+                    actionLabel = "Bericht teilen",
+                    duration = androidx.compose.material3.SnackbarDuration.Short
+                )
+                if (actionResult == androidx.compose.material3.SnackbarResult.ActionPerformed) {
+                    ExportHelper.shareTrainingReport(context, lastSaved)
+                }
+            } else {
+                snackbarHostState.showSnackbar(msg)
+            }
         }
     }
 
@@ -122,8 +136,12 @@ fun MultiStopwatchScreen(
                     color = OceanSurface,
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1B2E46)),
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(enabled = !uiState.hasOpenRun) { isConfigDialogOpen = true }
+                        .weight(1f)
+                        .clickable(
+                            enabled = !uiState.hasOpenRun,
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { isConfigDialogOpen = true }
                         .testTag("session_info_pill")
                 ) {
                     Row(
@@ -228,6 +246,40 @@ fun MultiStopwatchScreen(
                                 )
                             }
                         }
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Square Toggle Button for Hardware Volume Keys Mode
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = if (uiState.isHardwareKeysEnabled) AquaPrimary else OceanSurface,
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        if (uiState.isHardwareKeysEnabled) AquaPrimary else Color(0xFF1B2E46)
+                    ),
+                    modifier = Modifier
+                        .size(54.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            HapticUtil.vibrateClick(context)
+                            viewModel.toggleHardwareKeys()
+                        }
+                        .testTag("hardware_keys_toggle_button")
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.EdgesensorHigh,
+                            contentDescription = if (uiState.isHardwareKeysEnabled) "Hardware-Tasten aktiv" else "Hardware-Tasten inaktiv",
+                            tint = if (uiState.isHardwareKeysEnabled) Color.Black else Color.LightGray,
+                            modifier = Modifier.size(24.dp)
+                        )
                     }
                 }
             }
@@ -415,10 +467,53 @@ fun MultiStopwatchScreen(
                     }
                 }
 
+                var isNewRunConfirmOpen by remember { mutableStateOf(value = false) }
+
+                if (isNewRunConfirmOpen) {
+                    androidx.compose.material3.AlertDialog(
+                        onDismissRequest = { isNewRunConfirmOpen = false },
+                        title = { Text("Neuen Lauf starten?", color = TextWhite, fontWeight = FontWeight.Bold) },
+                        text = {
+                            Text(
+                                "Die erfassten Zeiten des vorherigen Laufs wurden noch nicht gespeichert. Möchtest du wirklich einen neuen Lauf starten und die alten Zeiten verwerfen?",
+                                color = Color.LightGray
+                            )
+                        },
+                        containerColor = Color(0xFF101B2B),
+                        confirmButton = {
+                            Button(
+                                onClick = {
+                                    HapticUtil.vibrateHeavy(context)
+                                    viewModel.onStartAll()
+                                    isNewRunConfirmOpen = false
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252))
+                            ) {
+                                Text("Neu starten", color = Color.White, fontWeight = FontWeight.Bold)
+                            }
+                        },
+                        dismissButton = {
+                            Button(
+                                onClick = { isNewRunConfirmOpen = false },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
+                            ) {
+                                Text("Abbrechen", color = Color.LightGray)
+                            }
+                        }
+                    )
+                }
+
                 // Center: LARGER START / STOP BUTTON IN THE MIDDLE
                 if (!anyRunning) {
                     Button(
-                        onClick = { HapticUtil.vibrateHeavy(context); viewModel.onStartAll() },
+                        onClick = {
+                            if (anyLapsRecorded && !uiState.isCurrentRunSaved && !uiState.seriesConfig.isEnabled) {
+                                isNewRunConfirmOpen = true
+                            } else {
+                                HapticUtil.vibrateHeavy(context)
+                                viewModel.onStartAll()
+                            }
+                        },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = PaceGreen,
                             contentColor = Color.Black
@@ -596,15 +691,6 @@ fun MultiStopwatchScreen(
                     viewModel.assignRelayTeamToLane(laneNum, teamName, members)
                 }
             ) { swimmer -> viewModel.assignSwimmerToLane(laneNum, swimmer) }
-        }
-
-        if (uiState.isPaceCalculatorVisible) {
-            SwimPaceCalculatorDialog(
-                initialDistance = uiState.targetDistanceMeters,
-                initialStroke = uiState.strokeType,
-                initialSplitDistance = uiState.splitDistanceMeters,
-                onDismiss = { viewModel.closePaceCalculator() }
-            )
         }
     }
 }

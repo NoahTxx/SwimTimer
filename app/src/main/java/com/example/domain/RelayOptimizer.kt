@@ -49,16 +49,8 @@ object RelayOptimizer {
     private fun roundToHundredths(millis: Double): Long =
         (((millis + 5.0) / 10.0).toLong()) * 10L
 
-    private fun isSameStroke(a: String, b: String): Boolean {
-        val normA = a.trim().lowercase()
-        val normB = b.trim().lowercase()
-        if (normA == normB) return true
-        val freeSet = setOf("freistil", "kraul")
-        val flySet = setOf("schmetterling", "delfin", "delphin", "schmett")
-        if (normA in freeSet && normB in freeSet) return true
-        if (normA in flySet && normB in flySet) return true
-        return false
-    }
+    private fun isSameStroke(a: String, b: String): Boolean =
+        PersonalBestEvaluator.isSameStroke(a, b)
 
     /**
      * Resolves a swimmer's expected split time for a given [stroke] and [legDistanceMeters].

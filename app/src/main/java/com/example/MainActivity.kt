@@ -62,6 +62,9 @@ import com.example.ui.theme.DeepOceanBackground
 import com.example.ui.theme.OceanSurface
 import com.example.ui.theme.SwimTimerTheme
 
+import android.view.KeyEvent
+import com.example.util.HapticUtil
+
 enum class AppScreen {
     STOPWATCH,
     HISTORY,
@@ -77,6 +80,9 @@ class MainActivity : ComponentActivity() {
     private val viewModel: StopwatchViewModel by viewModels {
         StopwatchViewModelFactory(repository, preferencesRepository)
     }
+
+    var activeScreen: AppScreen = AppScreen.STOPWATCH
+        private set
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -101,20 +107,58 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             SwimTimerTheme {
-                MainAppContent(viewModel = viewModel)
+                MainAppContent(
+                    viewModel = viewModel,
+                    onScreenChange = { activeScreen = it }
+                )
             }
         }
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (activeScreen == AppScreen.STOPWATCH && viewModel.uiState.value.isHardwareKeysEnabled) {
+            when (keyCode) {
+                KeyEvent.KEYCODE_VOLUME_UP -> {
+                    if (event?.repeatCount == 0) {
+                        HapticUtil.vibrateClick(this)
+                        viewModel.onHardwareVolumeUp()
+                    }
+                    return true
+                }
+                KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                    if (event?.repeatCount == 0) {
+                        HapticUtil.vibrateHeavy(this)
+                        viewModel.onHardwareVolumeDown()
+                    }
+                    return true
+                }
+            }
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
+        if (activeScreen == AppScreen.STOPWATCH && viewModel.uiState.value.isHardwareKeysEnabled) {
+            if (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+                return true
+            }
+        }
+        return super.onKeyUp(keyCode, event)
     }
 }
 
 @Composable
-fun MainAppContent(viewModel: StopwatchViewModel) {
+fun MainAppContent(
+    viewModel: StopwatchViewModel,
+    onScreenChange: (AppScreen) -> Unit = {}
+) {
     var currentScreen by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(AppScreen.STOPWATCH) }
 
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
 
     androidx.compose.runtime.LaunchedEffect(currentScreen) {
+        onScreenChange(currentScreen)
         focusManager.clearFocus()
         keyboardController?.hide()
     }

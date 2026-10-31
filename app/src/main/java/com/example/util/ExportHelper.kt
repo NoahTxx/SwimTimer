@@ -20,6 +20,94 @@ object ExportHelper {
     val LAGEN_STAFFEL_SHORT_NAMES = listOf("Rücken", "Brust", "Schmett", "Freistil")
     val LAGEN_STAFFEL_LEG_NAMES = listOf("1. Rücken", "2. Brust", "3. Schmett", "4. Freistil")
 
+    fun generateTrainingReport(sessionWithLaps: SessionWithLaps): String {
+        val s = sessionWithLaps.session
+        val sb = StringBuilder()
+        sb.append("🏊‍♂️ *SWIMTIMER – TRAININGSBERICHT*\n")
+        sb.append("━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+        sb.append("📅 *Datum:* ${TimeFormatter.formatDate(s.timestamp)}\n")
+        sb.append("🎯 *Einheit:* ${s.title}\n")
+        sb.append("📏 *Distanz:* ${s.targetDistanceMeters}m ${s.strokeType} (${s.poolLengthMeters}m Becken)\n")
+        val modeText = if (s.startMode == "INTERVAL") "Intervall (+${s.intervalOffsetSeconds}s)" else "Massenstart"
+        sb.append("⏱️ *Start:* $modeText\n")
+        if (s.notes.isNotBlank()) {
+            sb.append("📝 *Notiz:* ${s.notes}\n")
+        }
+        sb.append("━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+        sb.append("🏁 *ERGEBNISSE & ZEITEN:*\n")
+
+        val isLagen = s.strokeType.equals("Lagen", ignoreCase = true)
+        val isRelaySession = com.example.domain.PersonalBestEvaluator.isRelaySession(s.title, sessionWithLaps.laps)
+        val activeLagenNames = if (isRelaySession) LAGEN_STAFFEL_LEG_NAMES else LAGEN_LEG_NAMES
+        val legDist = (s.targetDistanceMeters / 4).coerceAtLeast(1)
+
+        val grouped = sessionWithLaps.laps.groupBy { it.laneNumber }
+        val sortedLanes = grouped.entries.sortedBy { entry ->
+            entry.value.maxOfOrNull { it.splitTimeMillis } ?: Long.MAX_VALUE
+        }
+
+        val medals = listOf("🥇", "🥈", "🥉")
+
+        sortedLanes.forEachIndexed { index, entry ->
+            val lane = entry.key
+            val laps = entry.value.sortedBy { it.lapIndex }
+            val seriesItems = com.example.domain.PersonalBestEvaluator.splitSavedLapsIntoSeries(
+                laps = laps,
+                targetDistanceMeters = s.targetDistanceMeters,
+                splitDistanceMeters = s.splitDistanceMeters
+            )
+            val hasMultipleSeries = seriesItems.any { it.seriesIndex > 1 }
+            val rawSwimmer = laps.firstOrNull()?.swimmerName ?: "Bahn $lane"
+            val laneTitle = rawSwimmer.substringBefore(" • ").trim().ifEmpty { rawSwimmer }
+            val totalTime = laps.lastOrNull()?.splitTimeMillis ?: 0L
+            val prefix = if (index < medals.size) "${medals[index]} " else "• "
+
+            sb.append("\n$prefix*Bahn $lane: $laneTitle* — *${TimeFormatter.formatMillis(totalTime)}*\n")
+
+            laps.zip(seriesItems).forEach { (lap, lapItem) ->
+                val relayStarterName = if (lap.swimmerName.contains(" • ")) {
+                    lap.swimmerName.substringAfter(" • ").trim()
+                } else null
+                val strokeTag = if (isLagen) {
+                    val legIdx = if (isRelaySession) {
+                        val parsedNum = relayStarterName?.substringBefore(".")?.trim()?.toIntOrNull()
+                        ((parsedNum ?: lapItem.lapIndex) - 1).coerceAtLeast(0) % activeLagenNames.size
+                    } else {
+                        (((lapItem.lapIndex - 1) * s.splitDistanceMeters) / legDist).coerceIn(0, 3)
+                    }
+                    " (${activeLagenNames[legIdx]})"
+                } else ""
+                val starterTag = if (!relayStarterName.isNullOrBlank()) " [$relayStarterName]" else ""
+                val paceDelta = if (lap.deltaTargetMillis != null) {
+                    " [Pace: ${TimeFormatter.formatDelta(lap.deltaTargetMillis)}]"
+                } else ""
+                val lapsInThisSeries = seriesItems.filter { it.seriesIndex == lapItem.seriesIndex }
+                val isOnlyLap = lapsInThisSeries.size == 1
+                val lapPrefix = if (hasMultipleSeries) {
+                    if (isOnlyLap) "S${lapItem.seriesIndex} Ziel" else "S${lapItem.seriesIndex} R${lapItem.lapIndex}"
+                } else {
+                    if (isOnlyLap) "Ziel" else "Runde ${lapItem.lapIndex}"
+                }
+                sb.append("   ▫️ $lapPrefix$starterTag$strokeTag: Split *${TimeFormatter.formatMillis(lap.splitTimeMillis)}* (Runde: ${TimeFormatter.formatMillis(lap.lapTimeMillis)})$paceDelta\n")
+            }
+        }
+        sb.append("\n━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+        sb.append("⏱️ Erfasst mit *SwimTimer* am Beckenrand")
+        return sb.toString()
+    }
+
+    fun shareTrainingReport(context: Context, sessionWithLaps: SessionWithLaps) {
+        val report = generateTrainingReport(sessionWithLaps)
+        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, "SwimTimer Trainingsbericht: ${sessionWithLaps.session.title}")
+            putExtra(Intent.EXTRA_TEXT, report)
+        }
+        val chooser = Intent.createChooser(sendIntent, "Trainingsbericht teilen")
+        chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(chooser)
+    }
+
     fun generateTextSummary(sessionWithLaps: SessionWithLaps): String {
         val s = sessionWithLaps.session
         val sb = StringBuilder()

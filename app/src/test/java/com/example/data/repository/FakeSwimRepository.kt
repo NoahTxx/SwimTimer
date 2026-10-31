@@ -7,7 +7,6 @@ import com.example.data.model.SwimmerEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
 import java.util.concurrent.atomic.AtomicLong
 
 class FakeSwimRepository : ISwimRepository {
@@ -23,9 +22,6 @@ class FakeSwimRepository : ISwimRepository {
     override val allSessionsWithLaps: Flow<List<SessionWithLaps>> = _sessions.asStateFlow()
 
     override suspend fun allSessionsWithLapsSync(): List<SessionWithLaps> = _sessions.value
-
-    override fun getSessionWithLaps(sessionId: Long): Flow<SessionWithLaps?> =
-        _sessions.map { list -> list.find { it.session.id == sessionId } }
 
     override suspend fun getSessionWithLapsSync(sessionId: Long): SessionWithLaps? =
         _sessions.value.find { it.session.id == sessionId }
@@ -47,10 +43,6 @@ class FakeSwimRepository : ISwimRepository {
 
     override suspend fun deleteSwimmer(swimmer: SwimmerEntity) {
         _swimmers.value = _swimmers.value.filterNot { it.id == swimmer.id }
-    }
-
-    override suspend fun deleteSwimmerById(id: Long) {
-        _swimmers.value = _swimmers.value.filterNot { it.id == id }
     }
 
     override suspend fun renameGroupForAllSwimmers(oldName: String, newName: String) {

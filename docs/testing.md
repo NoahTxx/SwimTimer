@@ -40,7 +40,7 @@ SwimTimer uses a **JVM-first, decoupled testing architecture**:
 - **Location:** [`app/src/test/java/com/example/ui/ComposeUiBehaviorTest.kt`](file:///C:/Users/noaht/StudioProjects/SwimTimer/app/src/test/java/com/example/ui/ComposeUiBehaviorTest.kt)
 - **Scope:**
   - Semantic matcher verifications (`assertIsDisplayed`, `assertExists`).
-  - Dialog dismissals and click interactions (`StrokeRateCalculatorDialog`, `SwimPaceCalculatorDialog`).
+  - Dialog dismissals and click interactions (`AssignSwimmerDialog`, `IntervalConfigDialog`).
   - State restoration testing across configuration changes with `StateRestorationTester`.
   - Tab navigation and back-handling logic (`MainAppContent`).
 

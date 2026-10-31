@@ -170,4 +170,35 @@ class RelayOptimizerTest {
         assertEquals(true, back50!!.isEstimated)
         assertEquals("~100m", back50.sourceLabel)
     }
+
+    @Test
+    fun resolveSwimmerTime_recognizesStrokeAliasesAndVariations() {
+        val swimmer = SwimmerEntity(
+            id = 11L,
+            name = "Stroke Alias Kid",
+            favoriteStroke = "ruecken",
+            pb50mMillis = 31_200L,
+            customPbsJson = SwimmerEntity.serializeCustomPbsMap(mapOf(
+                ("breast" to 50) to 34_800L,
+                ("delfin" to 50) to 29_100L,
+                ("kraul" to 50) to 26_500L
+            ))
+        )
+
+        val backTime = RelayOptimizer.resolveSwimmerTime(swimmer, "Rücken", 50)
+        assertNotNull(backTime)
+        assertEquals(31_200L, backTime!!.millis)
+
+        val breastTime = RelayOptimizer.resolveSwimmerTime(swimmer, "Brust", 50)
+        assertNotNull(breastTime)
+        assertEquals(34_800L, breastTime!!.millis)
+
+        val flyTime = RelayOptimizer.resolveSwimmerTime(swimmer, "Schmetterling", 50)
+        assertNotNull(flyTime)
+        assertEquals(29_100L, flyTime!!.millis)
+
+        val freeTime = RelayOptimizer.resolveSwimmerTime(swimmer, "Freistil", 50)
+        assertNotNull(freeTime)
+        assertEquals(26_500L, freeTime!!.millis)
+    }
 }

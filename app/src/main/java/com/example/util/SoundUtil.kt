@@ -172,16 +172,4 @@ object SoundUtil {
             } catch (_: Exception) {}
         }
     }
-
-    /**
-     * Safely releases native audio resources when app stops or destroys.
-     */
-    @Suppress("unused")
-    fun release() {
-        executor.execute {
-            try {
-                soundPool.release()
-            } catch (_: Exception) {}
-        }
-    }
 }

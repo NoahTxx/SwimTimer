@@ -58,4 +58,12 @@ class UserPreferencesRepository(context: Context) {
             putStringSet("customGroups", groups)
         }
     }
+
+    fun getHardwareKeysEnabled(default: Boolean = false): Boolean = prefs.getBoolean("hardwareKeysEnabled", default)
+
+    fun saveHardwareKeysEnabled(enabled: Boolean) {
+        prefs.edit {
+            putBoolean("hardwareKeysEnabled", enabled)
+        }
+    }
 }

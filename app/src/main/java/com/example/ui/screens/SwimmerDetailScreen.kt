@@ -1506,9 +1506,10 @@ internal fun SwimmerFormDialog(
                                 updateMapPb("Lagen", 200, pb200LagenText)
                                 updateMapPb("Lagen", 400, pb400LagenText)
 
-                                val fav25 = customMap[stroke to 25]
-                                val fav50 = customMap[stroke to 50]
-                                val fav100 = customMap[stroke to 100]
+                                val favStroke = if (stroke == "Lagen") "Freistil" else stroke
+                                val fav25 = customMap[favStroke to 25]
+                                val fav50 = customMap[favStroke to 50]
+                                val fav100 = customMap[favStroke to 100]
 
                                 onConfirm(
                                     swimmer.copy(

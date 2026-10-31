@@ -8,57 +8,6 @@ import kotlin.math.roundToLong
 
 object TimeFormatter {
 
-    fun writeMillisToBuffer(millis: Long, buffer: CharArray): Int {
-        val safeMillis = millis.coerceAtLeast(0L)
-        val totalHundredths = (safeMillis + 5L) / 10L
-        val totalSeconds = (totalHundredths / 100L).toInt()
-        val minutes = (totalSeconds / 60).coerceAtMost(99)
-        val seconds = totalSeconds % 60
-        val hundredths = (totalHundredths % 100L).toInt()
-
-        buffer[0] = ('0'.code + (minutes / 10)).toChar()
-        buffer[1] = ('0'.code + (minutes % 10)).toChar()
-        buffer[2] = ':'
-        buffer[3] = ('0'.code + (seconds / 10)).toChar()
-        buffer[4] = ('0'.code + (seconds % 10)).toChar()
-        buffer[5] = '.'
-        buffer[6] = ('0'.code + (hundredths / 10)).toChar()
-        buffer[7] = ('0'.code + (hundredths % 10)).toChar()
-        return 8
-    }
-
-    @Suppress("unused")
-    fun writeSignedMillisToBuffer(signedMillis: Long, buffer: CharArray): Int {
-        val isCountdown = signedMillis < 0L
-        val absMillis = abs(signedMillis)
-        val totalHundredths = (absMillis + 5L) / 10L
-        val totalSeconds = (totalHundredths / 100L).toInt()
-        val minutes = (totalSeconds / 60).coerceAtMost(99)
-        val seconds = totalSeconds % 60
-        val hundredths = (totalHundredths % 100L).toInt()
-
-        var idx = 0
-        if (isCountdown) {
-            buffer[idx++] = '-'
-        }
-        buffer[idx++] = ('0'.code + (minutes / 10)).toChar()
-        buffer[idx++] = ('0'.code + (minutes % 10)).toChar()
-        buffer[idx++] = ':'
-        buffer[idx++] = ('0'.code + (seconds / 10)).toChar()
-        buffer[idx++] = ('0'.code + (seconds % 10)).toChar()
-        buffer[idx++] = '.'
-        buffer[idx++] = ('0'.code + (hundredths / 10)).toChar()
-        buffer[idx++] = ('0'.code + (hundredths % 10)).toChar()
-        return idx
-    }
-
-    @Suppress("unused")
-    fun formatMillisFast(millis: Long): String {
-        val buf = CharArray(8)
-        writeMillisToBuffer(millis, buf)
-        return String(buf)
-    }
-
     fun formatMillis(millis: Long, shortFormat: Boolean = false): String {
         val safeMillis = millis.coerceAtLeast(0L)
         val totalHundredths = (safeMillis + 5L) / 10L
@@ -100,9 +49,6 @@ object TimeFormatter {
             append(hundredths)
         }
     }
-
-    @Suppress("unused")
-    fun formatDetailed(millis: Long): String = formatMillis(millis, shortFormat = false)
 
     fun formatSeconds(totalSeconds: Long): String {
         if (totalSeconds <= 0) return "00:00"
@@ -175,17 +121,9 @@ object TimeFormatter {
     private val dateFormatThreadLocal = object : ThreadLocal<SimpleDateFormat>() {
         override fun initialValue() = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMANY)
     }
-    private val dateFormatShortThreadLocal = object : ThreadLocal<SimpleDateFormat>() {
-        override fun initialValue() = SimpleDateFormat("dd.MM.yy", Locale.GERMANY)
-    }
 
     fun formatDate(timestamp: Long): String {
         return dateFormatThreadLocal.get()?.format(Date(timestamp)) ?: ""
-    }
-
-    @Suppress("unused")
-    fun formatDateShort(timestamp: Long): String {
-        return dateFormatShortThreadLocal.get()?.format(Date(timestamp)) ?: ""
     }
 
     fun formatPacePer100m(lapTimeMillis: Long, splitDistanceMeters: Int): String {
