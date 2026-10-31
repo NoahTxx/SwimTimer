@@ -62,6 +62,10 @@ import com.example.ui.LaneStatus
 import com.example.ui.SeriesModeType
 import com.example.ui.StartMode
 import com.example.ui.StopwatchViewModel
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.example.ui.components.AssignSwimmerDialog
 import com.example.ui.components.IntervalConfigDialog
 import com.example.ui.components.LaneTimerCard
@@ -69,7 +73,9 @@ import com.example.util.HapticUtil
 import com.example.util.TimeFormatter
 import com.example.ui.theme.AquaPrimary
 import com.example.ui.theme.DeepOceanBackground
+import com.example.ui.theme.OceanBorder
 import com.example.ui.theme.OceanSurface
+import com.example.ui.theme.OceanSurfaceVariant
 import com.example.ui.theme.PaceGreen
 import com.example.ui.theme.PaceRed
 import com.example.ui.theme.TextWhite
@@ -134,7 +140,7 @@ fun MultiStopwatchScreen(
                 Surface(
                     shape = RoundedCornerShape(14.dp),
                     color = OceanSurface,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1B2E46)),
+                    border = BorderStroke(1.dp, Color(0xFF1B2E46)),
                     modifier = Modifier
                         .weight(1f)
                         .clickable(
@@ -416,36 +422,19 @@ fun MultiStopwatchScreen(
                     }
 
                     if (isResetConfirmOpen) {
-                        androidx.compose.material3.AlertDialog(
-                            onDismissRequest = { isResetConfirmOpen = false },
-                            title = { Text("Stoppuhr zurücksetzen?", color = TextWhite, fontWeight = FontWeight.Bold) },
-                            text = {
-                                Text(
-                                    "Die erfassten Zeiten wurden noch nicht gespeichert. Möchtest du wirklich alle Bahnen zurücksetzen?",
-                                    color = Color.LightGray
-                                )
+                        CenteredConfirmDialog(
+                            title = "Stoppuhr zurücksetzen?",
+                            message = "Die erfassten Zeiten wurden noch nicht gespeichert. Möchtest du wirklich alle Bahnen zurücksetzen?",
+                            confirmButtonText = "Zurücksetzen",
+                            confirmButtonColor = Color(0xFFFF5252),
+                            icon = Icons.Default.Refresh,
+                            iconTint = Color(0xFFFF5252),
+                            onConfirm = {
+                                HapticUtil.vibrateHeavy(context)
+                                viewModel.onResetAll()
+                                isResetConfirmOpen = false
                             },
-                            containerColor = Color(0xFF101B2B),
-                            confirmButton = {
-                                Button(
-                                    onClick = {
-                                        HapticUtil.vibrateHeavy(context)
-                                        viewModel.onResetAll()
-                                        isResetConfirmOpen = false
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252))
-                                ) {
-                                    Text("Zurücksetzen", color = Color.White, fontWeight = FontWeight.Bold)
-                                }
-                            },
-                            dismissButton = {
-                                Button(
-                                    onClick = { isResetConfirmOpen = false },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
-                                ) {
-                                    Text("Abbrechen", color = Color.LightGray)
-                                }
-                            }
+                            onDismiss = { isResetConfirmOpen = false }
                         )
                     }
 
@@ -470,36 +459,19 @@ fun MultiStopwatchScreen(
                 var isNewRunConfirmOpen by remember { mutableStateOf(value = false) }
 
                 if (isNewRunConfirmOpen) {
-                    androidx.compose.material3.AlertDialog(
-                        onDismissRequest = { isNewRunConfirmOpen = false },
-                        title = { Text("Neuen Lauf starten?", color = TextWhite, fontWeight = FontWeight.Bold) },
-                        text = {
-                            Text(
-                                "Die erfassten Zeiten des vorherigen Laufs wurden noch nicht gespeichert. Möchtest du wirklich einen neuen Lauf starten und die alten Zeiten verwerfen?",
-                                color = Color.LightGray
-                            )
+                    CenteredConfirmDialog(
+                        title = "Neuen Lauf starten?",
+                        message = "Die erfassten Zeiten des vorherigen Laufs wurden noch nicht gespeichert. Möchtest du wirklich einen neuen Lauf starten und die alten Zeiten verwerfen?",
+                        confirmButtonText = "Neu starten",
+                        confirmButtonColor = Color(0xFFFF5252),
+                        icon = Icons.Default.PlayArrow,
+                        iconTint = Color(0xFFFF5252),
+                        onConfirm = {
+                            HapticUtil.vibrateHeavy(context)
+                            viewModel.onStartAll()
+                            isNewRunConfirmOpen = false
                         },
-                        containerColor = Color(0xFF101B2B),
-                        confirmButton = {
-                            Button(
-                                onClick = {
-                                    HapticUtil.vibrateHeavy(context)
-                                    viewModel.onStartAll()
-                                    isNewRunConfirmOpen = false
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252))
-                            ) {
-                                Text("Neu starten", color = Color.White, fontWeight = FontWeight.Bold)
-                            }
-                        },
-                        dismissButton = {
-                            Button(
-                                onClick = { isNewRunConfirmOpen = false },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
-                            ) {
-                                Text("Abbrechen", color = Color.LightGray)
-                            }
-                        }
+                        onDismiss = { isNewRunConfirmOpen = false }
                     )
                 }
 
@@ -702,6 +674,127 @@ private fun KeepScreenOnEffect(enabled: Boolean) {
         view.keepScreenOn = enabled
         onDispose {
             view.keepScreenOn = false
+        }
+    }
+}
+
+@Composable
+private fun CenteredConfirmDialog(
+    title: String,
+    message: String,
+    confirmButtonText: String,
+    confirmButtonColor: Color = Color(0xFFFF5252),
+    icon: ImageVector,
+    iconTint: Color = Color(0xFFFF5252),
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(26.dp),
+            color = OceanSurface,
+            border = BorderStroke(1.dp, OceanBorder),
+            shadowElevation = 24.dp,
+            modifier = Modifier
+                .fillMaxWidth(0.90f)
+                .padding(horizontal = 16.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Centered Icon Badge
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .background(iconTint.copy(alpha = 0.15f), shape = CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = iconTint,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Centered Title
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    ),
+                    color = TextWhite,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Centered Description
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        lineHeight = 22.sp
+                    ),
+                    color = Color(0xFFB0BEC5),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Centered, balanced action buttons with equal weight
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    FilledTonalButton(
+                        onClick = onDismiss,
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = OceanSurfaceVariant,
+                            contentColor = Color(0xFFCFD8DC)
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                    ) {
+                        Text(
+                            text = "Abbrechen",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 15.sp
+                        )
+                    }
+
+                    Button(
+                        onClick = onConfirm,
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = confirmButtonColor,
+                            contentColor = Color.White
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                    ) {
+                        Text(
+                            text = confirmButtonText,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp
+                        )
+                    }
+                }
+            }
         }
     }
 }
