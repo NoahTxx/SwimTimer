@@ -688,8 +688,8 @@ private fun CenteredConfirmDialog(
     ) {
         Surface(
             shape = RoundedCornerShape(22.dp),
-            color = Color(0xFF0A131F),
-            border = BorderStroke(1.dp, Color(0xFF1E314B)),
+            color = DeepOceanBackground,
+            border = BorderStroke(1.dp, Color(0xFF1B2E46)),
             shadowElevation = 24.dp,
             modifier = Modifier
                 .fillMaxWidth(0.92f)
@@ -739,9 +739,10 @@ private fun CenteredConfirmDialog(
                         onClick = onDismiss,
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = Color(0xFF152234),
-                            contentColor = Color(0xFFCFD8DC)
+                            containerColor = OceanSurface,
+                            contentColor = TextWhite
                         ),
+                        border = BorderStroke(1.dp, Color(0xFF1B2E46)),
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                         modifier = Modifier
                             .weight(1f)
