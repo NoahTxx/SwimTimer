@@ -197,12 +197,18 @@ fun AssignSwimmerDialog(
         }
     }
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Surface(
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(22.dp),
             color = Color(0xFF101B2B),
+            border = BorderStroke(1.dp, Color(0xFF1E344B)),
+            shadowElevation = 16.dp,
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxWidth(0.95f)
+                .padding(vertical = 12.dp)
                 .testTag("assign_swimmer_dialog")
         ) {
             Column(
@@ -748,7 +754,7 @@ fun AssignSwimmerDialog(
                     )
                 } else {
                     LazyColumn(
-                        modifier = Modifier.height(if (isRelayMode) 220.dp else 250.dp),
+                        modifier = Modifier.height(if (isRelayMode) 250.dp else 320.dp),
                         verticalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
                         items(
@@ -910,23 +916,27 @@ fun AssignSwimmerDialog(
 
                                     // Time Badge on the right
                                     val pbToDisplay = resolvedLegTime?.millis
+                                        ?: swimmer.parseCustomPbsMap()[targetStrokeForPreview to effectiveLegDist]
+                                        ?: swimmer.parseCustomPbsMap()[swimmer.favoriteStroke to effectiveLegDist]
                                         ?: swimmer.pb50mMillis
-                                        ?: swimmer.parseCustomPbsMap()[swimmer.favoriteStroke to 50]
+                                        ?: swimmer.pb25mMillis
+                                        ?: swimmer.pb100mMillis
                                     if (pbToDisplay != null) {
                                         val isEst = resolvedLegTime?.isEstimated == true
                                         Surface(
-                                            shape = RoundedCornerShape(6.dp),
-                                            color = if (isEst) Color(0xFFFFB74D).copy(alpha = 0.16f) else AquaPrimary.copy(alpha = 0.16f),
-                                            border = BorderStroke(0.5.dp, if (isEst) Color(0xFFFFB74D).copy(alpha = 0.45f) else AquaPrimary.copy(alpha = 0.45f))
+                                            shape = RoundedCornerShape(7.dp),
+                                            color = if (isEst) Color(0xFFFFB74D).copy(alpha = 0.15f) else AquaPrimary.copy(alpha = 0.15f),
+                                            border = BorderStroke(1.dp, if (isEst) Color(0xFFFFB74D).copy(alpha = 0.45f) else AquaPrimary.copy(alpha = 0.45f))
                                         ) {
-                                            Column(
-                                                horizontalAlignment = Alignment.End,
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
                                             ) {
                                                 val strokeShort = formatShortStroke(targetStrokeForPreview)
                                                 Text(
                                                     text = "${effectiveLegDist}m $strokeShort",
-                                                    fontSize = 8.5.sp,
+                                                    fontSize = 10.sp,
                                                     color = Color.LightGray,
                                                     fontWeight = FontWeight.Medium
                                                 )
@@ -934,7 +944,7 @@ fun AssignSwimmerDialog(
                                                 Text(
                                                     text = "$estPrefix${TimeFormatter.formatMillis(pbToDisplay, shortFormat = effectiveLegDist <= 50)}",
                                                     fontFamily = FontFamily.Monospace,
-                                                    fontSize = 11.sp,
+                                                    fontSize = 11.5.sp,
                                                     fontWeight = FontWeight.Bold,
                                                     color = if (isEst) Color(0xFFFFB74D) else AquaPrimary
                                                 )

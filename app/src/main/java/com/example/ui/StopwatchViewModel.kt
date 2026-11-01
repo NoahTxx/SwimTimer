@@ -1050,6 +1050,8 @@ class StopwatchViewModel(
                 }
 
                 lane.copy(
+                    swimmerId = null,
+                    swimmerName = "Bahn ${lane.laneNumber}",
                     status = LaneStatus.IDLE,
                     laneStartTimeRealtime = null,
                     finishTimeMillis = null,
@@ -1061,7 +1063,7 @@ class StopwatchViewModel(
                     completedSeriesLaps = emptyList(),
                     seriesCount = 1,
                     countdownRemainingSeconds = 0,
-                    relayMembers = resetRelayMembers
+                    relayMembers = resetRelayMembers,
                 )
             }
 

@@ -416,7 +416,7 @@ private fun RelayLineupSection(
                         }
 
                         Surface(
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(10.dp),
                             color = cellBg,
                             border = BorderStroke(if (isActiveNow) 1.5.dp else 1.dp, cellBorder),
                             modifier = legModifier
@@ -432,8 +432,8 @@ private fun RelayLineupSection(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .fillMaxHeight()
-                                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                                    .padding(horizontal = 8.dp, vertical = 5.dp),
+                                verticalArrangement = Arrangement.SpaceBetween
                             ) {
                                 // TIER 1: Header (Position Tag + Status Badge)
                                 Row(
@@ -442,7 +442,7 @@ private fun RelayLineupSection(
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Surface(
-                                        shape = RoundedCornerShape(6.dp),
+                                        shape = RoundedCornerShape(5.dp),
                                         color = when {
                                             isActiveNow -> AquaPrimary.copy(alpha = 0.22f)
                                             isCompleted -> PaceGreen.copy(alpha = 0.2f)
@@ -452,12 +452,12 @@ private fun RelayLineupSection(
                                     ) {
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
                                         ) {
                                             if (isAnchorLeg) {
                                                 Text(
                                                     text = "${member.legPosition}. Schluss ",
-                                                    fontSize = 10.sp,
+                                                    fontSize = 9.5.sp,
                                                     fontWeight = FontWeight.Bold,
                                                     color = Color(0xFFFFD600),
                                                     style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false))
@@ -466,12 +466,12 @@ private fun RelayLineupSection(
                                                     imageVector = Icons.Default.Star,
                                                     contentDescription = null,
                                                     tint = Color(0xFFFFD600),
-                                                    modifier = Modifier.size(10.dp)
+                                                    modifier = Modifier.size(9.5.dp)
                                                 )
                                             } else {
                                                 Text(
                                                     text = posLabel,
-                                                    fontSize = 10.sp,
+                                                    fontSize = 9.5.sp,
                                                     fontWeight = FontWeight.Bold,
                                                     color = when {
                                                         isActiveNow -> AquaPrimary
@@ -487,25 +487,25 @@ private fun RelayLineupSection(
                                     when {
                                         completedLegTimeMs != null -> {
                                             Surface(
-                                                shape = RoundedCornerShape(6.dp),
+                                                shape = RoundedCornerShape(5.dp),
                                                 color = PaceGreen.copy(alpha = 0.18f),
                                                 border = BorderStroke(1.dp, PaceGreen.copy(alpha = 0.45f))
                                             ) {
                                                 Row(
                                                     verticalAlignment = Alignment.CenterVertically,
-                                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                                    modifier = Modifier.padding(horizontal = 4.5.dp, vertical = 1.5.dp)
                                                 ) {
                                                     Icon(
                                                         imageVector = Icons.Default.Check,
                                                         contentDescription = null,
                                                         tint = PaceGreen,
-                                                        modifier = Modifier.size(11.dp)
+                                                        modifier = Modifier.size(10.dp)
                                                     )
-                                                    Spacer(modifier = Modifier.width(3.dp))
+                                                    Spacer(modifier = Modifier.width(2.dp))
                                                     Text(
                                                         text = TimeFormatter.formatMillis(completedLegTimeMs, shortFormat = true),
                                                         fontFamily = FontFamily.Monospace,
-                                                        fontSize = 10.5.sp,
+                                                        fontSize = 10.sp,
                                                         fontWeight = FontWeight.Bold,
                                                         color = PaceGreen,
                                                         maxLines = 1,
@@ -516,15 +516,15 @@ private fun RelayLineupSection(
                                         }
                                         isActiveNow -> {
                                             Surface(
-                                                shape = RoundedCornerShape(5.dp),
+                                                shape = RoundedCornerShape(4.dp),
                                                 color = AquaPrimary
                                             ) {
                                                 Text(
                                                     text = "AKTIV",
-                                                    fontSize = 9.sp,
+                                                    fontSize = 8.5.sp,
                                                     fontWeight = FontWeight.Black,
                                                     color = Color.Black,
-                                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                                                    modifier = Modifier.padding(horizontal = 4.5.dp, vertical = 1.5.dp),
                                                     maxLines = 1
                                                 )
                                             }
@@ -534,7 +534,7 @@ private fun RelayLineupSection(
                                             Text(
                                                 text = "$estPrefix${TimeFormatter.formatMillis(member.timeMillis, shortFormat = true)}",
                                                 fontFamily = FontFamily.Monospace,
-                                                fontSize = 10.sp,
+                                                fontSize = 9.5.sp,
                                                 fontWeight = if (member.isEstimated) FontWeight.SemiBold else FontWeight.Medium,
                                                 color = if (member.isEstimated) Color(0xFFFFB74D) else Color(0xFF90A4AE),
                                                 maxLines = 1,
@@ -543,15 +543,15 @@ private fun RelayLineupSection(
                                         }
                                         else -> {
                                             Surface(
-                                                shape = RoundedCornerShape(5.dp),
+                                                shape = RoundedCornerShape(4.dp),
                                                 color = Color(0xFF142436)
                                             ) {
                                                 Text(
                                                     text = "${member.distanceMeters}m",
-                                                    fontSize = 9.5.sp,
+                                                    fontSize = 9.sp,
                                                     fontWeight = FontWeight.Medium,
                                                     color = Color(0xFF90A4AE),
-                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.5.dp),
+                                                    modifier = Modifier.padding(horizontal = 3.5.dp, vertical = 1.dp),
                                                     maxLines = 1
                                                 )
                                             }
@@ -583,7 +583,7 @@ private fun RelayLineupSection(
                                                 else -> AquaPrimary.copy(alpha = 0.35f)
                                             }
                                         ),
-                                        modifier = Modifier.size(28.dp)
+                                        modifier = Modifier.size(24.dp)
                                     ) {
                                         Box(contentAlignment = Alignment.Center) {
                                             if (isPlaceholder) {
@@ -591,12 +591,12 @@ private fun RelayLineupSection(
                                                     imageVector = Icons.Default.Person,
                                                     contentDescription = null,
                                                     tint = Color.Gray,
-                                                    modifier = Modifier.size(15.dp)
+                                                    modifier = Modifier.size(13.dp)
                                                 )
                                             } else {
                                                 Text(
                                                     text = member.swimmerName.take(1).uppercase(),
-                                                    fontSize = 12.sp,
+                                                    fontSize = 11.sp,
                                                     fontWeight = FontWeight.Black,
                                                     color = when {
                                                         isActiveNow -> AquaPrimary
@@ -608,12 +608,12 @@ private fun RelayLineupSection(
                                         }
                                     }
 
-                                    Spacer(modifier = Modifier.width(7.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
 
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = if (isPlaceholder && onLegClick != null) "Schwimmer wählen…" else member.swimmerName,
-                                            fontSize = 14.sp,
+                                            text = if (isPlaceholder && onLegClick != null) "Wählen…" else member.swimmerName,
+                                            fontSize = 13.sp,
                                             fontWeight = if (isActiveNow) FontWeight.Black else if (isPlaceholder) FontWeight.Normal else FontWeight.Bold,
                                             color = if (isPlaceholder) AquaPrimary.copy(alpha = 0.85f) else TextWhite,
                                             maxLines = 1,

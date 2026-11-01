@@ -3,12 +3,10 @@ package com.example.util
 import android.media.AudioAttributes
 import android.media.SoundPool
 import java.io.File
-import java.util.concurrent.Executors
 import kotlin.math.PI
 import kotlin.math.sin
 
 object SoundUtil {
-    private val executor = Executors.newSingleThreadExecutor()
     private const val SAMPLE_RATE = 44100
 
     private val pendingTempFiles = java.util.concurrent.ConcurrentHashMap<Int, File>()
@@ -34,39 +32,36 @@ object SoundUtil {
     private val sound3Id: Int by lazy { loadWavSound("swim_beep_800_80.wav", pcmToWav(generateBeepPcm(freq = 800.0, durationMs = 80))) }
     private val sound2Id: Int by lazy { loadWavSound("swim_beep_1000_80.wav", pcmToWav(generateBeepPcm(freq = 1000.0, durationMs = 80))) }
     private val sound1Id: Int by lazy { loadWavSound("swim_beep_1200_80.wav", pcmToWav(generateBeepPcm(freq = 1200.0, durationMs = 80))) }
-    private val soundStartId: Int by lazy { loadWavSound("swim_beep_1600_180.wav", pcmToWav(generateBeepPcm(freq = 1600.0, durationMs = 180))) }
+    private val soundStartId: Int by lazy { loadWavSound("swim_beep_1600_180.wav", pcmToWav(generateBeepPcm(freq = 1600.0, durationMs = 180, attackMs = 0.0))) }
 
     /**
      * Pre-warms native SoundPool memory buffers on startup ensuring 0ms audio latency.
      */
     fun init() {
-        executor.execute {
-            try {
-                // Accessing lazy IDs forces pre-loading into native memory
-                sound3Id
-                sound2Id
-                sound1Id
-                soundStartId
-            } catch (_: Exception) {}
-        }
+        try {
+            // Accessing lazy IDs forces pre-loading into native memory
+            sound3Id
+            sound2Id
+            sound1Id
+            soundStartId
+        } catch (_: Exception) {}
     }
 
     /**
-     * Synthesizes a clean, short sine beep with smooth 4ms attack and 8ms decay envelopes
-     * to eliminate any popping or clicking.
+     * Synthesizes a clean, short sine beep. For start signal, attackMs = 0.0 for instant zero-delay trigger.
      */
-    private fun generateBeepPcm(freq: Double, durationMs: Int): ByteArray {
+    private fun generateBeepPcm(freq: Double, durationMs: Int, attackMs: Double = 0.004): ByteArray {
         val numSamples = (SAMPLE_RATE * durationMs) / 1000
         val bytes = ByteArray(numSamples * 2)
 
-        val attackSamples = (SAMPLE_RATE * 0.004).toInt()
+        val attackSamples = (SAMPLE_RATE * attackMs).toInt()
         val decaySamples = (SAMPLE_RATE * 0.008).toInt()
 
         for (i in 0 until numSamples) {
             val t = i.toDouble() / SAMPLE_RATE
 
             val envelope = when {
-                i < attackSamples -> i.toDouble() / attackSamples
+                attackSamples > 0 && i < attackSamples -> i.toDouble() / attackSamples
                 i > numSamples - decaySamples -> (numSamples - i).toDouble() / decaySamples
                 else -> 1.0
             }
@@ -141,11 +136,9 @@ object SoundUtil {
      * Plays the high-pitched crisp start beep (1600 Hz, 180ms) instantly with zero delay.
      */
     fun playStartSignal() {
-        executor.execute {
-            try {
-                soundPool.play(soundStartId, 1.0f, 1.0f, 1, 0, 1.0f)
-            } catch (_: Exception) {}
-        }
+        try {
+            soundPool.play(soundStartId, 1.0f, 1.0f, 1, 0, 1.0f)
+        } catch (_: Exception) {}
     }
 
     /**
@@ -160,16 +153,14 @@ object SoundUtil {
             playStartSignal()
             return
         }
-        executor.execute {
-            try {
-                val soundId = when (remainingSec) {
-                    3 -> sound3Id
-                    2 -> sound2Id
-                    1 -> sound1Id
-                    else -> sound1Id
-                }
-                soundPool.play(soundId, 1.0f, 1.0f, 1, 0, 1.0f)
-            } catch (_: Exception) {}
-        }
+        try {
+            val soundId = when (remainingSec) {
+                3 -> sound3Id
+                2 -> sound2Id
+                1 -> sound1Id
+                else -> sound1Id
+            }
+            soundPool.play(soundId, 1.0f, 1.0f, 1, 0, 1.0f)
+        } catch (_: Exception) {}
     }
 }
