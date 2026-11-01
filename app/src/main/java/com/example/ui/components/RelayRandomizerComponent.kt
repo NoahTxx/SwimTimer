@@ -25,12 +25,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Balance
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Timer
@@ -746,10 +748,19 @@ fun RelayRandomizerComponent(
                                         color = if (teamCount > 2) AquaPrimary.copy(alpha = 0.16f) else Color.Transparent,
                                         modifier = Modifier
                                             .size(28.dp)
-                                            .clickable(enabled = teamCount > 2) { if (teamCount > 2) teamCount-- }
+                                            .clickable(
+                                                enabled = teamCount > 2,
+                                                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                                                indication = null
+                                            ) { if (teamCount > 2) teamCount-- }
                                     ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Text("−", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = if (teamCount > 2) AquaPrimary else Color.Gray)
+                                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                                            Icon(
+                                                imageVector = Icons.Default.Remove,
+                                                contentDescription = "Teams reduzieren",
+                                                tint = if (teamCount > 2) AquaPrimary else Color.Gray,
+                                                modifier = Modifier.size(15.dp)
+                                            )
                                         }
                                     }
                                     Text(
@@ -763,10 +774,19 @@ fun RelayRandomizerComponent(
                                         color = if (teamCount < 6) AquaPrimary.copy(alpha = 0.16f) else Color.Transparent,
                                         modifier = Modifier
                                             .size(28.dp)
-                                            .clickable(enabled = teamCount < 6) { if (teamCount < 6) teamCount++ }
+                                            .clickable(
+                                                enabled = teamCount < 6,
+                                                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                                                indication = null
+                                            ) { if (teamCount < 6) teamCount++ }
                                     ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Text("+", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = if (teamCount < 6) AquaPrimary else Color.Gray)
+                                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                                            Icon(
+                                                imageVector = Icons.Default.Add,
+                                                contentDescription = "Teams erhöhen",
+                                                tint = if (teamCount < 6) AquaPrimary else Color.Gray,
+                                                modifier = Modifier.size(15.dp)
+                                            )
                                         }
                                     }
                                 }

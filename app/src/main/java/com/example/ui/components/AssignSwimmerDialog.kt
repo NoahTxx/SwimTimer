@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -26,6 +27,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Groups
@@ -352,13 +354,17 @@ fun AssignSwimmerDialog(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
                         OutlinedTextField(
                             value = relayTeamName,
                             onValueChange = { relayTeamName = it },
                             label = { Text("Staffel-Name", fontSize = 11.sp, color = Color.LightGray) },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                            keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                            keyboardActions = KeyboardActions(onDone = {
+                                focusManager.clearFocus()
+                                keyboardController?.hide()
+                            }),
                             shape = RoundedCornerShape(10.dp),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = AquaPrimary,
@@ -373,8 +379,7 @@ fun AssignSwimmerDialog(
                         Surface(
                             shape = RoundedCornerShape(10.dp),
                             color = Color(0xFF0A141F),
-                            border = BorderStroke(1.dp, Color(0xFF22384F)),
-                            modifier = Modifier.padding(top = 6.dp)
+                            border = BorderStroke(1.dp, Color(0xFF22384F))
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -385,15 +390,19 @@ fun AssignSwimmerDialog(
                                     color = if (relayLegs.size > 2) AquaPrimary.copy(alpha = 0.18f) else Color.Transparent,
                                     modifier = Modifier
                                         .size(28.dp)
-                                        .clickable(enabled = relayLegs.size > 2) { resizeRelayLegs(relayLegs.size - 1) }
+                                        .clickable(
+                                            enabled = relayLegs.size > 2,
+                                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                                            indication = null
+                                        ) { resizeRelayLegs(relayLegs.size - 1) }
                                         .testTag("assign_relay_dec_starters")
                                 ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Text(
-                                            text = "−",
-                                            fontWeight = FontWeight.Black,
-                                            fontSize = 15.sp,
-                                            color = if (relayLegs.size > 2) AquaPrimary else Color.DarkGray
+                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                                        Icon(
+                                            imageVector = Icons.Default.Remove,
+                                            contentDescription = "Starter reduzieren",
+                                            tint = if (relayLegs.size > 2) AquaPrimary else Color.DarkGray,
+                                            modifier = Modifier.size(15.dp)
                                         )
                                     }
                                 }
@@ -418,15 +427,19 @@ fun AssignSwimmerDialog(
                                     color = if (relayLegs.size < 8) AquaPrimary.copy(alpha = 0.18f) else Color.Transparent,
                                     modifier = Modifier
                                         .size(28.dp)
-                                        .clickable(enabled = relayLegs.size < 8) { resizeRelayLegs(relayLegs.size + 1) }
+                                        .clickable(
+                                            enabled = relayLegs.size < 8,
+                                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                                            indication = null
+                                        ) { resizeRelayLegs(relayLegs.size + 1) }
                                         .testTag("assign_relay_inc_starters")
                                 ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Text(
-                                            text = "+",
-                                            fontWeight = FontWeight.Black,
-                                            fontSize = 15.sp,
-                                            color = if (relayLegs.size < 8) AquaPrimary else Color.DarkGray
+                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                                        Icon(
+                                            imageVector = Icons.Default.Add,
+                                            contentDescription = "Starter erhöhen",
+                                            tint = if (relayLegs.size < 8) AquaPrimary else Color.DarkGray,
+                                            modifier = Modifier.size(15.dp)
                                         )
                                     }
                                 }
@@ -467,11 +480,6 @@ fun AssignSwimmerDialog(
                                     } else {
                                         "${leg.legPosition}. Starter"
                                     }
-                                    val slotModifier = if (pair.size == 1) {
-                                        Modifier.fillMaxWidth().fillMaxHeight()
-                                    } else {
-                                        Modifier.weight(1f).fillMaxHeight()
-                                    }
 
                                     Surface(
                                         shape = RoundedCornerShape(12.dp),
@@ -488,7 +496,9 @@ fun AssignSwimmerDialog(
                                                 else -> Color(0xFF1E344B)
                                             }
                                         ),
-                                        modifier = slotModifier
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxHeight()
                                             .clickable { activeLegIdx = idx }
                                     ) {
                                         Column(
@@ -692,6 +702,9 @@ fun AssignSwimmerDialog(
                                             }
                                         }
                                     }
+                                }
+                                if (pair.size == 1) {
+                                    Spacer(modifier = Modifier.weight(1f))
                                 }
                             }
                         }

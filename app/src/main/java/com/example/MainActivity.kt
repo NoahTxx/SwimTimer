@@ -236,7 +236,9 @@ fun MainAppContent(
                                 .testTag("nav_${label.lowercase()}")
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 2.dp, vertical = 7.dp),
                                 horizontalArrangement = Arrangement.Center,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -244,14 +246,15 @@ fun MainAppContent(
                                     imageVector = icon,
                                     contentDescription = label,
                                     tint = if (isSelected) Color.Black else Color.LightGray,
-                                    modifier = Modifier.size(17.dp)
+                                    modifier = Modifier.size(16.dp)
                                 )
-                                Spacer(modifier = Modifier.width(4.dp))
+                                Spacer(modifier = Modifier.width(3.dp))
                                 Text(
                                     text = label,
                                     style = MaterialTheme.typography.labelMedium.copy(
-                                        fontWeight = if (isSelected) FontWeight.Black else FontWeight.SemiBold,
-                                        fontSize = 12.sp
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        fontSize = 11.5.sp,
+                                        platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false)
                                     ),
                                     color = if (isSelected) Color.Black else Color.LightGray,
                                     maxLines = 1,

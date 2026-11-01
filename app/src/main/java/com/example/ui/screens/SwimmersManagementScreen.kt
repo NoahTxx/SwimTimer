@@ -93,6 +93,7 @@ fun SwimmersManagementScreen(
     var isAddGroupDialogOpen by remember { mutableStateOf(value = false) }
 
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
 
     val availableGroups by viewModel.availableGroups.collectAsStateWithLifecycle()
     val groupCounts = remember(allSwimmers) {
@@ -216,7 +217,10 @@ fun SwimmersManagementScreen(
                 placeholder = { Text("Schwimmer suchen...") },
                 singleLine = true,
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
-                keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { focusManager.clearFocus() }),
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                }),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = AquaPrimary,
@@ -580,6 +584,7 @@ private fun ManageGroupsDialog(
     onDeleteGroup: (groupName: String) -> Unit
 ) {
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     var newGroupName by remember { mutableStateOf("") }
     var groupToRename by remember { mutableStateOf<String?>(null) }
     var groupToDelete by remember { mutableStateOf<String?>(null) }
@@ -643,6 +648,7 @@ private fun ManageGroupsDialog(
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
                     keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = {
                         focusManager.clearFocus()
+                        keyboardController?.hide()
                         if (newGroupName.isNotBlank()) {
                             onCreateGroup(newGroupName.trim())
                             newGroupName = ""
@@ -678,6 +684,15 @@ private fun ManageGroupsDialog(
                                             value = renameInputText,
                                             onValueChange = { renameInputText = it },
                                             singleLine = true,
+                                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                                            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = {
+                                                focusManager.clearFocus()
+                                                keyboardController?.hide()
+                                                if (renameInputText.isNotBlank() && renameInputText.trim() != group) {
+                                                    onRenameGroup(group, renameInputText.trim())
+                                                    groupToRename = null
+                                                }
+                                            }),
                                             colors = OutlinedTextFieldDefaults.colors(
                                                 focusedTextColor = TextWhite,
                                                 unfocusedTextColor = TextWhite,

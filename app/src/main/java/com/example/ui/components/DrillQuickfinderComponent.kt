@@ -69,6 +69,7 @@ fun DrillQuickfinderComponent(
     modifier: Modifier = Modifier,
 ) {
     val focusManager = LocalFocusManager.current
+    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var selectedStrokeFilter by rememberSaveable { mutableStateOf("Alle") }
     var selectedFocusAreaFilter by rememberSaveable { mutableStateOf("Alle") }
@@ -131,7 +132,10 @@ fun DrillQuickfinderComponent(
                     },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
+                    keyboardActions = KeyboardActions(onSearch = {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                    }),
                     shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedContainerColor = OceanSurface,

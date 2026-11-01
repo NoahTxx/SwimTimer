@@ -409,11 +409,7 @@ private fun RelayLineupSection(
                         } else {
                             "${member.legPosition}. Starter"
                         }
-                        val legModifier = if (pair.size == 1) {
-                            Modifier.fillMaxWidth().fillMaxHeight()
-                        } else {
-                            Modifier.weight(1f).fillMaxHeight()
-                        }
+                        val legModifier = Modifier.weight(1f).fillMaxHeight()
 
                         Surface(
                             shape = RoundedCornerShape(10.dp),
@@ -643,6 +639,9 @@ private fun RelayLineupSection(
                                 }
                             }
                         }
+                    }
+                    if (pair.size == 1) {
+                        Spacer(modifier = Modifier.weight(1f))
                     }
                 }
             }

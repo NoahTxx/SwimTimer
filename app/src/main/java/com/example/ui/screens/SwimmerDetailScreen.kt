@@ -979,6 +979,7 @@ internal fun SwimmerFormDialog(
     var isLagenSplitsExpanded by remember { mutableStateOf(false) }
 
     val strokeOptions = listOf("Freistil", "Brust", "Rücken", "Schmetterling")
+    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -1022,7 +1023,10 @@ internal fun SwimmerFormDialog(
                         keyboardType = androidx.compose.ui.text.input.KeyboardType.Text,
                         imeAction = androidx.compose.ui.text.input.ImeAction.Done
                     ),
-                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { focusManager.clearFocus() }),
+                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                    }),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = TextWhite,
                         unfocusedTextColor = TextWhite,
