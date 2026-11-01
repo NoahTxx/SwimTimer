@@ -72,9 +72,7 @@ import com.example.util.HapticUtil
 import com.example.util.TimeFormatter
 import com.example.ui.theme.AquaPrimary
 import com.example.ui.theme.DeepOceanBackground
-import com.example.ui.theme.OceanBorder
 import com.example.ui.theme.OceanSurface
-import com.example.ui.theme.OceanSurfaceVariant
 import com.example.ui.theme.PaceGreen
 import com.example.ui.theme.PaceRed
 import com.example.ui.theme.TextWhite
@@ -260,7 +258,7 @@ fun MultiStopwatchScreen(
                 Surface(
                     shape = RoundedCornerShape(14.dp),
                     color = if (uiState.isHardwareKeysEnabled) AquaPrimary else OceanSurface,
-                    border = androidx.compose.foundation.BorderStroke(
+                    border = BorderStroke(
                         1.dp,
                         if (uiState.isHardwareKeysEnabled) AquaPrimary else Color(0xFF1B2E46)
                     ),
@@ -565,7 +563,7 @@ fun MultiStopwatchScreen(
             Surface(
                 shape = RoundedCornerShape(20.dp),
                 color = OceanSurface,
-                border = androidx.compose.foundation.BorderStroke(1.dp, AquaPrimary.copy(alpha = 0.5f)),
+                border = BorderStroke(1.dp, AquaPrimary.copy(alpha = 0.5f)),
                 shadowElevation = 8.dp,
                 modifier = Modifier.padding(horizontal = 24.dp)
             ) {

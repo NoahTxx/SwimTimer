@@ -55,8 +55,8 @@ enum class CoachingToolSection(val label: String, val icon: ImageVector) {
 @Composable
 fun CoachingToolsScreen(
     viewModel: StopwatchViewModel,
-    onNavigateToStopwatch: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
+    onNavigateToStopwatch: (() -> Unit)? = null,
 ) {
     var selectedSection by rememberSaveable { mutableStateOf(CoachingToolSection.DRILLS) }
     val swimmers by viewModel.allSwimmers.collectAsStateWithLifecycle()

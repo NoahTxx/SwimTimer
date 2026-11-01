@@ -14,7 +14,7 @@ enum class RelayOptimizationMode(val label: String, val shortLabel: String) {
 data class ResolvedLegTime(
     val millis: Long,
     val isEstimated: Boolean,
-    val sourceLabel: String
+    val sourceLabel: String,
 )
 
 @Immutable
@@ -210,8 +210,8 @@ object RelayOptimizer {
         if (pool.size < 4) return null
 
         // Precompute resolved times for all swimmers and all 4 medley strokes
-        val timeTable: Map<Long, Array<ResolvedLegTime?>> = pool.associate { s ->
-            s.id to Array(4) { strokeIdx ->
+        val timeTable: Map<Long, Array<ResolvedLegTime?>> = pool.associateBy({ it.id }) { s ->
+            Array(4) { strokeIdx ->
                 resolveSwimmerTime(s, MEDLEY_ORDER[strokeIdx], legDistanceMeters)
             }
         }

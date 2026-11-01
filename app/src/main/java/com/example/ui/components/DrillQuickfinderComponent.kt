@@ -66,7 +66,7 @@ private val ALL_DRILLS = StandardTechDrills.DEFAULT_DRILLS
 
 @Composable
 fun DrillQuickfinderComponent(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val focusManager = LocalFocusManager.current
     var searchQuery by rememberSaveable { mutableStateOf("") }
@@ -81,11 +81,11 @@ fun DrillQuickfinderComponent(
             val matchesFocusArea = (selectedFocusAreaFilter == "Alle") || drill.focusArea.equals(selectedFocusAreaFilter, ignoreCase = true)
             matchesStroke && matchesFocusArea
         }
-        listOf("Alle") + filtered.asSequence().mapNotNull { it.specificFocus }.distinct().sorted().toList()
+        listOf("Alle") + filtered.asSequence().mapNotNull { drill -> drill.specificFocus }.distinct().sorted().toList()
     }
 
     LaunchedEffect(selectedStrokeFilter, selectedFocusAreaFilter, availableSpecificFocuses) {
-        if (selectedSpecificFocusFilter != "Alle" && selectedSpecificFocusFilter !in availableSpecificFocuses) {
+        if ((selectedSpecificFocusFilter != "Alle") && (selectedSpecificFocusFilter !in availableSpecificFocuses)) {
             selectedSpecificFocusFilter = "Alle"
         }
     }
@@ -317,7 +317,7 @@ fun DrillQuickfinderComponent(
 private fun TechDrillCard(
     drill: TechDrill
 ) {
-    var isExpanded by rememberSaveable { mutableStateOf(false) }
+    var isExpanded by rememberSaveable { mutableStateOf(value = false) }
 
     val strokeColor = when (drill.stroke) {
         "Kraul" -> Color(0xFF00E5FF)

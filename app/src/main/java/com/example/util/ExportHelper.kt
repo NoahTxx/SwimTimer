@@ -220,8 +220,21 @@ object ExportHelper {
         return sb.toString()
     }
 
+    private fun cleanOldCacheFiles(context: Context) {
+        try {
+            val now = System.currentTimeMillis()
+            val maxAgeMs = 24 * 60 * 60 * 1000L // 24 Hours
+            context.cacheDir?.listFiles()?.forEach { file ->
+                if ((file.name.startsWith("Swim") || file.name.endsWith(".csv") || file.name.endsWith(".json")) && (now - file.lastModified() > maxAgeMs)) {
+                    file.delete()
+                }
+            }
+        } catch (_: Exception) {}
+    }
+
     suspend fun shareSession(context: Context, sessionWithLaps: SessionWithLaps) {
         val shareIntent = withContext(Dispatchers.IO) {
+            cleanOldCacheFiles(context)
             val summaryText = generateTextSummary(sessionWithLaps)
             val csvContent = generateCsv(sessionWithLaps)
             try {
@@ -341,6 +354,7 @@ object ExportHelper {
 
     suspend fun shareSwimmersExport(context: Context, swimmers: List<SwimmerEntity>) {
         val shareIntent = withContext(Dispatchers.IO) {
+            cleanOldCacheFiles(context)
             val json = exportSwimmersToJson(swimmers)
             try {
                 val fileName = "SwimTimer_Athleten_Export_${System.currentTimeMillis()}.json"
@@ -376,6 +390,7 @@ object ExportHelper {
     suspend fun shareSessionsExport(context: Context, sessions: List<SessionWithLaps>) {
         if (sessions.isEmpty()) return
         val shareIntent = withContext(Dispatchers.IO) {
+            cleanOldCacheFiles(context)
             val json = exportSessionsToJson(sessions)
             try {
                 val fileName = "SwimTimer_Historie_Export_${System.currentTimeMillis()}.json"

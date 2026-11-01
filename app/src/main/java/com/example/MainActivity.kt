@@ -109,8 +109,7 @@ class MainActivity : ComponentActivity() {
             SwimTimerTheme {
                 MainAppContent(
                     viewModel = viewModel,
-                    onScreenChange = { activeScreen = it }
-                )
+                ) { activeScreen = it }
             }
         }
     }
@@ -150,7 +149,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainAppContent(
     viewModel: StopwatchViewModel,
-    onScreenChange: (AppScreen) -> Unit = {}
+    onScreenChange: (AppScreen) -> Unit = {},
 ) {
     var currentScreen by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(AppScreen.STOPWATCH) }
 

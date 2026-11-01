@@ -177,16 +177,14 @@ private val relayTeamsSaver = Saver<List<RelayTeamPlan>, String>(
 @Composable
 fun RelayRandomizerComponent(
     dbSwimmers: List<SwimmerEntity>,
+    modifier: Modifier = Modifier,
     availableGroups: List<String> = emptyList(),
     onApplyTeamsToStopwatch: ((teams: List<RelayTeamPlan>, strokeType: String, legDistanceMeters: Int) -> Unit)? = null,
-    modifier: Modifier = Modifier
 ) {
     val focusManager = LocalFocusManager.current
 
     val groupsToDisplay = remember(availableGroups, dbSwimmers) {
-        if (availableGroups.isNotEmpty()) {
-            availableGroups
-        } else {
+        availableGroups.ifEmpty {
             dbSwimmers.asSequence()
                 .mapNotNull { it.groupName?.trim() }
                 .filter { it.isNotBlank() }
@@ -217,7 +215,7 @@ fun RelayRandomizerComponent(
     }
 
     var savedSwimmerIds by rememberSaveable(stateSaver = swimmerIdsSaver) {
-        mutableStateOf<Set<Long>?>(null)
+        mutableStateOf(null)
     }
 
     val selectedSwimmerIds = remember(savedSwimmerIds, groupSwimmers) {
@@ -237,7 +235,7 @@ fun RelayRandomizerComponent(
         RelayOptimizationMode.MEDLEY_OPTIMAL -> "4×"
         RelayOptimizationMode.FASTEST_SINGLE -> "${starterCountPerTeam}×"
         RelayOptimizationMode.BALANCED, RelayOptimizationMode.RANDOM ->
-            if (customStarterLimit in 2..8) "${customStarterLimit}×" else "4×"
+            if ((customStarterLimit in 2..8)) "${customStarterLimit}×" else "4×"
     }
 
     fun calculateRelays() {

@@ -11,7 +11,7 @@ import com.example.util.TimeFormatter
 data class PbEvaluationResult(
     val updatedSwimmer: SwimmerEntity,
     val hasImproved: Boolean,
-    val achievements: List<String>
+    val achievements: List<String>,
 )
 
 data class SwimmerSessionPerformance(
@@ -20,7 +20,7 @@ data class SwimmerSessionPerformance(
     val bestTimeMillis: Long,
     val isRelayLeg: Boolean,
     val relayLegLabel: String? = null,
-    val laps: List<LapItem> = emptyList()
+    val laps: List<LapItem> = emptyList(),
 )
 
 object PersonalBestEvaluator {
@@ -28,8 +28,7 @@ object PersonalBestEvaluator {
     val LAGEN_STAFFEL_STROKES = listOf("Rücken", "Brust", "Schmetterling", "Freistil")
 
     fun isRelaySession(title: String, laps: List<LapRecordEntity>): Boolean {
-        if (title.contains("Staffel", ignoreCase = true)) return true
-        return laps.any { it.swimmerName.contains(" • ") }
+        return title.contains("Staffel", ignoreCase = true) || laps.any { it.swimmerName.contains(" • ") }
     }
 
     /**
@@ -40,7 +39,7 @@ object PersonalBestEvaluator {
     fun splitSavedLapsIntoSeries(
         laps: List<LapRecordEntity>,
         targetDistanceMeters: Int,
-        splitDistanceMeters: Int
+        splitDistanceMeters: Int,
     ): List<LapItem> {
         if (laps.isEmpty()) return emptyList()
         val isRelayLane = laps.any { it.swimmerName.contains(" • ") }
@@ -52,7 +51,7 @@ object PersonalBestEvaluator {
 
         for (entity in laps.sortedBy { it.lapIndex }) {
             if (isRelayLane) {
-                if (prevSplitMillis >= 0L && entity.splitTimeMillis < prevSplitMillis) {
+                if ((prevSplitMillis >= 0L) && (entity.splitTimeMillis < prevSplitMillis)) {
                     currentSeriesIndex++
                     prevInSeriesIdx = 0
                 }
@@ -133,7 +132,7 @@ object PersonalBestEvaluator {
         if (lane.relayMembers.isNotEmpty()) {
             val memberLegs = lane.relayMembers.withIndex().filter { it.value.swimmerId == swimmer.id }
             if (memberLegs.isEmpty()) {
-                return PbEvaluationResult(swimmer, false, emptyList())
+                return PbEvaluationResult(swimmer, hasImproved = false, achievements = emptyList())
             }
             var currentSwimmer = swimmer
             var anyImproved = false

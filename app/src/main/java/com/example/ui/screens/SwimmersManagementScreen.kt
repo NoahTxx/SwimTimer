@@ -96,7 +96,7 @@ fun SwimmersManagementScreen(
 
     val availableGroups by viewModel.availableGroups.collectAsStateWithLifecycle()
     val groupCounts = remember(allSwimmers) {
-        allSwimmers.asSequence().mapNotNull { it.groupName?.trim() }.filter { it.isNotBlank() }.groupingBy { it.lowercase() }.eachCount()
+        allSwimmers.asSequence().mapNotNull { swimmer -> swimmer.groupName?.trim() }.filter { name -> name.isNotBlank() }.groupingBy { name -> name.lowercase() }.eachCount()
     }
     val selectedGroup by viewModel.selectedGroupFilter.collectAsStateWithLifecycle()
 
@@ -135,7 +135,7 @@ fun SwimmersManagementScreen(
         modifier = modifier
             .fillMaxSize()
             .background(DeepOceanBackground)
-            .padding(horizontal = 14.dp, vertical = 12.dp)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Header Row with Title, Import/Export Buttons

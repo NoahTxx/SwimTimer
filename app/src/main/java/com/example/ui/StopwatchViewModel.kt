@@ -190,7 +190,7 @@ class StopwatchViewModel(
     private val repository: ISwimRepository,
     private val preferencesRepository: UserPreferencesRepository? = null,
     private val clock: MonotonicClock = AndroidMonotonicClock(),
-    private val soundPlayer: SoundPlayer = DefaultSoundPlayer()
+    private val soundPlayer: SoundPlayer = DefaultSoundPlayer(),
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StopwatchUiState())
@@ -238,10 +238,9 @@ class StopwatchViewModel(
             fun findPbForStroke(st: String, dist: Int): Long? {
                 val direct = customMap[st to dist]
                 if (direct != null) return direct
-                val matched = customMap.entries.firstOrNull { (k, _) ->
-                    k.second == dist && PersonalBestEvaluator.isSameStroke(k.first, st)
+                return customMap.entries.firstOrNull { (k, _) ->
+                    (k.second == dist) && PersonalBestEvaluator.isSameStroke(k.first, st)
                 }?.value
-                return matched
             }
             val pb25Millis = listOfNotNull(swimmer.pb25mMillis, findPbForStroke(fav, 25)).minOrNull()
             val pb50Millis = listOfNotNull(swimmer.pb50mMillis, findPbForStroke(fav, 50)).minOrNull()
@@ -1654,7 +1653,7 @@ class StopwatchViewModel(
         val cleanTitle = if (isRelayActive) {
             val counts = updatedLanes.filter { it.relayMembers.isNotEmpty() }.map { it.relayMembers.size }.distinct()
             val countPrefix = if (counts.size == 1) "${counts.first()}x" else if (counts.size > 1) "${counts.min()}–${counts.max()}x" else "4x"
-            "${countPrefix}${enforcedSplit}m $stroke Staffel"
+            "$countPrefix${enforcedSplit}m $stroke Staffel"
         } else {
             title.ifBlank { "${enforcedDistance}m $stroke" }
         }

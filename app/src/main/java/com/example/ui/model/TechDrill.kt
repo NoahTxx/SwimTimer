@@ -26,7 +26,7 @@ object StandardTechDrills {
                 "Schwimme Kraul mit fest geschlossenen Fäusten.",
                 "Halte den Ellbogen beim Wasserfassen hoch.",
                 "Führe den Abdruck über die gesamte Unterarmfläche aus.",
-                "Variante: 25m Faust + 25m normale Handhaltung."
+                "Variante: 25m Faust + 25m normale Handhaltung.",
             ),
             goal = "Schult den hohen Ellbogen und das Gefühl für den Unterarm als Abdruckfläche."
         ),

@@ -94,8 +94,8 @@ fun SwimmerDetailScreen(
 
     // Pre-filter sessions that have laps for this swimmer
     val swimmerSessions = remember(allSessions, swimmer.id) {
-        allSessions.filter { sessionWithLaps ->
-            sessionWithLaps.laps.any { it.swimmerId == swimmer.id }
+        allSessions.filter { (_, laps) ->
+            laps.any { it.swimmerId == swimmer.id }
         }
     }
 
@@ -109,19 +109,19 @@ fun SwimmerDetailScreen(
 
         // 2. Fill from legacy manual entry fields
         val fav = if (swimmer.favoriteStroke == "Lagen") "Freistil" else swimmer.favoriteStroke
-        swimmer.pb25mMillis?.let { if (pbs[fav to 25] == null || it < pbs[fav to 25]!!) pbs[fav to 25] = it }
-        swimmer.pb50mMillis?.let { if (pbs[fav to 50] == null || it < pbs[fav to 50]!!) pbs[fav to 50] = it }
-        swimmer.pb100mMillis?.let { if (pbs[fav to 100] == null || it < pbs[fav to 100]!!) pbs[fav to 100] = it }
-        swimmer.pb100mLagenMillis?.let { if (pbs["Lagen" to 100] == null || it < pbs["Lagen" to 100]!!) pbs["Lagen" to 100] = it }
-        swimmer.pb200mLagenMillis?.let { if (pbs["Lagen" to 200] == null || it < pbs["Lagen" to 200]!!) pbs["Lagen" to 200] = it }
-        swimmer.pb400mLagenMillis?.let { if (pbs["Lagen" to 400] == null || it < pbs["Lagen" to 400]!!) pbs["Lagen" to 400] = it }
+        swimmer.pb25mMillis?.let { if ((pbs[fav to 25] == null) || (it < pbs[fav to 25]!!)) pbs[fav to 25] = it }
+        swimmer.pb50mMillis?.let { if ((pbs[fav to 50] == null) || (it < pbs[fav to 50]!!)) pbs[fav to 50] = it }
+        swimmer.pb100mMillis?.let { if ((pbs[fav to 100] == null) || (it < pbs[fav to 100]!!)) pbs[fav to 100] = it }
+        swimmer.pb100mLagenMillis?.let { if ((pbs["Lagen" to 100] == null) || (it < pbs["Lagen" to 100]!!)) pbs["Lagen" to 100] = it }
+        swimmer.pb200mLagenMillis?.let { if ((pbs["Lagen" to 200] == null) || (it < pbs["Lagen" to 200]!!)) pbs["Lagen" to 200] = it }
+        swimmer.pb400mLagenMillis?.let { if ((pbs["Lagen" to 400] == null) || (it < pbs["Lagen" to 400]!!)) pbs["Lagen" to 400] = it }
         
         // 3. Override with better times from history (including multi-series runs and relay legs!)
         val strokeOptions = listOf("Freistil", "Brust", "Rücken", "Schmetterling", "Lagen")
         swimmerSessions.forEach { sessionLaps ->
             val performances = com.example.domain.PersonalBestEvaluator.extractSwimmerSessionPerformances(
                 sessionWithLaps = sessionLaps,
-                swimmerId = swimmer.id
+                swimmerId = swimmer.id,
             )
             performances.forEach { perf ->
                 val matchedStroke = strokeOptions.find { StopwatchViewModel.isSameStroke(it, perf.strokeType) } ?: perf.strokeType
@@ -494,7 +494,7 @@ fun SwimmerDetailScreen(
 
                 // Langstrecke Card (Accordion)
                 item(key = "langstrecke_card", contentType = "LangstreckeCard") {
-                    var isLangstreckeExpanded by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+                    var isLangstreckeExpanded by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(value = false) }
 
                     Card(
                         shape = RoundedCornerShape(16.dp),
@@ -1044,7 +1044,7 @@ internal fun SwimmerFormDialog(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     OutlinedTextField(
-                        value = if (groupName.isEmpty()) "Keine Gruppe" else groupName,
+                        value = groupName.ifEmpty { "Keine Gruppe" },
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Trainingsgruppe") },

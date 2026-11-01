@@ -96,7 +96,7 @@ fun LaneTimerCard(
     onResumeClick: (() -> Unit)? = null,
     clock: MonotonicClock = AndroidMonotonicClock(),
 ) {
-    var isExpanded by rememberSaveable { mutableStateOf(false) }
+    var isExpanded by rememberSaveable { mutableStateOf(value = false) }
 
     val laneAccentColor = remember(lane.laneNumber) {
         LaneColors.getOrElse((lane.laneNumber - 1) % LaneColors.size) { AquaPrimary }
@@ -131,7 +131,7 @@ fun LaneTimerCard(
         border = BorderStroke(1.5.dp, cardBorderColor),
     ) {
         Column(
-            modifier = Modifier.padding(14.dp)
+            modifier = Modifier.padding(14.dp),
         ) {
             LaneHeader(
                 laneNumber = lane.laneNumber,
