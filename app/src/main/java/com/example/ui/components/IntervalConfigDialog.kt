@@ -4,23 +4,30 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -127,7 +134,8 @@ fun IntervalConfigDialog(
     var restDurationSec by remember { mutableIntStateOf(currentSeriesConfig.restDurationSeconds) }
     var sendOffDurationSec by remember { mutableIntStateOf(currentSeriesConfig.sendOffDurationSeconds) }
     var sendOffCustomText by remember { mutableStateOf(currentSeriesConfig.sendOffDurationSeconds.toString()) }
-    var maxSeriesCountText by remember { mutableStateOf(currentSeriesConfig.maxSeriesCount?.toString() ?: "") }
+    var maxSeriesCount by remember { mutableIntStateOf(currentSeriesConfig.maxSeriesCount ?: 6) }
+    var isUnlimitedSeries by remember { mutableStateOf(currentSeriesConfig.maxSeriesCount == null) }
 
     val restPresets = listOf(10, 15, 20, 30, 45, 60)
     val sendOffPresets = listOf(
@@ -164,7 +172,7 @@ fun IntervalConfigDialog(
         }
         keyboardController?.hide()
         focusManager.clearFocus(force = true)
-        val parsedMaxCount = maxSeriesCountText.toIntOrNull()?.takeIf { it > 0 }
+        val parsedMaxCount = if (isUnlimitedSeries) null else maxSeriesCount.coerceIn(1, 100)
         val newConfig = SeriesConfig(
             isEnabled = isSeriesEnabled && !isRelaySelected,
             mode = seriesMode,
@@ -720,40 +728,153 @@ fun IntervalConfigDialog(
                                 )
                             }
 
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(14.dp))
                             Text(
                                 text = "Maximale Serien-Anzahl:",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = Color.LightGray,
                                 maxLines = 1
                             )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            OutlinedTextField(
-                                value = maxSeriesCountText,
-                                onValueChange = { newValue ->
-                                    maxSeriesCountText = newValue.filter { it.isDigit() }
-                                },
-                                label = { Text("Serien-Anzahl (leer = unbegrenzt)", color = Color.LightGray, fontSize = 12.sp) },
-                                placeholder = { Text("z. B. 5", color = Color.Gray) },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Number,
-                                    imeAction = ImeAction.Done
-                                ),
-                                keyboardActions = KeyboardActions(
-                                    onDone = {
-                                        keyboardController?.hide()
-                                        focusManager.clearFocus(force = true)
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            // 1. Preset-Auswahl im exakt gleichen Design wie die restlichen Dialog-Buttons (FilterChips)
+                            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                                FlowRow(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    val presetCounts = listOf(2, 3, 4, 5, 6, 8, 10, 12)
+                                    presetCounts.forEach { count ->
+                                        FilterChip(
+                                            selected = !isUnlimitedSeries && maxSeriesCount == count,
+                                            onClick = {
+                                                focusManager.clearFocus()
+                                                isUnlimitedSeries = false
+                                                maxSeriesCount = count
+                                            },
+                                            label = {
+                                                Text(
+                                                    text = count.toString(),
+                                                    maxLines = 1,
+                                                    textAlign = TextAlign.Center
+                                                )
+                                            },
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = AquaPrimary,
+                                                selectedLabelColor = Color.Black
+                                            )
+                                        )
                                     }
-                                ),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = AquaPrimary,
-                                    unfocusedBorderColor = Color(0xFF22384F),
-                                    focusedTextColor = TextWhite,
-                                    unfocusedTextColor = TextWhite
-                                ),
-                                modifier = Modifier.fillMaxWidth()
-                            )
+
+                                    FilterChip(
+                                        selected = isUnlimitedSeries,
+                                        onClick = {
+                                            focusManager.clearFocus()
+                                            isUnlimitedSeries = true
+                                        },
+                                        label = {
+                                            Text(
+                                                text = "∞ Unbegrenzt",
+                                                maxLines = 1,
+                                                textAlign = TextAlign.Center
+                                            )
+                                        },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = AquaPrimary,
+                                            selectedLabelColor = Color.Black
+                                        )
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // 2. Feinjustierungs-Stepper [-] [ 6 Serien ] [+]
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (!isUnlimitedSeries && maxSeriesCount > 1) Color(0xFF1B2E46) else Color(0xFF111D2B),
+                                    border = BorderStroke(1.dp, if (!isUnlimitedSeries && maxSeriesCount > 1) AquaPrimary.copy(alpha = 0.6f) else Color(0xFF1E344B)),
+                                    modifier = Modifier
+                                        .height(36.dp)
+                                        .width(52.dp)
+                                        .clickable(
+                                            enabled = !isUnlimitedSeries && maxSeriesCount > 1,
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null
+                                        ) {
+                                            if (maxSeriesCount > 1) maxSeriesCount--
+                                        }
+                                        .testTag("series_count_dec")
+                                ) {
+                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                                        Icon(
+                                            imageVector = Icons.Default.Remove,
+                                            contentDescription = "Serie verringern",
+                                            tint = if (!isUnlimitedSeries && maxSeriesCount > 1) AquaPrimary else Color.DarkGray,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.width(10.dp))
+
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Color(0xFF0B1623),
+                                    border = BorderStroke(1.5.dp, if (isUnlimitedSeries) Color(0xFFFFD600) else AquaPrimary),
+                                    modifier = Modifier
+                                        .height(36.dp)
+                                        .width(130.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                                        Text(
+                                            text = if (isUnlimitedSeries) "∞ Unbegrenzt" else if (maxSeriesCount == 1) "1 Serie" else "$maxSeriesCount Serien",
+                                            fontSize = 13.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isUnlimitedSeries) Color(0xFFFFD600) else TextWhite,
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.width(10.dp))
+
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Color(0xFF1B2E46),
+                                    border = BorderStroke(1.dp, AquaPrimary.copy(alpha = 0.6f)),
+                                    modifier = Modifier
+                                        .height(36.dp)
+                                        .width(52.dp)
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null
+                                        ) {
+                                            if (isUnlimitedSeries) {
+                                                isUnlimitedSeries = false
+                                                maxSeriesCount = 6
+                                            } else if (maxSeriesCount < 50) {
+                                                maxSeriesCount++
+                                            }
+                                        }
+                                        .testTag("series_count_inc")
+                                ) {
+                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                                        Icon(
+                                            imageVector = Icons.Default.Add,
+                                            contentDescription = "Serie erhöhen",
+                                            tint = AquaPrimary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
