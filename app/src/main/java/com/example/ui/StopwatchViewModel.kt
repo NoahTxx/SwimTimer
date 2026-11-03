@@ -2019,17 +2019,13 @@ class StopwatchViewModel(
         val minLaps = runningLanes.minOf { it.laps.size }
         val maxLaps = runningLanes.maxOf { it.laps.size }
 
-        val targetLane = if (minLaps == maxLaps) {
-            runningLanes.minByOrNull { it.laneNumber }
-        } else {
-            val upperGroup = runningLanes.filter { it.laps.size > minLaps }
-            val upperTrailing = upperGroup.filter { it.laps.size < maxLaps }
-            if (upperTrailing.isNotEmpty()) {
-                upperTrailing.minByOrNull { it.laneNumber }
-            } else {
-                upperGroup.minByOrNull { it.laneNumber }
-            }
-        } ?: return
+        // Volume Down operates exclusively on the leading wave:
+        // lanes that are currently exactly one lap ahead of the trailing wave (laps.size == minLaps + 1)
+        if (minLaps == maxLaps) return
+
+        val targetWaveLaps = minLaps + 1
+        val candidates = runningLanes.filter { it.laps.size == targetWaveLaps }
+        val targetLane = candidates.minByOrNull { it.laneNumber } ?: return
 
         onLapLane(targetLane.laneNumber, nowRealtime)
     }

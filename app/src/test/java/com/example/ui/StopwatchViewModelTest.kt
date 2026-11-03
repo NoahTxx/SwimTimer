@@ -1108,6 +1108,66 @@ class StopwatchViewModelTest {
     }
 
     @Test
+    fun volumeKeys_fourLanesUserScenario_stopsAndResetsWhenTrailingCatchesUp() = runTest(testDispatcher) {
+        viewModel.setTargetDistance(200)
+        viewModel.setSplitDistance(25)
+        viewModel.onStartAll()
+
+        // 1. Initial state: Lanes 1, 2, 3 have 50m (2 laps), Lane 4 has 25m (1 lap)
+        repeat(4) {
+            fakeClock.advance(15_000L)
+            viewModel.onHardwareVolumeUp() // All get 1 lap (25m)
+        }
+        viewModel.onHardwareVolumeUp() // Lane 1 -> 50m (2 laps)
+        viewModel.onHardwareVolumeUp() // Lane 2 -> 50m (2 laps)
+        viewModel.onHardwareVolumeUp() // Lane 3 -> 50m (2 laps)
+        // Lane 4 remains at 25m (1 lap)
+
+        var lanes = viewModel.uiState.value.lanes
+        assertEquals(2, lanes[0].laps.size)
+        assertEquals(2, lanes[1].laps.size)
+        assertEquals(2, lanes[2].laps.size)
+        assertEquals(1, lanes[3].laps.size)
+
+        // 2. Volume DOWN (Power / Lower button): Advances leading wave to 75m (3 laps)
+        viewModel.onHardwareVolumeDown() // Lane 1 -> 75m (3 laps)
+        lanes = viewModel.uiState.value.lanes
+        assertEquals(3, lanes[0].laps.size)
+
+        viewModel.onHardwareVolumeDown() // Lane 2 -> 75m (3 laps)
+        lanes = viewModel.uiState.value.lanes
+        assertEquals(3, lanes[1].laps.size)
+
+        viewModel.onHardwareVolumeDown() // Lane 3 -> 75m (3 laps)
+        lanes = viewModel.uiState.value.lanes
+        assertEquals(3, lanes[2].laps.size)
+
+        // 3. 4th press of Volume DOWN: Leading wave has completed its round.
+        // It must NOT advance Lane 1 to 100m while Lane 4 is still at 25m!
+        viewModel.onHardwareVolumeDown()
+        lanes = viewModel.uiState.value.lanes
+        assertEquals(3, lanes[0].laps.size)
+        assertEquals(3, lanes[1].laps.size)
+        assertEquals(3, lanes[2].laps.size)
+        assertEquals(1, lanes[3].laps.size)
+
+        // 4. Volume UP (Normal button): Catch up Lane 4 to 50m (2 laps)
+        viewModel.onHardwareVolumeUp() // Lane 4 -> 50m (2 laps)
+        lanes = viewModel.uiState.value.lanes
+        assertEquals(2, lanes[3].laps.size)
+
+        // 5. Reset: Because Lane 4 now has 50m (2 laps), minLaps is 2.
+        // Lanes 1, 2, 3 (at 3 laps) are now once again exactly minLaps + 1!
+        // Next Volume DOWN press starts at Lane 1 again!
+        viewModel.onHardwareVolumeDown() // Lane 1 -> 100m (4 laps)
+        lanes = viewModel.uiState.value.lanes
+        assertEquals(4, lanes[0].laps.size)
+        assertEquals(3, lanes[1].laps.size)
+
+        viewModel.onResetAll()
+    }
+
+    @Test
     fun multipleStartStopWithoutSeries_doesNotAccumulateSplitsOrSeries() = runTest(testDispatcher) {
         assertFalse(viewModel.uiState.value.seriesConfig.isEnabled)
 
