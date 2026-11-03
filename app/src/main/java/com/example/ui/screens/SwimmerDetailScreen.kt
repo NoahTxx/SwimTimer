@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,6 +52,8 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -87,6 +90,9 @@ fun SwimmerDetailScreen(
     onUpdateSwimmer: (SwimmerEntity) -> Unit,
     onDeleteSwimmer: (SwimmerEntity) -> Unit,
 ) {
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+
     BackHandler(enabled = isActiveTab) { onBack() }
 
     var isEditDialogOpen by remember { mutableStateOf(value = false) }
@@ -203,7 +209,16 @@ fun SwimmerDetailScreen(
                 }
             }
 
+            val detailListState = androidx.compose.foundation.lazy.rememberLazyListState()
+            androidx.compose.runtime.LaunchedEffect(detailListState.isScrollInProgress) {
+                if (detailListState.isScrollInProgress) {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                }
+            }
+
             LazyColumn(
+                state = detailListState,
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
@@ -321,7 +336,10 @@ fun SwimmerDetailScreen(
                                         border = androidx.compose.foundation.BorderStroke(1.dp, if (isSelected) strokeCatColor else Color(0xFF1B2E46)),
                                         modifier = Modifier
                                             .weight(1f)
-                                            .clickable { selectedPbStroke = strokeKey }
+                                            .clickable(
+                                                indication = null,
+                                                interactionSource = remember { MutableInteractionSource() }
+                                            ) { selectedPbStroke = strokeKey }
                                     ) {
                                         Text(
                                             text = strokeLabel,
@@ -411,7 +429,10 @@ fun SwimmerDetailScreen(
                                                     shape = RoundedCornerShape(8.dp),
                                                     color = if (isSelected) AquaPrimary.copy(alpha = 0.2f) else Color(0xFF162B3D),
                                                     border = androidx.compose.foundation.BorderStroke(1.dp, if (isSelected) AquaPrimary else Color.Transparent),
-                                                    modifier = Modifier.weight(1f).clickable { selectedLagenSplitMode = mode }
+                                                    modifier = Modifier.weight(1f).clickable(
+                                                        indication = null,
+                                                        interactionSource = remember { MutableInteractionSource() }
+                                                    ) { selectedLagenSplitMode = mode }
                                                 ) {
                                                     Text(
                                                         text = "${mode}m",
@@ -505,7 +526,10 @@ fun SwimmerDetailScreen(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable { isLangstreckeExpanded = !isLangstreckeExpanded },
+                                    .clickable(
+                                        indication = null,
+                                        interactionSource = remember { MutableInteractionSource() }
+                                    ) { isLangstreckeExpanded = !isLangstreckeExpanded },
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -734,7 +758,10 @@ private fun SwimmerSessionHistoryCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { isExpanded = !isExpanded },
+                    .clickable(
+                        indication = null,
+                        interactionSource = remember { MutableInteractionSource() }
+                    ) { isExpanded = !isExpanded },
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -981,18 +1008,36 @@ internal fun SwimmerFormDialog(
     val strokeOptions = listOf("Freistil", "Brust", "Rücken", "Schmetterling")
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(onDismissRequest = {
+        focusManager.clearFocus(force = true)
+        keyboardController?.hide()
+        onDismiss()
+    }) {
         Surface(
             shape = RoundedCornerShape(22.dp),
             color = Color(0xFF101B2B),
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag(dialogTestTag)
+                .pointerInput(Unit) {
+                    detectTapGestures {
+                        focusManager.clearFocus(force = true)
+                        keyboardController?.hide()
+                    }
+                }
         ) {
+            val scrollState = rememberScrollState()
+            androidx.compose.runtime.LaunchedEffect(scrollState.isScrollInProgress) {
+                if (scrollState.isScrollInProgress) {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                }
+            }
+
             Column(
                 modifier = Modifier
                     .padding(20.dp)
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(scrollState)
             ) {
                 Text(
                     text = dialogTitle,
@@ -1314,7 +1359,10 @@ internal fun SwimmerFormDialog(
                     color = Color(0xFF142436),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { isLagenSplitsExpanded = !isLagenSplitsExpanded }
+                        .clickable(
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() }
+                        ) { isLagenSplitsExpanded = !isLagenSplitsExpanded }
                 ) {
                     Row(
                         modifier = Modifier
@@ -1391,7 +1439,10 @@ internal fun SwimmerFormDialog(
                     color = Color(0xFF142436),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { isLangstreckeEditExpanded = !isLangstreckeEditExpanded }
+                        .clickable(
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() }
+                        ) { isLangstreckeEditExpanded = !isLangstreckeEditExpanded }
                 ) {
                     Row(
                         modifier = Modifier
@@ -1464,7 +1515,11 @@ internal fun SwimmerFormDialog(
                     horizontalArrangement = Arrangement.End
                 ) {
                     Button(
-                        onClick = onDismiss,
+                        onClick = {
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
+                            onDismiss()
+                        },
                         colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
                     ) {
                         Text("Abbrechen", color = Color.LightGray)
@@ -1472,6 +1527,8 @@ internal fun SwimmerFormDialog(
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = {
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
                             if (name.isNotBlank()) {
                                 // Start with existing custom PBs map so other distances/strokes (e.g. 400m Brust, 300m, etc.) are never wiped out!
                                 val customMap = existingPbs.toMutableMap()

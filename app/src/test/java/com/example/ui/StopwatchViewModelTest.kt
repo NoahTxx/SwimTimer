@@ -980,15 +980,129 @@ class StopwatchViewModelTest {
     }
 
     @Test
-    fun hardwareVolumeDown_stopsAllRunningLanes() = runTest(testDispatcher) {
+    fun volumeKeys_fastGroupAndSlowGroupInteraction() = runTest(testDispatcher) {
         viewModel.onStartAll()
-        assertTrue(viewModel.uiState.value.hasOpenRun)
-
+        // 1. Give lap 1 to Lane 1 and Lane 2 via Volume UP
         fakeClock.advance(10_000L)
-        viewModel.onHardwareVolumeDown()
+        viewModel.onHardwareVolumeUp() // Lane 1 gets lap 1
+        fakeClock.advance(2_000L)
+        viewModel.onHardwareVolumeUp() // Lane 2 gets lap 1
 
-        val state = viewModel.uiState.value
-        assertTrue("All lanes should be stopped/finished", state.lanes.all { it.status == LaneStatus.FINISHED || it.status == LaneStatus.IDLE })
+        var lanes = viewModel.uiState.value.lanes
+        assertEquals(1, lanes[0].laps.size)
+        assertEquals(1, lanes[1].laps.size)
+        assertEquals(0, lanes[2].laps.size)
+        assertEquals(0, lanes[3].laps.size)
+
+        // 2. Advance fast group (Lane 1 & 2) to lap 2 via Volume DOWN before Lane 3 & 4 finish lap 1
+        fakeClock.advance(10_000L)
+        viewModel.onHardwareVolumeDown() // Should give lap 2 to Lane 1
+        lanes = viewModel.uiState.value.lanes
+        assertEquals(2, lanes[0].laps.size)
+        assertEquals(1, lanes[1].laps.size)
+
+        fakeClock.advance(2_000L)
+        viewModel.onHardwareVolumeDown() // Should give lap 2 to Lane 2
+        lanes = viewModel.uiState.value.lanes
+        assertEquals(2, lanes[0].laps.size)
+        assertEquals(2, lanes[1].laps.size)
+
+        // 3. Catch up slow group (Lane 3 & 4) to lap 1 via Volume UP
+        fakeClock.advance(5_000L)
+        viewModel.onHardwareVolumeUp() // Should give lap 1 to Lane 3
+        lanes = viewModel.uiState.value.lanes
+        assertEquals(1, lanes[2].laps.size)
+
+        fakeClock.advance(2_000L)
+        viewModel.onHardwareVolumeUp() // Should give lap 1 to Lane 4
+        lanes = viewModel.uiState.value.lanes
+        assertEquals(1, lanes[3].laps.size)
+
+        viewModel.onResetAll()
+    }
+
+    @Test
+    fun volumeKeys_sixLanesMultiLoopUserScenario() = runTest(testDispatcher) {
+        viewModel.setTargetDistance(400)
+        viewModel.setSplitDistance(25)
+        viewModel.addLane()
+        viewModel.addLane()
+        viewModel.onStartAll()
+
+        // 1. All 6 lanes complete their first 25m split (lap 1)
+        repeat(6) {
+            fakeClock.advance(15_000L)
+            viewModel.onHardwareVolumeUp()
+        }
+        var lanes = viewModel.uiState.value.lanes
+        assertTrue("All 6 lanes should have 1 lap (25m)", lanes.all { it.laps.size == 1 })
+
+        // 2. Normal Button (Volume UP): Lanes 1, 2, 3 advance to 50m (lap 2). Lanes 4, 5, 6 remain at 25m.
+        fakeClock.advance(20_000L)
+        viewModel.onHardwareVolumeUp() // Lane 1 -> 50m
+        fakeClock.advance(1_000L)
+        viewModel.onHardwareVolumeUp() // Lane 2 -> 50m
+        fakeClock.advance(1_000L)
+        viewModel.onHardwareVolumeUp() // Lane 3 -> 50m
+
+        lanes = viewModel.uiState.value.lanes
+        assertEquals(2, lanes[0].laps.size)
+        assertEquals(2, lanes[1].laps.size)
+        assertEquals(2, lanes[2].laps.size)
+        assertEquals(1, lanes[3].laps.size)
+        assertEquals(1, lanes[4].laps.size)
+        assertEquals(1, lanes[5].laps.size)
+
+        // 3. Power Button (Volume DOWN): Lanes 1, 2, 3 are swimming ahead to 75m (lap 3).
+        fakeClock.advance(20_000L)
+        viewModel.onHardwareVolumeDown() // Lane 1 -> 75m (lap 3)
+        fakeClock.advance(1_000L)
+        viewModel.onHardwareVolumeDown() // Lane 2 -> 75m (lap 3)
+        fakeClock.advance(1_000L)
+        viewModel.onHardwareVolumeDown() // Lane 3 -> 75m (lap 3)
+
+        lanes = viewModel.uiState.value.lanes
+        assertEquals(3, lanes[0].laps.size)
+        assertEquals(3, lanes[1].laps.size)
+        assertEquals(3, lanes[2].laps.size)
+        assertEquals(1, lanes[3].laps.size)
+        assertEquals(1, lanes[4].laps.size)
+        assertEquals(1, lanes[5].laps.size)
+
+        // 4. Normal Button (Volume UP): Catch up bottom lanes 4, 5, 6 to 50m (lap 2)
+        fakeClock.advance(10_000L)
+        viewModel.onHardwareVolumeUp() // Lane 4 -> 50m (lap 2)
+        fakeClock.advance(1_000L)
+        viewModel.onHardwareVolumeUp() // Lane 5 -> 50m (lap 2)
+        fakeClock.advance(1_000L)
+        viewModel.onHardwareVolumeUp() // Lane 6 -> 50m (lap 2)
+
+        lanes = viewModel.uiState.value.lanes
+        assertEquals(3, lanes[0].laps.size)
+        assertEquals(3, lanes[1].laps.size)
+        assertEquals(3, lanes[2].laps.size)
+        assertEquals(2, lanes[3].laps.size)
+        assertEquals(2, lanes[4].laps.size)
+        assertEquals(2, lanes[5].laps.size)
+
+        // 5. Automatic Reset: All trailing lanes now have 50m.
+        // Next press of Power Button (Volume DOWN) automatically resets to start from the top again (Lane 1 -> 100m)
+        fakeClock.advance(20_000L)
+        viewModel.onHardwareVolumeDown() // Lane 1 -> 100m (lap 4)
+        lanes = viewModel.uiState.value.lanes
+        assertEquals(4, lanes[0].laps.size)
+        assertEquals(3, lanes[1].laps.size)
+
+        fakeClock.advance(1_000L)
+        viewModel.onHardwareVolumeDown() // Lane 2 -> 100m (lap 4)
+        lanes = viewModel.uiState.value.lanes
+        assertEquals(4, lanes[1].laps.size)
+        assertEquals(3, lanes[2].laps.size)
+
+        fakeClock.advance(1_000L)
+        viewModel.onHardwareVolumeDown() // Lane 3 -> 100m (lap 4)
+        lanes = viewModel.uiState.value.lanes
+        assertEquals(4, lanes[2].laps.size)
 
         viewModel.onResetAll()
     }

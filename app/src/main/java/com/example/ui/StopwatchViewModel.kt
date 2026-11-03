@@ -2002,17 +2002,36 @@ class StopwatchViewModel(
             if (runningLanes.isEmpty()) return
 
             val minLaps = runningLanes.minOf { it.laps.size }
-            val targetLane = runningLanes.firstOrNull { it.laps.size == minLaps } ?: return
+            val minLapCandidates = runningLanes.filter { it.laps.size == minLaps }
+            val targetLane = minLapCandidates.minByOrNull { it.laneNumber } ?: return
 
             onLapLane(targetLane.laneNumber, nowRealtime)
         }
     }
 
-    fun onHardwareVolumeDown() {
+    fun onHardwareVolumeDown(nowRealtime: Long = clock.nowMillis()) {
         val state = _uiState.value
-        if (state.hasOpenRun) {
-            onStopAll()
-        }
+        if (!state.hasOpenRun) return
+
+        val runningLanes = state.lanes.filter { it.status == LaneStatus.RUNNING }
+        if (runningLanes.isEmpty()) return
+
+        val minLaps = runningLanes.minOf { it.laps.size }
+        val maxLaps = runningLanes.maxOf { it.laps.size }
+
+        val targetLane = if (minLaps == maxLaps) {
+            runningLanes.minByOrNull { it.laneNumber }
+        } else {
+            val upperGroup = runningLanes.filter { it.laps.size > minLaps }
+            val upperTrailing = upperGroup.filter { it.laps.size < maxLaps }
+            if (upperTrailing.isNotEmpty()) {
+                upperTrailing.minByOrNull { it.laneNumber }
+            } else {
+                upperGroup.minByOrNull { it.laneNumber }
+            }
+        } ?: return
+
+        onLapLane(targetLane.laneNumber, nowRealtime)
     }
 
     // --- Swimmer CRUD ---

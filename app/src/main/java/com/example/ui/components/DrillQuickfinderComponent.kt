@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -108,7 +109,16 @@ fun DrillQuickfinderComponent(
         }
     }
 
+    val drillListState = androidx.compose.foundation.lazy.rememberLazyListState()
+    LaunchedEffect(drillListState.isScrollInProgress) {
+        if (drillListState.isScrollInProgress) {
+            focusManager.clearFocus()
+            keyboardController?.hide()
+        }
+    }
+
     LazyColumn(
+        state = drillListState,
         modifier = modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(10.dp),
         contentPadding = PaddingValues(bottom = 24.dp)
@@ -125,7 +135,11 @@ fun DrillQuickfinderComponent(
                     },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { searchQuery = "" }) {
+                            IconButton(onClick = {
+                                searchQuery = ""
+                                focusManager.clearFocus()
+                                keyboardController?.hide()
+                            }) {
                                 Icon(imageVector = Icons.Default.Clear, contentDescription = "Löschen", tint = Color.LightGray)
                             }
                         }
@@ -276,7 +290,10 @@ fun DrillQuickfinderComponent(
                             text = "Filter zurücksetzen",
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                             color = AquaPrimary,
-                            modifier = Modifier.clickable {
+                            modifier = Modifier.clickable(
+                                indication = null,
+                                interactionSource = androidx.compose.runtime.remember { MutableInteractionSource() }
+                            ) {
                                 selectedStrokeFilter = "Alle"
                                 selectedFocusAreaFilter = "Alle"
                                 selectedSpecificFocusFilter = "Alle"
@@ -338,7 +355,10 @@ private fun TechDrillCard(
         border = BorderStroke(1.dp, Color(0xFF1B2E46)),
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { isExpanded = !isExpanded }
+            .clickable(
+                indication = null,
+                interactionSource = androidx.compose.runtime.remember { MutableInteractionSource() }
+            ) { isExpanded = !isExpanded }
     ) {
         Column(
             modifier = Modifier.padding(14.dp)

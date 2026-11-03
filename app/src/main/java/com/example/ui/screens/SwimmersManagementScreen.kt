@@ -4,6 +4,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,6 +46,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -136,7 +139,13 @@ fun SwimmersManagementScreen(
         modifier = modifier
             .fillMaxSize()
             .background(DeepOceanBackground)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(horizontal = 14.dp, vertical = 12.dp)
+            .pointerInput(Unit) {
+                detectTapGestures {
+                    focusManager.clearFocus(force = true)
+                    keyboardController?.hide()
+                }
+            },
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Header Row with Title, Import/Export Buttons
@@ -237,7 +246,11 @@ fun SwimmersManagementScreen(
                 },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.swimmersSearchQuery.value = "" }) {
+                        IconButton(onClick = {
+                            viewModel.swimmersSearchQuery.value = ""
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
+                        }) {
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Suche löschen",
@@ -259,7 +272,11 @@ fun SwimmersManagementScreen(
                 item {
                     androidx.compose.material3.FilterChip(
                         selected = selectedGroup == null,
-                        onClick = { viewModel.selectedGroupFilter.value = null },
+                        onClick = {
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
+                            viewModel.selectedGroupFilter.value = null
+                        },
                         label = { Text("Alle (${allSwimmers.size})", fontSize = 12.sp, fontWeight = if (selectedGroup == null) FontWeight.Bold else FontWeight.Normal) },
                         colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
                             selectedContainerColor = AquaPrimary,
@@ -278,6 +295,8 @@ fun SwimmersManagementScreen(
                     androidx.compose.material3.FilterChip(
                         selected = isSelected,
                         onClick = {
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
                             viewModel.selectedGroupFilter.value = if (isSelected) null else group
                         },
                         label = { Text("$group ($count)", fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
@@ -294,7 +313,14 @@ fun SwimmersManagementScreen(
                         shape = RoundedCornerShape(12.dp),
                         color = Color(0xFF132738),
                         border = androidx.compose.foundation.BorderStroke(1.dp, AquaPrimary.copy(alpha = 0.5f)),
-                        modifier = Modifier.clickable { isAddGroupDialogOpen = true }
+                        modifier = Modifier.clickable(
+                            indication = null,
+                            interactionSource = androidx.compose.runtime.remember { MutableInteractionSource() }
+                        ) {
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
+                            isAddGroupDialogOpen = true
+                        }
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -329,7 +355,16 @@ fun SwimmersManagementScreen(
                     )
                 }
             } else {
+                val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+                androidx.compose.runtime.LaunchedEffect(listState.isScrollInProgress) {
+                    if (listState.isScrollInProgress) {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                    }
+                }
+
                 LazyColumn(
+                    state = listState,
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     contentPadding = PaddingValues(bottom = 80.dp)
                 ) {
@@ -339,7 +374,13 @@ fun SwimmersManagementScreen(
                         contentType = { "SwimmerCard" }
                     ) { swimmer ->
                         val swimmerId = swimmer.id
-                        val onClick = remember(swimmerId) { { selectedSwimmerId = swimmerId } }
+                        val onClick = remember(swimmerId) {
+                            {
+                                focusManager.clearFocus()
+                                keyboardController?.hide()
+                                selectedSwimmerId = swimmerId
+                            }
+                        }
                         SwimmerCard(
                             swimmer = swimmer,
                             onClick = onClick
@@ -350,7 +391,11 @@ fun SwimmersManagementScreen(
         }
 
         FloatingActionButton(
-            onClick = { isAddDialogOpen = true },
+            onClick = {
+                focusManager.clearFocus()
+                keyboardController?.hide()
+                isAddDialogOpen = true
+            },
             containerColor = AquaPrimary,
             contentColor = Color.Black,
             modifier = Modifier
@@ -624,11 +669,22 @@ private fun ManageGroupsDialog(
         )
     }
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(onDismissRequest = {
+        focusManager.clearFocus()
+        keyboardController?.hide()
+        onDismiss()
+    }) {
         Surface(
             shape = RoundedCornerShape(22.dp),
             color = Color(0xFF101B2B),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .pointerInput(Unit) {
+                    detectTapGestures {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                    }
+                }
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Text(
@@ -755,13 +811,23 @@ private fun ManageGroupsDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
                 ) {
-                    Button(onClick = onDismiss, colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent), modifier = Modifier.sizeIn(minHeight = 48.dp)) {
+                    Button(
+                        onClick = {
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
+                            onDismiss()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                        modifier = Modifier.sizeIn(minHeight = 48.dp)
+                    ) {
                         Text("Schließen", color = Color.LightGray)
                     }
                     if (newGroupName.isNotBlank()) {
                         Spacer(modifier = Modifier.width(8.dp))
                         Button(
                             onClick = {
+                                focusManager.clearFocus()
+                                keyboardController?.hide()
                                 onCreateGroup(newGroupName.trim())
                                 newGroupName = ""
                             },

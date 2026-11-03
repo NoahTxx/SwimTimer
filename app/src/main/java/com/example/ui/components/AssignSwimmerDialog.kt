@@ -2,6 +2,7 @@ package com.example.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -54,7 +55,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
@@ -95,6 +99,7 @@ fun AssignSwimmerDialog(
     onSelectSwimmer: (SwimmerEntity?) -> Unit,
 ) {
     val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     var selectedGroupFilter by remember { mutableStateOf<String?>(null) }
 
     val isInitiallyRelay = initialRelayLegPosition != null || currentLane?.relayMembers?.isNotEmpty() == true
@@ -200,7 +205,11 @@ fun AssignSwimmerDialog(
     }
 
     Dialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = {
+            focusManager.clearFocus(force = true)
+            keyboardController?.hide()
+            onDismiss()
+        },
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Surface(
@@ -211,6 +220,12 @@ fun AssignSwimmerDialog(
             modifier = Modifier
                 .fillMaxWidth(0.95f)
                 .padding(vertical = 12.dp)
+                .pointerInput(Unit) {
+                    detectTapGestures {
+                        focusManager.clearFocus(force = true)
+                        keyboardController?.hide()
+                    }
+                }
                 .testTag("assign_swimmer_dialog")
         ) {
             Column(
@@ -232,7 +247,11 @@ fun AssignSwimmerDialog(
                         modifier = Modifier.weight(1f).padding(end = 8.dp)
                     )
                     IconButton(
-                        onClick = onDismiss,
+                        onClick = {
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
+                            onDismiss()
+                        },
                         modifier = Modifier.sizeIn(minWidth = 40.dp, minHeight = 40.dp)
                     ) {
                         Icon(imageVector = Icons.Default.Close, contentDescription = "Schließen", tint = Color.LightGray)
@@ -259,7 +278,10 @@ fun AssignSwimmerDialog(
                                 color = if (!isRelayMode) AquaPrimary else Color.Transparent,
                                 modifier = Modifier
                                     .weight(1f)
-                                    .clickable { isRelayMode = false }
+                                    .clickable(
+                                        indication = null,
+                                        interactionSource = androidx.compose.runtime.remember { MutableInteractionSource() }
+                                    ) { isRelayMode = false }
                                     .testTag("assign_mode_single")
                             ) {
                                 Row(
@@ -289,7 +311,10 @@ fun AssignSwimmerDialog(
                                 color = if (isRelayMode) AquaPrimary else Color.Transparent,
                                 modifier = Modifier
                                     .weight(1f)
-                                    .clickable { isRelayMode = true }
+                                    .clickable(
+                                        indication = null,
+                                        interactionSource = androidx.compose.runtime.remember { MutableInteractionSource() }
+                                    ) { isRelayMode = true }
                                     .testTag("assign_mode_relay")
                             ) {
                                 Row(
@@ -325,7 +350,14 @@ fun AssignSwimmerDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .defaultMinSize(minHeight = 46.dp)
-                            .clickable { onSelectSwimmer(null) }
+                            .clickable(
+                                indication = null,
+                                interactionSource = androidx.compose.runtime.remember { MutableInteractionSource() }
+                            ) {
+                                focusManager.clearFocus()
+                                keyboardController?.hide()
+                                onSelectSwimmer(null)
+                            }
                             .padding(vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -499,7 +531,10 @@ fun AssignSwimmerDialog(
                                         modifier = Modifier
                                             .weight(1f)
                                             .fillMaxHeight()
-                                            .clickable { activeLegIdx = idx }
+                                            .clickable(
+                                                indication = null,
+                                                interactionSource = androidx.compose.runtime.remember { MutableInteractionSource() }
+                                            ) { activeLegIdx = idx }
                                     ) {
                                         Column(
                                             modifier = Modifier.padding(horizontal = 9.dp, vertical = 7.dp),
@@ -597,7 +632,10 @@ fun AssignSwimmerDialog(
                                                             color = Color(0xFF1F354D),
                                                             modifier = Modifier
                                                                 .size(18.dp)
-                                                                .clickable {
+                                                                .clickable(
+                                                                    indication = null,
+                                                                    interactionSource = androidx.compose.runtime.remember { MutableInteractionSource() }
+                                                                ) {
                                                                     val updated = relayLegs.toMutableList()
                                                                     updated[idx] = updated[idx].copy(
                                                                         swimmerId = null,
@@ -766,7 +804,16 @@ fun AssignSwimmerDialog(
                         modifier = Modifier.padding(vertical = 12.dp)
                     )
                 } else {
+                    val assignListState = androidx.compose.foundation.lazy.rememberLazyListState()
+                    androidx.compose.runtime.LaunchedEffect(assignListState.isScrollInProgress) {
+                        if (assignListState.isScrollInProgress) {
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
+                        }
+                    }
+
                     LazyColumn(
+                        state = assignListState,
                         modifier = Modifier.height(if (isRelayMode) 250.dp else 320.dp),
                         verticalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
@@ -810,7 +857,12 @@ fun AssignSwimmerDialog(
                                 ),
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable {
+                                    .clickable(
+                                        indication = null,
+                                        interactionSource = androidx.compose.runtime.remember { MutableInteractionSource() }
+                                    ) {
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
                                         if (!isRelayMode) {
                                             onSelectSwimmer(swimmer)
                                         } else {
@@ -975,6 +1027,7 @@ fun AssignSwimmerDialog(
                     Button(
                         onClick = {
                             focusManager.clearFocus()
+                            keyboardController?.hide()
                             onSelectRelayTeam(relayTeamName, relayLegs)
                         },
                         shape = RoundedCornerShape(12.dp),
