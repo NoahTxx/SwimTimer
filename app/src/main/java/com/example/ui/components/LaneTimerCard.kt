@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -266,7 +267,10 @@ private fun LaneHeader(
             Row(
                 modifier = Modifier
                     .weight(1f)
-                    .clickable { onAssignSwimmerClick() },
+                    .clickable(
+                        indication = null,
+                        interactionSource = androidx.compose.runtime.remember { MutableInteractionSource() }
+                    ) { onAssignSwimmerClick() },
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
@@ -418,7 +422,10 @@ private fun RelayLineupSection(
                             modifier = legModifier
                                 .then(
                                     if (onLegClick != null) {
-                                        Modifier.clickable { onLegClick(member.legPosition) }
+                                        Modifier.clickable(
+                                            indication = null,
+                                            interactionSource = androidx.compose.runtime.remember { MutableInteractionSource() }
+                                        ) { onLegClick(member.legPosition) }
                                     } else {
                                         Modifier
                                     }
@@ -916,7 +923,10 @@ private fun LaneProgressAndLaps(
         if (allLaps.isNotEmpty()) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.clickable { onExpandClick() }
+                modifier = Modifier.clickable(
+                    indication = null,
+                    interactionSource = androidx.compose.runtime.remember { MutableInteractionSource() }
+                ) { onExpandClick() }
             ) {
                 Text(
                     text = if (isSeriesEnabled && seriesCount > 1) "${allLaps.size} Splits ($seriesCount S.)" else "${allLaps.size} Splits",

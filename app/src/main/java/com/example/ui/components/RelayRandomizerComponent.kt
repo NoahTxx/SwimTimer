@@ -64,6 +64,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
@@ -184,6 +185,7 @@ fun RelayRandomizerComponent(
     onApplyTeamsToStopwatch: ((teams: List<RelayTeamPlan>, strokeType: String, legDistanceMeters: Int) -> Unit)? = null,
 ) {
     val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     val groupsToDisplay = remember(availableGroups, dbSwimmers) {
         availableGroups.ifEmpty {
@@ -348,7 +350,7 @@ fun RelayRandomizerComponent(
                                     ),
                                     modifier = Modifier
                                         .weight(1f)
-                                        .clickable {
+                                        .noRippleClickable {
                                             selectedMode = mode
                                             statusHintMessage = null
                                         }
@@ -453,7 +455,7 @@ fun RelayRandomizerComponent(
                                         ),
                                         modifier = Modifier
                                             .weight(1f)
-                                            .clickable { selectedStroke = stroke }
+                                            .noRippleClickable { selectedStroke = stroke }
                                     ) {
                                         Box(
                                             contentAlignment = Alignment.Center,
@@ -504,7 +506,7 @@ fun RelayRandomizerComponent(
                                             color = if (isAuto) AquaPrimary else Color(0xFF0E1B2A),
                                             border = BorderStroke(1.dp, if (isAuto) AquaPrimary else Color(0xFF1E344B)),
                                             modifier = Modifier
-                                                .clickable { customStarterLimit = 0 }
+                                                .noRippleClickable { customStarterLimit = 0 }
                                                 .testTag("relay_starters_auto")
                                         ) {
                                             Text(
@@ -528,7 +530,7 @@ fun RelayRandomizerComponent(
                                             color = if (isSelected) AquaPrimary else Color(0xFF0E1B2A),
                                             border = BorderStroke(1.dp, if (isSelected) AquaPrimary else Color(0xFF1E344B)),
                                             modifier = Modifier
-                                                .clickable {
+                                                .noRippleClickable {
                                                     if (selectedMode == RelayOptimizationMode.FASTEST_SINGLE) {
                                                         starterCountPerTeam = count
                                                     } else {
@@ -703,7 +705,10 @@ fun RelayRandomizerComponent(
                             placeholder = { Text("Gäste / Zusätzliche Namen (Komma-getrennt)...", color = Color.Gray, fontSize = 12.sp) },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                            keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                            keyboardActions = KeyboardActions(onDone = {
+                                focusManager.clearFocus(force = true)
+                                keyboardController?.hide()
+                            }),
                             shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedContainerColor = OceanSurface,

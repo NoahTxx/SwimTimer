@@ -158,6 +158,53 @@ fun IntervalConfigDialog(
     val cardColor = Color(0xFF162536)
     val cardBorder = BorderStroke(1.dp, Color(0xFF22384F))
 
+    val onApplyConfig: () -> Unit = {
+        sendOffCustomText.toIntOrNull()?.let {
+            if (it > 0) sendOffDurationSec = it
+        }
+        keyboardController?.hide()
+        focusManager.clearFocus(force = true)
+        val parsedMaxCount = maxSeriesCountText.toIntOrNull()?.takeIf { it > 0 }
+        val newConfig = SeriesConfig(
+            isEnabled = isSeriesEnabled && !isRelaySelected,
+            mode = seriesMode,
+            restDurationSeconds = restDurationSec,
+            sendOffDurationSeconds = sendOffDurationSec,
+            maxSeriesCount = parsedMaxCount
+        )
+        when {
+            onSaveWithRelayCount != null -> {
+                onSaveWithRelayCount(
+                    mode,
+                    intervalSec,
+                    poolLength,
+                    distance,
+                    effectiveSplitDistance,
+                    stroke,
+                    newConfig,
+                    isRelaySelected,
+                    relayStarterCount
+                )
+            }
+            onSaveWithRelay != null -> {
+                onSaveWithRelay(
+                    mode,
+                    intervalSec,
+                    poolLength,
+                    distance,
+                    effectiveSplitDistance,
+                    stroke,
+                    newConfig,
+                    isRelaySelected
+                )
+            }
+            else -> {
+                onSave(mode, intervalSec, poolLength, distance, effectiveSplitDistance, stroke, newConfig)
+            }
+        }
+        onDismiss()
+    }
+
     Dialog(
         onDismissRequest = {
             keyboardController?.hide()
@@ -857,52 +904,7 @@ fun IntervalConfigDialog(
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
-                        onClick = {
-                            sendOffCustomText.toIntOrNull()?.let {
-                                if (it > 0) sendOffDurationSec = it
-                            }
-                            keyboardController?.hide()
-                            focusManager.clearFocus(force = true)
-                            val parsedMaxCount = maxSeriesCountText.toIntOrNull()?.takeIf { it > 0 }
-                            val newConfig = SeriesConfig(
-                                isEnabled = isSeriesEnabled && !isRelaySelected,
-                                mode = seriesMode,
-                                restDurationSeconds = restDurationSec,
-                                sendOffDurationSeconds = sendOffDurationSec,
-                                maxSeriesCount = parsedMaxCount
-                            )
-                            when {
-                                onSaveWithRelayCount != null -> {
-                                    onSaveWithRelayCount(
-                                        mode,
-                                        intervalSec,
-                                        poolLength,
-                                        distance,
-                                        effectiveSplitDistance,
-                                        stroke,
-                                        newConfig,
-                                        isRelaySelected,
-                                        relayStarterCount
-                                    )
-                                }
-                                onSaveWithRelay != null -> {
-                                    onSaveWithRelay(
-                                        mode,
-                                        intervalSec,
-                                        poolLength,
-                                        distance,
-                                        effectiveSplitDistance,
-                                        stroke,
-                                        newConfig,
-                                        isRelaySelected
-                                    )
-                                }
-                                else -> {
-                                    onSave(mode, intervalSec, poolLength, distance, effectiveSplitDistance, stroke, newConfig)
-                                }
-                            }
-                            onDismiss()
-                        },
+                        onClick = { onApplyConfig() },
                         colors = ButtonDefaults.buttonColors(containerColor = AquaPrimary)
                     ) {
                         Text("Übernehmen", color = Color.Black, fontWeight = FontWeight.Bold, maxLines = 1)

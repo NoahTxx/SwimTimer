@@ -30,7 +30,7 @@ object ExportHelper {
         sb.append("📏 *Distanz:* ${s.targetDistanceMeters}m ${s.strokeType} (${s.poolLengthMeters}m Becken)\n")
         val modeText = if (s.startMode == "INTERVAL") "Intervall (+${s.intervalOffsetSeconds}s)" else "Massenstart"
         sb.append("⏱️ *Start:* $modeText\n")
-        if (s.notes.isNotBlank()) {
+        if (s.notes.isNotBlank() && s.notes != "Erfasst mit SwimTimer am Beckenrand") {
             sb.append("📝 *Notiz:* ${s.notes}\n")
         }
         sb.append("━━━━━━━━━━━━━━━━━━━━━━━━━\n")
@@ -91,8 +91,6 @@ object ExportHelper {
                 sb.append("   ▫️ $lapPrefix$starterTag$strokeTag: Split *${TimeFormatter.formatMillis(lap.splitTimeMillis)}* (Runde: ${TimeFormatter.formatMillis(lap.lapTimeMillis)})$paceDelta\n")
             }
         }
-        sb.append("\n━━━━━━━━━━━━━━━━━━━━━━━━━\n")
-        sb.append("⏱️ Erfasst mit *SwimTimer* am Beckenrand")
         return sb.toString()
     }
 
@@ -117,7 +115,7 @@ object ExportHelper {
         sb.append("Titel: ${s.title}\n")
         sb.append("Disziplin: ${s.strokeType} | Becken: ${s.poolLengthMeters}m | Distanz: ${s.targetDistanceMeters}m\n")
         sb.append("Start-Modus: ${if (s.startMode == "INTERVAL") "Intervall (${s.intervalOffsetSeconds}s)" else "Gemeinsamer Start"}\n")
-        if (s.notes.isNotBlank()) {
+        if (s.notes.isNotBlank() && s.notes != "Erfasst mit SwimTimer am Beckenrand") {
             sb.append("Notizen: ${s.notes}\n")
         }
         sb.append("\nERGEBNISSE & SPLITS:\n")
@@ -169,8 +167,6 @@ object ExportHelper {
                 sb.append("  • $lapPrefix$starterTag$strokeTag: Split ${TimeFormatter.formatMillis(lap.splitTimeMillis)} | Runde: ${TimeFormatter.formatMillis(lap.lapTimeMillis)}$paceDelta\n")
             }
         }
-        sb.append("\n----------------------------------------\n")
-        sb.append("Erfasst mit SwimTimer am Beckenrand")
         return sb.toString()
     }
 
