@@ -278,8 +278,74 @@ object StandardTechDrills {
             ),
             goal = "Verhindert Hektik nach dem Eintauchen und vergrößert die Zuglänge."
         ),
+        TechDrill(
+            id = "kraul_schnorchel_brett",
+            title = "Kraul mit Schnorchel & Führungsbrett",
+            stroke = "Kraul",
+            focusArea = "Arme (Zug)",
+            specificFocus = "Wasserfassen / Catch",
+            tips = listOf(
+                "Schwimme mit Schnorchel, halte ein Schwimmbrett mit der passiven Hand vorne fest.",
+                "Blick strikt senkrecht nach unten auf den Beckenboden.",
+                "Fokussiere dich voll auf die Unterarm-Anstellung (hoher Ellbogen) des ziehenden Arms.",
+                "Wechsle den Führungsarm alle 25 Meter."
+            ),
+            goal = "Isoliert das frühe Wasserfassen ohne Beeinflussung durch die Kopfbewegung beim Atmen."
+        ),
+        TechDrill(
+            id = "kraul_daumen_schenkel_touch",
+            title = "Kraul Daumen-Oberschenkel-Touch",
+            stroke = "Kraul",
+            focusArea = "Arme (Zug)",
+            specificFocus = "Druckphase",
+            tips = listOf(
+                "Am Ende jedes Unterwasserzugs streift der Daumen kurz spürbar die Oberschenkelseite.",
+                "Strecke den Arm nach hinten voll aus, bevor er das Wasser verlässt.",
+                "Achte darauf, den Zug nicht vorzeitig an der Hüfte abzubrechen."
+            ),
+            goal = "Garantiert das vollständige Ausdrücken jedes Zuges und maximiert den Vortrieb."
+        ),
+        TechDrill(
+            id = "kraul_atmungsleiter",
+            title = "Kraul Bilaterale Atmungsleiter (2er / 3er / 4er / 5er)",
+            stroke = "Kraul",
+            focusArea = "Atmung & Koordination",
+            specificFocus = "Rhythmus / Timing",
+            tips = listOf(
+                "Wechsle die Atemintervalle: 25m im 3er-Zug, 25m im 4er-Zug, 25m im 5er-Zug.",
+                "Drehe den Kopf flach zur Seite – eine Brillenlinse bleibt stets im Wasser.",
+                "Atme gleichmäßig und ruhig unter Wasser aus."
+            ),
+            goal = "Trainiert beidseitige Atemflexibilität, flache Kopfhaltung und Sauerstoffmanagement."
+        ),
+        TechDrill(
+            id = "kraul_korkenzieher",
+            title = "Korkenzieher (Kraul-Rücken-Kombination)",
+            stroke = "Kraul",
+            focusArea = "Wasserlage & Rumpf",
+            specificFocus = "Rhythmus / Timing",
+            tips = listOf(
+                "Schwimme 3 Kraulzüge in Bauchlage, drehe dich fließend auf den Rücken.",
+                "Schwimme direkt 3 Rückenzüge und rotiere wieder sanft auf den Bauch.",
+                "Halte während der gesamten Drehung einen kontinuierlichen 6er-Beinschlag aufrecht."
+            ),
+            goal = "Verbessert das Rotationsgefühl um die Längsachse und stärkt die Rumpfstabilität."
+        ),
+        TechDrill(
+            id = "kraul_flossen_seitenlage",
+            title = "Kraul-Kick in 90°-Seitenlage mit Flossen",
+            stroke = "Kraul",
+            focusArea = "Beine (Kick)",
+            specificFocus = "Kick-Frequenz",
+            tips = listOf(
+                "Lege dich exakt auf die 90°-Seitenkante, unterer Arm vorne gestreckt, oberer am Oberschenkel.",
+                "Führe einen schmalen, schnellen Kraulbeinschlag aus der Hüfte aus.",
+                "Kopf liegt entspannt auf dem unteren Oberarm, Blick zum Beckenrand gerichtet."
+            ),
+            goal = "Entwickelt einen schmalen, symmetrischen und kraftvollen Beinschlag in Rotationslage."
+        ),
 
-        // === RÜCKEN (15 Übungen) ===
+        // === RÜCKEN (20 Übungen) ===
         TechDrill(
             id = "ruecken_doppelarm",
             title = "Rücken-Doppelarm mit langem Gleiten",
@@ -473,8 +539,73 @@ object StandardTechDrills {
             ),
             goal = "Harmonisiert den Rythmus zwischen Beinschlag und Schulterrotation."
         ),
+        TechDrill(
+            id = "ruecken_l_zug",
+            title = "Rücken L-Zug (90°-Unterwasser-Beugung)",
+            stroke = "Rücken",
+            focusArea = "Arme (Zug)",
+            specificFocus = "Wasserfassen / Catch",
+            tips = listOf(
+                "Nach dem Eintauchen des gestreckten Arms beugt sich der Ellbogen unter Wasser auf 90°.",
+                "Die Handfläche drückt parallel zum Körper explosiv nach hinten in Richtung Füße.",
+                "Vermeide es, mit komplett durchgestrecktem Arm durchzuziehen."
+            ),
+            goal = "Trainiert das effektive Greifen von ruhendem Wasser durch optimale Hebelwirkung."
+        ),
+        TechDrill(
+            id = "ruecken_pause_huefte",
+            title = "Rücken mit Arm-Pause an der Hüfte (Soldier Glide)",
+            stroke = "Rücken",
+            focusArea = "Wasserlage & Rumpf",
+            specificFocus = "Rhythmus / Timing",
+            tips = listOf(
+                "Nach dem finalen Handabdruck an den Oberschenkeln verweilen beide Arme 2–3 Sekunden angelegt.",
+                "Gleite gestreckt durchs Wasser und halte die Hüfte durch stetigen Beinschlag hoch oben.",
+                "Erst danach beginnt der nächste konzentrierte Armzugzyklus."
+            ),
+            goal = "Schult die flache, hohe Gleitlage und das Ausnutzen der erzielten Geschwindigkeit."
+        ),
+        TechDrill(
+            id = "ruecken_beine_schild",
+            title = "Rücken-Beinschlag mit Brett als 'Schild'",
+            stroke = "Rücken",
+            focusArea = "Beine (Kick)",
+            specificFocus = "Kick-Frequenz",
+            tips = listOf(
+                "Halte ein Schwimmbrett in Rückenlage senkrecht quer über deine Oberschenkel und Knie.",
+                "Führe den Rückenbeinschlag aus – die Knie dürfen das Brett keinesfalls berühren!",
+                "Der Kick muss aus der Hüfte mit lockeren Fußgelenken initiiert werden."
+            ),
+            goal = "Zwingt die Beinarbeit aus der Hüfte statt aus dem Knie und verhindert 'Fahrradfahren'."
+        ),
+        TechDrill(
+            id = "ruecken_doppelarm_pullbuoy",
+            title = "Rücken Doppelarmzug mit Pullbuoy",
+            stroke = "Rücken",
+            focusArea = "Arme (Zug)",
+            specificFocus = "Druckphase",
+            tips = listOf(
+                "Klemme einen Pullbuoy zwischen die Oberschenkel – Beine bleiben ruhig.",
+                "Führe simultan mit beiden Armen die Überwasserphase und den Unterwasserzug aus.",
+                "Achte auf symmetrischen, kraftvollen Druckschluss an den Hüften."
+            ),
+            goal = "Reine Kraft- und Ausdauerentwicklung für den symmetrischen Unterwasser-Rückenzug."
+        ),
+        TechDrill(
+            id = "ruecken_paddel_stirn",
+            title = "Rücken mit Handpaddel auf der Stirn",
+            stroke = "Rücken",
+            focusArea = "Wasserlage & Rumpf",
+            specificFocus = "Rhythmus / Timing",
+            tips = listOf(
+                "Lege ein Handpaddel oder einen kleinen Becher flach auf deine Stirn.",
+                "Schwimme ruhiges Rückenschwimmen, ohne dass das Paddel herunterfällt.",
+                "Halte den Kopf vollkommen ruhig und drehe nur Schultern und Rumpf."
+            ),
+            goal = "Eliminiert Kopfwackeln und seitliche Schlangenbewegungen für eine pfeilgerade Wasserlinie."
+        ),
 
-        // === BRUST (15 Übungen) ===
+        // === BRUST (20 Übungen) ===
         TechDrill(
             id = "brust_zwei_kicks",
             title = "2-Beinschläge-1-Armzug Brust",
@@ -667,8 +798,73 @@ object StandardTechDrills {
             ),
             goal = "Garantiert die vollständige Armstreckung am Ende jedes Zugzyklus."
         ),
+        TechDrill(
+            id = "brust_delfinwelle_flossen",
+            title = "Brust-Zug mit flachem Delfinkick & Flossen",
+            stroke = "Brust",
+            focusArea = "Wasserlage & Rumpf",
+            specificFocus = "Rhythmus / Timing",
+            tips = listOf(
+                "Schwimme mit Kurzflossen: Nutze beim Ausheben des Oberkörpers einen flachen Delfinkick.",
+                "Schieße die Hände schnell nach vorne und gleite in Überstreckung.",
+                "Fördert das rhythmische Heben und Senken des Körperschwerpunkts."
+            ),
+            goal = "Trainiert die moderne, wellenförmige und dynamische Brustschwimmtechnik (Undulation)."
+        ),
+        TechDrill(
+            id = "brust_einarmig_wechsel",
+            title = "Brust einarmig im Wechsel (2L + 2R + 2 Normal)",
+            stroke = "Brust",
+            focusArea = "Arme (Zug)",
+            specificFocus = "Wasserfassen / Catch",
+            tips = listOf(
+                "Ein Arm bleibt vorne gestreckt liegen, der andere führt den Brustarmzug aus.",
+                "Normale Brustbeinarbeit bei jedem Zugzyklus beibehalten.",
+                "Fokussiere dich auf den Auswärts- und Einwärtswisch-Druck der einzelnen Hand."
+            ),
+            goal = "Schärft die Feinmotorik und das Druckgefühl des Hand- und Unterarmabdrucks pro Seite."
+        ),
+        TechDrill(
+            id = "brust_vertikal_sculling",
+            title = "Brust Vertikales Sculling mit Eiertritt",
+            stroke = "Brust",
+            focusArea = "Arme (Zug)",
+            specificFocus = "Wasserfassen / Catch",
+            tips = listOf(
+                "Im tiefen Wasser aufrecht stehen, Kopf über Wasser halten.",
+                "Führe mit den Händen vor der Brust horizontale Achter-Schleifen (Sculling) aus.",
+                "Beine halten den Körper mit sanftem Eiertritt oder Brustkick stabil an der Oberfläche."
+            ),
+            goal = "Maximiert das Gefühl für Wasserwiderstand und Druckflächen an Handfläche und Unterarm."
+        ),
+        TechDrill(
+            id = "brust_rueckenlage_fersen",
+            title = "Brust-Kick in Rückenlage (Hände an Fersen)",
+            stroke = "Brust",
+            focusArea = "Beine (Kick)",
+            specificFocus = "Rhythmus / Timing",
+            tips = listOf(
+                "Schwimme in Rückenlage nur mit Brustbeinschlag, Arme liegen gestreckt an der Hüfte.",
+                "Ziehe die Fersen kontrolliert zu den Händen an, Knie bleiben unter Wasser.",
+                "Drehe die Fußspitzen weit nach außen und schließe die Beine mit einem Peitschenschlag."
+            ),
+            goal = "Perfektioniert die korrekte Auswärtsdrehung der Füße und verhindert schädliches Knie-Spreizen."
+        ),
+        TechDrill(
+            id = "brust_3_kicks_1_pull",
+            title = "Brust 3 Kicks pro 1 Armzug (Gleit-Extrem)",
+            stroke = "Brust",
+            focusArea = "Atmung & Koordination",
+            specificFocus = "Rhythmus / Timing",
+            tips = listOf(
+                "Führe 1 normalen Brustzug aus und tauche nach vorne in Streamline ab.",
+                "Führe in gestreckter Gleitlage hintereinander 3 kraftvolle Brustbeinschläge aus.",
+                "Halte den Kopf neutral zwischen den Oberarmen verriegelt."
+            ),
+            goal = "Zwingt den Schwimmer zu perfekter Streamline-Haltung und maximaler Kick-Ausnutzung."
+        ),
 
-        // === DELFIN / SCHMETTERLING (14 Übungen) ===
+        // === DELFIN / SCHMETTERLING (20 Übungen) ===
         TechDrill(
             id = "delfin_biondi",
             title = "Biondi-Drill (Delfin)",
@@ -848,8 +1044,86 @@ object StandardTechDrills {
             ),
             goal = "Schult den Kick nach oben und unten in vollkommener Körperstreckung."
         ),
+        TechDrill(
+            id = "delfin_kraul_arme_2_kicks",
+            title = "Delfinkick mit Kraul-Armzug (Timing-Drill)",
+            stroke = "Delfin",
+            focusArea = "Atmung & Koordination",
+            specificFocus = "Rhythmus / Timing",
+            tips = listOf(
+                "Schwimme Kraul-Armzug, aber führe pro Armzug genau 2 Delfinkicks aus.",
+                "1. Kick erfolgt beim Eintauchen der Hand, 2. Kick beim Durchdrücken am Oberschenkel.",
+                "Gleichmäßiger Rhythmus ohne Hektik."
+            ),
+            goal = "Verankert das fundamentale 2-Kick-pro-Armzug-Timing ohne frühzeitige Schulterermüdung."
+        ),
+        TechDrill(
+            id = "delfin_einarmig_oberschenkel",
+            title = "Delfin einarmig (passiver Arm am Oberschenkel)",
+            stroke = "Delfin",
+            focusArea = "Arme (Zug)",
+            specificFocus = "Rückholphase",
+            tips = listOf(
+                "Der passive Arm liegt angelegt am Oberschenkel, der aktive Arm führt den Schmetterlingszug aus.",
+                "Der schwingende Arm wird flach und weit über die Wasseroberfläche geführt.",
+                "Atme zur Seite des passiven Arms oder nach vorne."
+            ),
+            goal = "Trainiert den tiefen, entspannten Armschwung knapp über der Wasseroberfläche."
+        ),
+        TechDrill(
+            id = "delfin_haende_ruecken",
+            title = "Delfinkick mit Händen auf dem Rücken",
+            stroke = "Delfin",
+            focusArea = "Wasserlage & Rumpf",
+            specificFocus = "Unterwasser-Kick",
+            tips = listOf(
+                "Lege beide Hände verschränkt auf das Gesäß, schwimme nur mit Körperwelle.",
+                "Drücke abwechselnd Brustkorb und Hüfte ins Wasser, um die Welle zu initiieren.",
+                "Knie nur minimal beugen, der Impuls kommt aus der Rumpfmuskulatur."
+            ),
+            goal = "Erzwingt die Körperwelle aus Brustkorb und Hüfte statt isoliert aus den Knien."
+        ),
+        TechDrill(
+            id = "delfin_brustkick",
+            title = "Delfin-Armzug mit Brust-Beinschlag",
+            stroke = "Delfin",
+            focusArea = "Atmung & Koordination",
+            specificFocus = "Rhythmus / Timing",
+            tips = listOf(
+                "Führe den regulären Schmetterlings-Armzug aus.",
+                "Nutze beim Durchzug und Ausheben einen kräftigen Brustbeinschlag statt Delfinkick.",
+                "Gibt enormen Auftrieb und erleichtert die Atmung bei Ermüdung."
+            ),
+            goal = "Erleichtert das rhythmische Heben der Schultern und das Atmen für ein lockeres Fluggefühl."
+        ),
+        TechDrill(
+            id = "delfin_3_3_3",
+            title = "Delfin 3-3-3 Rhythmus-Pyramide",
+            stroke = "Delfin",
+            focusArea = "Atmung & Koordination",
+            specificFocus = "Rhythmus / Timing",
+            tips = listOf(
+                "3 Züge nur mit dem linken Arm, 3 Züge nur mit dem rechten Arm, 3 Züge beidarmig Schmetterling.",
+                "Kontinuierlicher 2-Takt-Delfinkick über die gesamte Serie.",
+                "Wiederhole den Zyklus rhythmisch über 50 Meter."
+            ),
+            goal = "Baut Ermüdungswiderstand und sauberes Rhythmusgefühl vor der ganzen Lage auf."
+        ),
+        TechDrill(
+            id = "delfin_daumen_wasserflaeche",
+            title = "Delfin Rückholphase flach über Wasser",
+            stroke = "Delfin",
+            focusArea = "Arme (Zug)",
+            specificFocus = "Rückholphase",
+            tips = listOf(
+                "Beim Vorschwingen der Arme über Wasser streifen die Daumen fast die Wasseroberfläche.",
+                "Vermeide es, die Arme steil in den Himmel zu reißen.",
+                "Schultern bleiben entspannt, Arme werden nach vorne geworfen."
+            ),
+            goal = "Verhindert Kraftverlust durch unnötig hohe Armführung und schont die Schultergelenke."
+        ),
 
-        // === WENDEN & STARTS (10 Übungen) ===
+        // === WENDEN & STARTS (15 Übungen) ===
         TechDrill(
             id = "wende_kraul_rolle_bahn",
             title = "Kraul-Rolle mitten auf der Bahn",
@@ -978,6 +1252,71 @@ object StandardTechDrills {
                 "Erster Armzug bricht die Wasseroberfläche."
             ),
             goal = "Nutzt die höchste Geschwindigkeit der Unterwasserphase optimal aus."
+        ),
+        TechDrill(
+            id = "wende_kraul_tennisball_kinn",
+            title = "Kraul-Rollwende mit Tennisball unter Kinn",
+            stroke = "Wenden / Starts",
+            focusArea = "Wasserlage & Rumpf",
+            specificFocus = "Rhythmus / Timing",
+            tips = listOf(
+                "Klemme einen Tennisball zwischen Kinn und Brustbein ein.",
+                "Führe die Rollwende an der Wand aus, ohne dass der Tennisball verloren geht.",
+                "Garantiert die extrem kompakte Kopfbeugung für schnellste Drehgeschwindigkeit."
+            ),
+            goal = "Zwingt den Kopf zur festen Brustbeugung für eine kompakte, rasante Rollwende."
+        ),
+        TechDrill(
+            id = "wende_ruecken_fussplatzierung",
+            title = "Rücken-Wende Fußplatzierung & 45°-Abstoß",
+            stroke = "Wenden / Starts",
+            focusArea = "Wasserlage & Rumpf",
+            specificFocus = "Rhythmus / Timing",
+            tips = listOf(
+                "Nach der Rollwende die Füße hüftbreit ca. 35 cm unter dem Wasserspiegel flach an die Wand setzen.",
+                "Explosiver Abstoß in exakter 45°-Streckung nach hinten-unten in Rückenlage.",
+                "Sofort in feste Streamline-Position einrasten."
+            ),
+            goal = "Verhindert zu tiefes oder zu hohes Wegrutschen von der Wand und optimiert den Abstoßvektor."
+        ),
+        TechDrill(
+            id = "wende_brust_tauchzug_challenge",
+            title = "Brust-Wende Tauchzug Weiten-Challenge",
+            stroke = "Wenden / Starts",
+            focusArea = "Wasserlage & Rumpf",
+            specificFocus = "Unterwasser-Kick",
+            tips = listOf(
+                "Kräftiger Wandabstoß in Streamline, 1 Delfinkick, 1 langer Unterwasserarmzug bis zur Hüfte.",
+                "Gleitpause mit Händen an den Oberschenkeln, Arme eng nach vorne führen und 1 Brustkick zum Auftauchen.",
+                "Ziel: Die 10m- bis 12m-Marke vor dem ersten regulären Armzug mühelos durchgleiten."
+            ),
+            goal = "Schöpft die maximal erlaubte Tauchzugdistanz im Brustschwimmen optimal und legal aus."
+        ),
+        TechDrill(
+            id = "start_track_fussstellung",
+            title = "Startblock Track-Start Haltungs-Drill",
+            stroke = "Wenden / Starts",
+            focusArea = "Beine (Kick)",
+            specificFocus = "Kick-Frequenz",
+            tips = listOf(
+                "Vorderer Fuß greift mit den Zehen fest die Kante, hinterer Fuß steht auf der Startkeile.",
+                "Gewichtsverteilung ca. 60 % vorne / 40 % hinten, Hände ziehen energisch an der Blockvorderkante.",
+                "Bei Signal explosives Katapultieren nach vorne mit beiden Beinen."
+            ),
+            goal = "Garantiert einen stabilen Stand und explosive Absprungkraft ohne Fehlstartrisiko."
+        ),
+        TechDrill(
+            id = "start_staffelwechsel_timing",
+            title = "Staffel-Übernahme Schwung- & Schrittstart",
+            stroke = "Wenden / Starts",
+            focusArea = "Atmung & Koordination",
+            specificFocus = "Rhythmus / Timing",
+            tips = listOf(
+                "Beobachte den heranschwimmenden Staffelkameraden ab der 2m-Marke.",
+                "Starte den Armschwung nach hinten, wenn der Schwimmer die Hand zum Anschlag streckt.",
+                "Absprung von der Blockkante erfolgt exakt im Moment der Berührung der Anschlagmatte."
+            ),
+            goal = "Reduziert Staffelwechselzeiten auf unter 0,2 Sekunden bei 100 % Regelsicherheit."
         )
     )
 }

@@ -50,7 +50,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameMillis
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -681,42 +681,43 @@ private fun DigitalTimerDisplay(
     LaunchedEffect(status, laneStartTimeRealtime, pausedElapsedMillis, finishTimeMillis, finishRealtimeMillis, restTargetRealtime, isSeriesEnabled, seriesMode, sendOffDurationSec, countdownRemainingSeconds) {
         if (status == LaneStatus.RUNNING && laneStartTimeRealtime != null) {
             while (true) {
-                withFrameMillis {
-                    val elapsed = (clock.nowMillis() - laneStartTimeRealtime).coerceAtLeast(0L)
-                    if (isSendOffMode) {
-                        if (elapsed <= sendOffMs) {
-                            displayMillis = sendOffMs - elapsed
-                            isOverrunning = false
-                            overrunMillis = 0L
-                        } else {
-                            displayMillis = 0L
-                            isOverrunning = true
-                            overrunMillis = elapsed - sendOffMs
-                        }
-                    } else {
-                        displayMillis = elapsed
+                val elapsed = (clock.nowMillis() - laneStartTimeRealtime).coerceAtLeast(0L)
+                if (isSendOffMode) {
+                    if (elapsed <= sendOffMs) {
+                        displayMillis = sendOffMs - elapsed
                         isOverrunning = false
                         overrunMillis = 0L
+                    } else {
+                        displayMillis = 0L
+                        isOverrunning = true
+                        overrunMillis = elapsed - sendOffMs
                     }
+                } else {
+                    displayMillis = elapsed
+                    isOverrunning = false
+                    overrunMillis = 0L
                 }
+                delay(20L)
             }
         } else if (status == LaneStatus.FINISHED && finishRealtimeMillis != null) {
             displayMillis = finishTimeMillis ?: pausedElapsedMillis
             isOverrunning = false
             overrunMillis = 0L
             while (true) {
-                withFrameMillis {
-                    restElapsedMillis = (clock.nowMillis() - finishRealtimeMillis).coerceAtLeast(0L)
-                }
+                val rest = (clock.nowMillis() - finishRealtimeMillis).coerceAtLeast(0L)
+                restElapsedMillis = rest
+                val stepDelay = if (rest > 60_000L) 1000L else 100L
+                delay(stepDelay)
             }
         } else if (status == LaneStatus.REST_COUNTDOWN && restTargetRealtime != null) {
             displayMillis = finishTimeMillis ?: pausedElapsedMillis
             isOverrunning = false
             overrunMillis = 0L
             while (true) {
-                withFrameMillis {
-                    restElapsedMillis = (restTargetRealtime - clock.nowMillis()).coerceAtLeast(0L)
-                }
+                val remaining = (restTargetRealtime - clock.nowMillis()).coerceAtLeast(0L)
+                restElapsedMillis = remaining
+                if (remaining <= 0L) break
+                delay(50L)
             }
         } else {
             if (status == LaneStatus.PAUSED) {
@@ -870,7 +871,12 @@ private fun LaneProgressAndLaps(
     onExpandClick: () -> Unit
 ) {
     val completedDistance = if (status == LaneStatus.FINISHED || status == LaneStatus.REST_COUNTDOWN) {
-        targetDistanceMeters
+        val totalExpectedSplits = (targetDistanceMeters / splitDistanceMeters).coerceAtLeast(1)
+        if (currentRunLaps.isEmpty() || currentRunLaps.any { it.lapIndex >= totalExpectedSplits }) {
+            targetDistanceMeters
+        } else {
+            (currentRunLaps.size * splitDistanceMeters).coerceAtMost(targetDistanceMeters)
+        }
     } else {
         (currentRunLaps.size * splitDistanceMeters).coerceAtMost(targetDistanceMeters)
     }

@@ -46,6 +46,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -87,7 +88,7 @@ fun MultiStopwatchScreen(
     val swimmers by viewModel.allSwimmers.collectAsStateWithLifecycle()
     val availableGroups by viewModel.availableGroups.collectAsStateWithLifecycle()
 
-    var isConfigDialogOpen by remember { mutableStateOf(value = false) }
+    var isConfigDialogOpen by rememberSaveable { mutableStateOf(value = false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(uiState.lastUndoMessage) {
@@ -365,14 +366,14 @@ fun MultiStopwatchScreen(
 
             // BOTTOM MASTER CONTROLS BAR
             val anyRunning = uiState.hasOpenRun
-            val anyHasTimes by remember(uiState.lanes) {
+            val anyHasTimes by remember {
                 androidx.compose.runtime.derivedStateOf {
                     uiState.lanes.any {
                         (it.currentElapsedMillis > 0L) || (it.allLaps.isNotEmpty()) || (it.status == LaneStatus.FINISHED)
                     }
                 }
             }
-            val anyLapsRecorded by remember(uiState.lanes) {
+            val anyLapsRecorded by remember {
                 androidx.compose.runtime.derivedStateOf {
                     uiState.lanes.any { it.allLaps.isNotEmpty() }
                 }
@@ -391,7 +392,7 @@ fun MultiStopwatchScreen(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    var isResetConfirmOpen by remember { mutableStateOf(value = false) }
+                    var isResetConfirmOpen by rememberSaveable { mutableStateOf(value = false) }
 
                     FilledTonalButton(
                         onClick = {
@@ -451,7 +452,7 @@ fun MultiStopwatchScreen(
                     }
                 }
 
-                var isNewRunConfirmOpen by remember { mutableStateOf(value = false) }
+                var isNewRunConfirmOpen by rememberSaveable { mutableStateOf(value = false) }
 
                 if (isNewRunConfirmOpen) {
                     CenteredConfirmDialog(
@@ -528,10 +529,10 @@ fun MultiStopwatchScreen(
                     }
                 }
 
-                // Right: Speichern / Save (Protected against accidental double-saving)
+                // Right: Speichern / Save (Protected against accidental double-saving and premature saving during open runs)
                 Button(
                     onClick = { HapticUtil.vibrateHeavy(context); viewModel.saveCurrentSession() },
-                    enabled = anyLapsRecorded && !uiState.isCurrentRunSaved,
+                    enabled = anyLapsRecorded && !uiState.hasOpenRun && !uiState.isCurrentRunSaved,
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (uiState.isCurrentRunSaved) PaceGreen else AquaPrimary,
@@ -647,6 +648,8 @@ fun MultiStopwatchScreen(
                 swimmers = swimmers,
                 assignedSwimmers = assignedSwimmers,
                 availableGroups = availableGroups,
+                selectedGroupFilter = uiState.assignSwimmerSelectedGroup,
+                onSelectGroupFilter = { viewModel.setAssignSwimmerGroup(it) },
                 currentLane = targetLane,
                 currentStrokeType = uiState.strokeType,
                 currentSplitDistanceMeters = uiState.splitDistanceMeters,
@@ -672,7 +675,7 @@ private fun KeepScreenOnEffect(enabled: Boolean) {
 }
 
 @Composable
-private fun CenteredConfirmDialog(
+internal fun CenteredConfirmDialog(
     title: String,
     message: String,
     confirmButtonText: String,

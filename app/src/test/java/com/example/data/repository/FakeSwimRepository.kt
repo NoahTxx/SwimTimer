@@ -15,6 +15,8 @@ class FakeSwimRepository : ISwimRepository {
     private val sessionIdGen = AtomicLong(1L)
     private val lapIdGen = AtomicLong(1L)
 
+    var shouldFailOnSave: Boolean = false
+
     private val _swimmers = MutableStateFlow<List<SwimmerEntity>>(emptyList())
     override val allSwimmers: Flow<List<SwimmerEntity>> = _swimmers.asStateFlow()
 
@@ -43,6 +45,13 @@ class FakeSwimRepository : ISwimRepository {
 
     override suspend fun deleteSwimmer(swimmer: SwimmerEntity) {
         _swimmers.value = _swimmers.value.filterNot { it.id == swimmer.id }
+        _sessions.value = _sessions.value.map { sessionWithLaps ->
+            sessionWithLaps.copy(
+                laps = sessionWithLaps.laps.map { lap ->
+                    if (lap.swimmerId == swimmer.id) lap.copy(swimmerId = null) else lap
+                }
+            )
+        }
     }
 
     override suspend fun renameGroupForAllSwimmers(oldName: String, newName: String) {
@@ -71,7 +80,16 @@ class FakeSwimRepository : ISwimRepository {
     override suspend fun saveSessionWithLaps(
         session: SessionEntity,
         laps: List<LapRecordEntity>,
+    ): Long = saveSessionWithLapsAndSwimmers(session, laps, emptyList())
+
+    override suspend fun saveSessionWithLapsAndSwimmers(
+        session: SessionEntity,
+        laps: List<LapRecordEntity>,
+        updatedSwimmers: List<SwimmerEntity>,
     ): Long {
+        if (shouldFailOnSave) {
+            throw IllegalStateException("Simulierter I/O-Fehler beim Speichern")
+        }
         val assignedSessionId = if (session.id > 0) session.id else sessionIdGen.getAndIncrement()
         val savedSession = session.copy(id = assignedSessionId)
         val savedLaps = laps.map { lap ->
@@ -80,7 +98,18 @@ class FakeSwimRepository : ISwimRepository {
         }
         val sessionWithLaps = SessionWithLaps(session = savedSession, laps = savedLaps)
         _sessions.value = listOf(sessionWithLaps) + _sessions.value
+        updatedSwimmers.forEach { updateSwimmer(it) }
         return assignedSessionId
+    }
+
+    override suspend fun updateSessionWithLaps(
+        session: SessionEntity,
+        laps: List<LapRecordEntity>,
+    ) {
+        val updated = SessionWithLaps(session = session, laps = laps)
+        _sessions.value = _sessions.value.map {
+            if (it.session.id == session.id) updated else it
+        }
     }
 
     override suspend fun importSessionsWithLaps(sessionsWithLaps: List<SessionWithLaps>) {

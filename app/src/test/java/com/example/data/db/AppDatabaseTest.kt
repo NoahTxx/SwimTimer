@@ -145,6 +145,34 @@ class AppDatabaseTest {
     }
 
     @Test
+    fun updateSessionAndLaps() = runBlocking {
+        val sessionId = sessionDao.insertSession(SessionEntity(title = "Initial Title", timestamp = 3000L))
+        val initialLap = LapRecordEntity(
+            sessionId = sessionId,
+            swimmerName = "Bahn 1",
+            laneNumber = 1,
+            lapIndex = 1,
+            lapTimeMillis = 32000L,
+            splitTimeMillis = 32000L
+        )
+        lapRecordDao.insertLaps(listOf(initialLap))
+
+        val loaded = sessionDao.getSessionWithLapsSync(sessionId)!!
+        val updatedSession = loaded.session.copy(title = "Updated Title")
+        val updatedLaps = loaded.laps.map { it.copy(swimmerName = "Lukas", swimmerId = 42L) }
+
+        sessionDao.updateSession(updatedSession)
+        lapRecordDao.updateLaps(updatedLaps)
+
+        val retrieved = sessionDao.getSessionWithLapsSync(sessionId)!!
+        assertEquals("Updated Title", retrieved.session.title)
+        assertEquals(1, retrieved.laps.size)
+        assertEquals("Lukas", retrieved.laps.first().swimmerName)
+        assertEquals(42L, retrieved.laps.first().swimmerId)
+        assertEquals(32000L, retrieved.laps.first().splitTimeMillis)
+    }
+
+    @Test
     fun insertAndRetrieveSwimmerWithManualPbsJson() = runBlocking {
         val swimmer = SwimmerEntity(
             name = "Florian Wellbrock",

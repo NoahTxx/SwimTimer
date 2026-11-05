@@ -12,6 +12,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -1263,5 +1264,221 @@ class StopwatchViewModelTest {
 
         viewModel.onResetAll()
     }
+
+    @Test
+    fun updateSessionLaneSwimmers_updatesLaneNamesAndTitleWithoutLosingTimes() = runTest(testDispatcher) {
+        val session = com.example.data.model.SessionEntity(
+            id = 0,
+            title = "Old Title",
+            timestamp = 1_000_000L,
+            targetDistanceMeters = 50,
+            strokeType = "Freistil"
+        )
+        val laps = listOf(
+            com.example.data.model.LapRecordEntity(
+                id = 0,
+                sessionId = 0,
+                swimmerName = "Bahn 1",
+                swimmerId = null,
+                laneNumber = 1,
+                lapIndex = 1,
+                splitTimeMillis = 31_500L,
+                lapTimeMillis = 31_500L
+            ),
+            com.example.data.model.LapRecordEntity(
+                id = 0,
+                sessionId = 0,
+                swimmerName = "Bahn 2",
+                swimmerId = null,
+                laneNumber = 2,
+                lapIndex = 1,
+                splitTimeMillis = 33_200L,
+                lapTimeMillis = 33_200L
+            )
+        )
+        val sessionId = fakeRepository.saveSessionWithLaps(session, laps)
+
+        // Existing swimmer for lane 1
+        val swimmerId = fakeRepository.insertSwimmer(com.example.data.model.SwimmerEntity(name = "Lukas", groupName = "Team A"))
+
+        var onCompleteCalled = false
+        viewModel.updateSessionLaneSwimmers(
+            sessionId = sessionId,
+            newTitle = "New Title",
+            laneSwimmerMap = mapOf(
+                1 to Pair(swimmerId, "Lukas"),
+                2 to Pair(null, "Max")
+            ),
+            autoCreateSwimmers = true,
+            onComplete = { onCompleteCalled = true }
+        )
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(onCompleteCalled)
+        val updatedSession = fakeRepository.getSessionWithLapsSync(sessionId)
+        assertNotNull(updatedSession)
+        assertEquals("New Title", updatedSession?.session?.title)
+
+        val lane1Lap = updatedSession?.laps?.find { it.laneNumber == 1 }
+        assertNotNull(lane1Lap)
+        assertEquals("Lukas", lane1Lap?.swimmerName)
+        assertEquals(swimmerId, lane1Lap?.swimmerId)
+        assertEquals(31_500L, lane1Lap?.splitTimeMillis)
+
+        val lane2Lap = updatedSession?.laps?.find { it.laneNumber == 2 }
+        assertNotNull(lane2Lap)
+        assertEquals("Max", lane2Lap?.swimmerName)
+        assertNotNull(lane2Lap?.swimmerId)
+        assertEquals(33_200L, lane2Lap?.splitTimeMillis)
+    }
+
+    @Test
+    fun standardTechDrills_containsExactly100UniqueDrillsWithBalancedCategories() {
+        val drills = com.example.ui.model.StandardTechDrills.DEFAULT_DRILLS
+        assertEquals(100, drills.size)
+
+        // All IDs must be unique
+        val ids = drills.map { it.id }
+        assertEquals(100, ids.distinct().size)
+
+        // Verify balanced category counts
+        val byStroke = drills.groupBy { it.stroke }
+        assertEquals(25, byStroke["Kraul"]?.size)
+        assertEquals(20, byStroke["Rücken"]?.size)
+        assertEquals(20, byStroke["Brust"]?.size)
+        assertEquals(20, byStroke["Delfin"]?.size)
+        assertEquals(15, byStroke["Wenden / Starts"]?.size)
+    }
+
+    @Test
+    fun earlyFinish_doesNotAwardFullDistancePersonalBest() = runTest(testDispatcher) {
+        viewModel.setTargetDistance(200)
+        viewModel.setSplitDistance(50)
+        viewModel.setStrokeType("Freistil")
+
+        val swimmer = SwimmerEntity(id = 88L, name = "Felix", favoriteStroke = "Freistil")
+        fakeRepository.insertSwimmer(swimmer)
+        viewModel.assignSwimmerToLane(laneNumber = 1, swimmer = swimmer)
+
+        viewModel.onStartSingleLane(laneNumber = 1)
+        fakeClock.currentMillis = 129_000L // 29s
+        viewModel.onLapLane(laneNumber = 1)
+
+        // Swimmer stops early after only 1 split of 50m (race was 200m)
+        fakeClock.currentMillis = 132_000L
+        viewModel.onFinishLane(laneNumber = 1)
+
+        viewModel.saveCurrentSession()
+        testScheduler.advanceTimeBy(100)
+
+        val updatedSwimmer = fakeRepository.getSwimmerById(88L)!!
+        // Early stop MUST NOT award 200m PB!
+        val customPbs = updatedSwimmer.parseCustomPbsMap()
+        assertEquals(null, customPbs["Freistil" to 200])
+        // Intermediate 50m PB at 29s is valid
+        assertEquals(29_000L, updatedSwimmer.pb50mMillis)
+
+        viewModel.onResetAll()
+    }
+
+    @Test
+    fun deleteSwimmer_whileLaneRunning_unassignsSwimmerWithoutCrashingTimer() = runTest(testDispatcher) {
+        val swimmer = SwimmerEntity(id = 99L, name = "Sophie", favoriteStroke = "Freistil")
+        fakeRepository.insertSwimmer(swimmer)
+        viewModel.assignSwimmerToLane(laneNumber = 1, swimmer = swimmer)
+
+        viewModel.onStartSingleLane(laneNumber = 1)
+        assertEquals(LaneStatus.RUNNING, viewModel.uiState.value.lanes[0].status)
+        assertEquals(99L, viewModel.uiState.value.lanes[0].swimmerId)
+        assertEquals("Sophie", viewModel.uiState.value.lanes[0].swimmerName)
+
+        // Delete swimmer while lane is running
+        viewModel.deleteSwimmer(swimmer)
+        testScheduler.advanceTimeBy(100)
+
+        val lane = viewModel.uiState.value.lanes[0]
+        assertEquals(LaneStatus.RUNNING, lane.status)
+        assertEquals(null, lane.swimmerId)
+        assertEquals("Bahn 1", lane.swimmerName)
+
+        // Lane continues running and can record lap and finish safely
+        fakeClock.advance(15_000L)
+        viewModel.onLapLane(1)
+        viewModel.onFinishLane(1)
+        assertEquals(LaneStatus.FINISHED, viewModel.uiState.value.lanes[0].status)
+
+        viewModel.onResetAll()
+    }
+
+    @Test
+    fun saveCurrentSession_whenRepositoryFails_revertsIsCurrentRunSavedAndSetsErrorMessage() = runTest(testDispatcher) {
+        val swimmer = SwimmerEntity(id = 88L, name = "Leon", favoriteStroke = "Freistil")
+        fakeRepository.insertSwimmer(swimmer)
+        viewModel.assignSwimmerToLane(laneNumber = 1, swimmer = swimmer)
+
+        viewModel.onStartSingleLane(1)
+        fakeClock.advance(30_000L)
+        viewModel.onFinishLane(1)
+
+        fakeRepository.shouldFailOnSave = true
+        viewModel.saveCurrentSession()
+        testScheduler.advanceTimeBy(100)
+
+        // Must revert isCurrentRunSaved to false so coach can retry, and set error notification message
+        val state = viewModel.uiState.value
+        assertFalse("isCurrentRunSaved must be false on save failure", state.isCurrentRunSaved)
+        assertFalse(state.isSessionSavedSuccess)
+        assertTrue("Error message must be present", state.saveNotificationMessage?.contains("Fehler") == true)
+
+        fakeRepository.shouldFailOnSave = false
+        viewModel.onResetAll()
+    }
+
+    @Test
+    fun performUndo_afterSwimmerDeleted_doesNotResurrectDeletedSwimmerId() = runTest(testDispatcher) {
+        val swimmer = SwimmerEntity(id = 77L, name = "Hannah", favoriteStroke = "Freistil")
+        fakeRepository.insertSwimmer(swimmer)
+        viewModel.assignSwimmerToLane(laneNumber = 1, swimmer = swimmer)
+
+        viewModel.onStartSingleLane(1)
+        fakeClock.advance(25_000L)
+        viewModel.onLapLane(1)
+
+        // Delete swimmer while timer is running with an active UndoAction on the stack
+        viewModel.deleteSwimmer(swimmer)
+        testScheduler.advanceTimeBy(100)
+        assertEquals(null, viewModel.uiState.value.lanes[0].swimmerId)
+
+        // Now trigger undo — must NOT resurrect the deleted swimmer ID 77
+        viewModel.performUndo()
+        val laneAfterUndo = viewModel.uiState.value.lanes[0]
+        assertNull("Deleted swimmerId must not be resurrected on Undo", laneAfterUndo.swimmerId)
+        assertEquals("Bahn 1", laneAfterUndo.swimmerName)
+
+        viewModel.onResetAll()
+    }
+
+    @Test
+    fun saveCurrentSession_withSwimmerInMultipleLanes_compoundsPbsWithoutDuplicates() = runTest(testDispatcher) {
+        val swimmer = SwimmerEntity(id = 55L, name = "Paul", favoriteStroke = "Freistil", pb50mMillis = 35_000L)
+        fakeRepository.insertSwimmer(swimmer)
+        viewModel.assignSwimmerToLane(laneNumber = 1, swimmer = swimmer)
+
+        // Lane 1 improves to 32s (50m)
+        viewModel.setTargetDistance(50)
+        viewModel.setSplitDistance(50)
+        viewModel.onStartSingleLane(1)
+        fakeClock.advance(32_000L)
+        viewModel.onFinishLane(1)
+
+        viewModel.saveCurrentSession()
+        testScheduler.advanceTimeBy(100)
+
+        val updatedSwimmer = fakeRepository.getSwimmerById(55L)!!
+        assertEquals(32_000L, updatedSwimmer.pb50mMillis)
+
+        viewModel.onResetAll()
+    }
 }
+
 

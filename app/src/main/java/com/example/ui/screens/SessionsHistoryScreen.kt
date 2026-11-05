@@ -18,32 +18,47 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Pool
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -57,8 +72,11 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.foundation.BorderStroke
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.model.SessionWithLaps
+import com.example.data.model.SwimmerEntity
 import com.example.ui.StopwatchViewModel
 import com.example.ui.theme.AquaPrimary
 import com.example.ui.theme.DeepOceanBackground
@@ -82,6 +100,7 @@ fun SessionsHistoryScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val sessions by viewModel.allSessions.collectAsStateWithLifecycle()
+    val swimmers by viewModel.allSwimmers.collectAsStateWithLifecycle()
 
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
@@ -197,6 +216,7 @@ fun SessionsHistoryScreen(
                 }
             } else {
                 var sessionToDelete by remember { mutableStateOf<SessionWithLaps?>(null) }
+                var sessionToEdit by remember { mutableStateOf<SessionWithLaps?>(null) }
 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -217,15 +237,36 @@ fun SessionsHistoryScreen(
                                 Unit
                             }
                         }
+                        val onEditRequest = remember(item) { { sessionToEdit = item } }
                         val onDeleteRequest = remember(item) { { sessionToDelete = item } }
 
                         SessionHistoryCard(
                             sessionWithLaps = item,
                             onShareReport = onShareReport,
                             onShareCsv = onShareCsv,
+                            onEdit = onEditRequest,
                             onDelete = onDeleteRequest
                         )
                     }
+                }
+
+                if (sessionToEdit != null) {
+                    val targetSession = sessionToEdit!!
+                    EditSessionDialog(
+                        sessionWithLaps = targetSession,
+                        swimmers = swimmers,
+                        onDismiss = { sessionToEdit = null },
+                        onSave = { newTitle, laneAssignments ->
+                            viewModel.updateSessionLaneSwimmers(
+                                sessionId = targetSession.session.id,
+                                newTitle = newTitle,
+                                laneSwimmerMap = laneAssignments,
+                                onComplete = {
+                                    android.widget.Toast.makeText(context, "Trainingseinheit aktualisiert", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            )
+                        }
+                    )
                 }
 
                 if (sessionToDelete != null) {
@@ -271,6 +312,7 @@ private fun SessionHistoryCard(
     sessionWithLaps: SessionWithLaps,
     onShareReport: () -> Unit,
     onShareCsv: () -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     var isExpanded by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(value = false) }
@@ -347,6 +389,14 @@ private fun SessionHistoryCard(
                             imageVector = Icons.Default.FileDownload,
                             contentDescription = "CSV Export",
                             tint = Color.LightGray,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    IconButton(onClick = onEdit, modifier = Modifier.size(32.dp).testTag("edit_btn_${s.id}")) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Bearbeiten",
+                            tint = AquaPrimary,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -436,7 +486,8 @@ private fun SessionHistoryCard(
 
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
                                 text = "Bahn $laneNum: $laneDisplayTitle",
@@ -611,6 +662,397 @@ private fun SessionHistoryCard(
                             color = Color(0xFF1E2D40),
                             modifier = Modifier.padding(vertical = 6.dp)
                         )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun EditSessionDialog(
+    sessionWithLaps: SessionWithLaps,
+    swimmers: List<SwimmerEntity>,
+    onDismiss: () -> Unit,
+    onSave: (newTitle: String, laneAssignments: Map<Int, Pair<Long?, String>>) -> Unit,
+) {
+    val s = sessionWithLaps.session
+    val laps = sessionWithLaps.laps
+    var title by remember { mutableStateOf(s.title) }
+
+    val groupedByLane = remember(laps) { laps.groupBy { it.laneNumber } }
+    val sortedLanes = remember(groupedByLane) { groupedByLane.keys.sorted() }
+
+    val laneMap = remember(laps) {
+        val map = mutableStateMapOf<Int, Pair<Long?, String>>()
+        sortedLanes.forEach { laneNum ->
+            val firstLap = groupedByLane[laneNum]?.firstOrNull()
+            val rawName = firstLap?.swimmerName ?: "Bahn $laneNum"
+            val cleanName = if (rawName.contains(" • ")) rawName.substringBefore(" • ").trim() else rawName
+            map[laneNum] = Pair(firstLap?.swimmerId, cleanName)
+        }
+        map
+    }
+
+    var activeLanePicker by remember { mutableStateOf<Int?>(null) }
+    var swimmerSearchQuery by remember { mutableStateOf("") }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = Color(0xFF101B2B),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp)
+                .testTag("edit_session_dialog")
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(20.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Text(
+                    text = "Trainingseinheit bearbeiten",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 19.sp
+                    ),
+                    color = TextWhite
+                )
+
+                Text(
+                    text = "${TimeFormatter.formatDate(s.timestamp)} • ${s.targetDistanceMeters}m ${s.strokeType}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.LightGray,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 14.dp)
+                )
+
+                // Title Input
+                Text(
+                    text = "Titel der Einheit:",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = AquaPrimary,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = TextWhite,
+                        unfocusedTextColor = TextWhite,
+                        focusedBorderColor = AquaPrimary,
+                        unfocusedBorderColor = Color(0xFF22384F),
+                        focusedContainerColor = Color(0xFF0C1623),
+                        unfocusedContainerColor = Color(0xFF0C1623)
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("edit_session_title_field")
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "Bahnen & Athleten zuweisen:",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = AquaPrimary,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                sortedLanes.forEach { laneNum ->
+                    val currentAssignment = laneMap[laneNum] ?: Pair(null, "Bahn $laneNum")
+                    val currentName = currentAssignment.second
+                    val isAssigned = currentAssignment.first != null || (currentName != "Bahn $laneNum" && currentName.isNotBlank())
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFF0C1623),
+                        border = BorderStroke(1.dp, if (isAssigned) AquaPrimary.copy(alpha = 0.5f) else Color(0xFF1E2D40)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Lane badge
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = AquaPrimary.copy(alpha = 0.15f),
+                                modifier = Modifier.size(height = 36.dp, width = 68.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                                    Text(
+                                        text = "Bahn $laneNum",
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = AquaPrimary
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.width(10.dp))
+
+                            // Clickable athlete card (No textfield, purely touch-based selection!)
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (isAssigned) Color(0xFF162536) else Color(0xFF121F2D),
+                                border = BorderStroke(1.dp, if (isAssigned) AquaPrimary.copy(alpha = 0.4f) else Color(0xFF1F3347)),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(44.dp)
+                                    .clickable {
+                                        swimmerSearchQuery = ""
+                                        activeLanePicker = laneNum
+                                    }
+                                    .testTag("pick_swimmer_btn_${laneNum}")
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Person,
+                                        contentDescription = null,
+                                        tint = if (isAssigned) AquaPrimary else Color.Gray,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = if (isAssigned) currentName else "Athlet wählen...",
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontWeight = if (isAssigned) FontWeight.SemiBold else FontWeight.Normal,
+                                            fontSize = 14.sp
+                                        ),
+                                        color = if (isAssigned) TextWhite else Color.Gray,
+                                        maxLines = 1,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+
+                            // Reset to "Bahn X" if an athlete is assigned
+                            if (isAssigned) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                IconButton(
+                                    onClick = {
+                                        laneMap[laneNum] = Pair(null, "Bahn $laneNum")
+                                    },
+                                    modifier = Modifier.size(36.dp).testTag("clear_lane_btn_${laneNum}")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Zurücksetzen",
+                                        tint = Color.Gray,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Action buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.padding(end = 8.dp)
+                    ) {
+                        Text("Abbrechen", color = Color.LightGray)
+                    }
+
+                    Button(
+                        onClick = {
+                            onSave(title, laneMap.toMap())
+                            onDismiss()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = AquaPrimary),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.testTag("edit_session_save_btn")
+                    ) {
+                        Text("Speichern", color = Color.Black, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+
+    // Modal Swimmer Picker Dialog when activeLanePicker is not null
+    if (activeLanePicker != null) {
+        val targetLane = activeLanePicker!!
+        val filteredSwimmers = remember(swimmers, swimmerSearchQuery) {
+            swimmers.asSequence()
+                .filter { swimmer ->
+                    swimmerSearchQuery.isBlank() || swimmer.name.contains(swimmerSearchQuery, ignoreCase = true)
+                }
+                .sortedBy { it.name.lowercase() }
+                .toList()
+        }
+
+        // Swimmer IDs assigned to other lanes in this session
+        val alreadyAssignedSwimmers = remember(laneMap, targetLane) {
+            buildMap<Long, Int> {
+                laneMap.forEach { (laneNum, assignment) ->
+                    if (laneNum != targetLane && assignment.first != null) {
+                        put(assignment.first!!, laneNum)
+                    }
+                }
+            }
+        }
+
+        Dialog(onDismissRequest = { activeLanePicker = null }) {
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = Color(0xFF0E1A29),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 520.dp)
+                    .padding(8.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Athlet für Bahn $targetLane wählen",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = TextWhite
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    OutlinedTextField(
+                        value = swimmerSearchQuery,
+                        onValueChange = { swimmerSearchQuery = it },
+                        singleLine = true,
+                        placeholder = { Text("Athlet suchen...", color = Color.Gray) },
+                        leadingIcon = {
+                            Icon(Icons.Default.Search, contentDescription = null, tint = AquaPrimary, modifier = Modifier.size(18.dp))
+                        },
+                        trailingIcon = {
+                            if (swimmerSearchQuery.isNotEmpty()) {
+                                IconButton(onClick = { swimmerSearchQuery = "" }) {
+                                    Icon(Icons.Default.Close, contentDescription = "Löschen", tint = Color.Gray, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = TextWhite,
+                            unfocusedTextColor = TextWhite,
+                            focusedBorderColor = AquaPrimary,
+                            unfocusedBorderColor = Color(0xFF22384F),
+                            focusedContainerColor = Color(0xFF0C1623),
+                            unfocusedContainerColor = Color(0xFF0C1623)
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    if (filteredSwimmers.isEmpty()) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                        ) {
+                            Text(
+                                text = if (swimmers.isEmpty()) "Keine Athleten angelegt" else "Kein Athlet für Suche gefunden",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.Gray,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            items(filteredSwimmers, key = { it.id }) { swimmer ->
+                                val assignedOtherLane = alreadyAssignedSwimmers[swimmer.id]
+                                val isAlreadyAssigned = assignedOtherLane != null
+
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isAlreadyAssigned) Color(0xFF0A131F) else Color(0xFF142436),
+                                    border = BorderStroke(1.dp, if (isAlreadyAssigned) Color(0xFF182635) else Color(0xFF22384F)),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable(enabled = !isAlreadyAssigned) {
+                                            laneMap[targetLane] = Pair(swimmer.id, swimmer.name)
+                                            activeLanePicker = null
+                                        }
+                                        .testTag("swimmer_picker_item_${swimmer.id}")
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                            Text(
+                                                text = swimmer.name,
+                                                style = MaterialTheme.typography.bodyMedium.copy(
+                                                    fontWeight = if (isAlreadyAssigned) FontWeight.Normal else FontWeight.SemiBold
+                                                ),
+                                                color = if (isAlreadyAssigned) Color.Gray else TextWhite
+                                            )
+                                            if (isAlreadyAssigned) {
+                                                Text(
+                                                    text = "Bereits auf Bahn $assignedOtherLane eingeteilt",
+                                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
+                                                    color = Color(0xFFFFB74D)
+                                                )
+                                            } else if (!swimmer.groupName.isNullOrBlank()) {
+                                                Text(
+                                                    text = swimmer.groupName,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = AquaPrimary
+                                                )
+                                            }
+                                        }
+
+                                        if (isAlreadyAssigned) {
+                                            Surface(
+                                                shape = RoundedCornerShape(4.dp),
+                                                color = Color(0xFF251F14)
+                                            ) {
+                                                Text(
+                                                    text = "BELEGT",
+                                                    fontSize = 9.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color(0xFFFFB74D),
+                                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(onClick = { activeLanePicker = null }) {
+                            Text("Schließen", color = Color.LightGray)
+                        }
                     }
                 }
             }

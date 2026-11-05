@@ -115,12 +115,20 @@ fun SwimmerDetailScreen(
 
         // 2. Fill from legacy manual entry fields
         val fav = if (swimmer.favoriteStroke == "Lagen") "Freistil" else swimmer.favoriteStroke
-        swimmer.pb25mMillis?.let { if ((pbs[fav to 25] == null) || (it < pbs[fav to 25]!!)) pbs[fav to 25] = it }
-        swimmer.pb50mMillis?.let { if ((pbs[fav to 50] == null) || (it < pbs[fav to 50]!!)) pbs[fav to 50] = it }
-        swimmer.pb100mMillis?.let { if ((pbs[fav to 100] == null) || (it < pbs[fav to 100]!!)) pbs[fav to 100] = it }
-        swimmer.pb100mLagenMillis?.let { if ((pbs["Lagen" to 100] == null) || (it < pbs["Lagen" to 100]!!)) pbs["Lagen" to 100] = it }
-        swimmer.pb200mLagenMillis?.let { if ((pbs["Lagen" to 200] == null) || (it < pbs["Lagen" to 200]!!)) pbs["Lagen" to 200] = it }
-        swimmer.pb400mLagenMillis?.let { if ((pbs["Lagen" to 400] == null) || (it < pbs["Lagen" to 400]!!)) pbs["Lagen" to 400] = it }
+        fun updateIfBetter(key: Pair<String, Int>, value: Long?) {
+            if (value != null && value > 0L) {
+                val current = pbs[key]
+                if (current == null || value < current) {
+                    pbs[key] = value
+                }
+            }
+        }
+        updateIfBetter(fav to 25, swimmer.pb25mMillis)
+        updateIfBetter(fav to 50, swimmer.pb50mMillis)
+        updateIfBetter(fav to 100, swimmer.pb100mMillis)
+        updateIfBetter("Lagen" to 100, swimmer.pb100mLagenMillis)
+        updateIfBetter("Lagen" to 200, swimmer.pb200mLagenMillis)
+        updateIfBetter("Lagen" to 400, swimmer.pb400mLagenMillis)
         
         // 3. Override with better times from history (including multi-series runs and relay legs!)
         val strokeOptions = listOf("Freistil", "Brust", "Rücken", "Schmetterling", "Lagen")

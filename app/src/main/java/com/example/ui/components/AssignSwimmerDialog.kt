@@ -51,6 +51,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -90,6 +91,8 @@ fun AssignSwimmerDialog(
     swimmers: List<SwimmerEntity>,
     assignedSwimmers: Map<Long, Int> = emptyMap(),
     availableGroups: List<String> = emptyList(),
+    selectedGroupFilter: String? = null,
+    onSelectGroupFilter: ((String?) -> Unit)? = null,
     currentLane: LaneState? = null,
     currentStrokeType: String = "Freistil",
     currentSplitDistanceMeters: Int = 50,
@@ -100,16 +103,25 @@ fun AssignSwimmerDialog(
 ) {
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
-    var selectedGroupFilter by remember { mutableStateOf<String?>(null) }
+
+    var localGroupFilter by rememberSaveable { mutableStateOf(selectedGroupFilter) }
+    val activeGroupFilter = onSelectGroupFilter?.let { selectedGroupFilter } ?: localGroupFilter
+    val updateGroupFilter: (String?) -> Unit = { newGroup ->
+        if (onSelectGroupFilter != null) {
+            onSelectGroupFilter(newGroup)
+        } else {
+            localGroupFilter = newGroup
+        }
+    }
 
     val isInitiallyRelay = initialRelayLegPosition != null || currentLane?.relayMembers?.isNotEmpty() == true
-    var isRelayMode by remember { mutableStateOf(isInitiallyRelay && onSelectRelayTeam != null) }
+    var isRelayMode by rememberSaveable { mutableStateOf(isInitiallyRelay && onSelectRelayTeam != null) }
 
     val effectiveLegDist = remember(currentSplitDistanceMeters) {
         if (currentSplitDistanceMeters in listOf(25, 50, 100)) currentSplitDistanceMeters else 50
     }
 
-    var relayTeamName by remember {
+    var relayTeamName by rememberSaveable {
         val defaultName = if (currentLane?.relayMembers?.isNotEmpty() == true) {
             currentLane.swimmerName
         } else {
@@ -196,11 +208,11 @@ fun AssignSwimmerDialog(
         }
     }
 
-    val filteredSwimmers = remember(swimmers, selectedGroupFilter) {
-        if (selectedGroupFilter == null) {
+    val filteredSwimmers = remember(swimmers, activeGroupFilter) {
+        if (activeGroupFilter == null) {
             swimmers
         } else {
-            swimmers.filter { it.groupName.equals(selectedGroupFilter, ignoreCase = true) }
+            swimmers.filter { it.groupName.equals(activeGroupFilter, ignoreCase = true) }
         }
     }
 
@@ -407,23 +419,29 @@ fun AssignSwimmerDialog(
                             modifier = Modifier.weight(1f)
                         )
 
-                        // Starter count stepper (2..8)
+                        // Starter count stepper (2..8) matching OutlinedTextField height
                         Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = Color(0xFF0A141F),
-                            border = BorderStroke(1.dp, Color(0xFF22384F))
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFF0C1623),
+                            border = BorderStroke(1.dp, Color(0xFF22384F)),
+                            modifier = Modifier.height(56.dp)
                         ) {
+                            val canDec = relayLegs.size > 2
+                            val canInc = relayLegs.size < 8
+
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
                             ) {
                                 Surface(
                                     shape = CircleShape,
-                                    color = if (relayLegs.size > 2) AquaPrimary.copy(alpha = 0.18f) else Color.Transparent,
+                                    color = if (canDec) AquaPrimary.copy(alpha = 0.15f) else Color(0xFF14202E),
+                                    border = BorderStroke(1.dp, if (canDec) AquaPrimary.copy(alpha = 0.35f) else Color(0xFF1C2C3D)),
                                     modifier = Modifier
-                                        .size(28.dp)
+                                        .size(32.dp)
                                         .clickable(
-                                            enabled = relayLegs.size > 2,
+                                            enabled = canDec,
                                             interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                                             indication = null
                                         ) { resizeRelayLegs(relayLegs.size - 1) }
@@ -433,34 +451,40 @@ fun AssignSwimmerDialog(
                                         Icon(
                                             imageVector = Icons.Default.Remove,
                                             contentDescription = "Starter reduzieren",
-                                            tint = if (relayLegs.size > 2) AquaPrimary else Color.DarkGray,
-                                            modifier = Modifier.size(15.dp)
+                                            tint = if (canDec) AquaPrimary else Color.DarkGray,
+                                            modifier = Modifier.size(16.dp)
                                         )
                                     }
                                 }
+
                                 Column(
                                     horizontalAlignment = Alignment.CenterHorizontally,
-                                    modifier = Modifier.padding(horizontal = 6.dp)
+                                    verticalArrangement = Arrangement.Center,
+                                    modifier = Modifier.padding(horizontal = 4.dp)
                                 ) {
                                     Text(
-                                        text = "${relayLegs.size}×",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Black,
-                                        color = AquaPrimary
+                                        text = "${relayLegs.size} Starter",
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = AquaPrimary,
+                                        maxLines = 1
                                     )
                                     Text(
-                                        text = "${relayLegs.size * effectiveLegDist}m",
-                                        fontSize = 9.sp,
-                                        color = Color.LightGray
+                                        text = "${relayLegs.size * effectiveLegDist}m gesamt",
+                                        fontSize = 9.5.sp,
+                                        color = Color.LightGray,
+                                        maxLines = 1
                                     )
                                 }
+
                                 Surface(
                                     shape = CircleShape,
-                                    color = if (relayLegs.size < 8) AquaPrimary.copy(alpha = 0.18f) else Color.Transparent,
+                                    color = if (canInc) AquaPrimary.copy(alpha = 0.15f) else Color(0xFF14202E),
+                                    border = BorderStroke(1.dp, if (canInc) AquaPrimary.copy(alpha = 0.35f) else Color(0xFF1C2C3D)),
                                     modifier = Modifier
-                                        .size(28.dp)
+                                        .size(32.dp)
                                         .clickable(
-                                            enabled = relayLegs.size < 8,
+                                            enabled = canInc,
                                             interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                                             indication = null
                                         ) { resizeRelayLegs(relayLegs.size + 1) }
@@ -470,8 +494,8 @@ fun AssignSwimmerDialog(
                                         Icon(
                                             imageVector = Icons.Default.Add,
                                             contentDescription = "Starter erhöhen",
-                                            tint = if (relayLegs.size < 8) AquaPrimary else Color.DarkGray,
-                                            modifier = Modifier.size(15.dp)
+                                            tint = if (canInc) AquaPrimary else Color.DarkGray,
+                                            modifier = Modifier.size(16.dp)
                                         )
                                     }
                                 }
@@ -770,8 +794,8 @@ fun AssignSwimmerDialog(
                     ) {
                         item(key = "all_chip") {
                             FilterChip(
-                                selected = selectedGroupFilter == null,
-                                onClick = { selectedGroupFilter = null },
+                                selected = activeGroupFilter == null,
+                                onClick = { updateGroupFilter(null) },
                                 label = { Text("Alle", fontSize = 11.sp) },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = AquaPrimary,
@@ -780,10 +804,10 @@ fun AssignSwimmerDialog(
                             )
                         }
                         items(groupsToDisplay, key = { it }) { group ->
-                            val isSelected = selectedGroupFilter == group
+                            val isSelected = activeGroupFilter == group
                             FilterChip(
                                 selected = isSelected,
-                                onClick = { selectedGroupFilter = group },
+                                onClick = { updateGroupFilter(if (isSelected) null else group) },
                                 label = { Text(group, fontSize = 11.sp) },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = AquaPrimary,
@@ -829,13 +853,14 @@ fun AssignSwimmerDialog(
                             val isAssignedToCurrentActiveLeg = isRelayMode && relayLegs.getOrNull(activeLegIdx)?.swimmerId == swimmer.id
                             val isAssignedToOtherLegInThisRelay = isRelayMode && existingRelayPos != -1 && existingRelayPos != activeLegIdx
 
+                            val previewDistance = if (isRelayMode) effectiveLegDist else (currentLane?.targetDistanceMeters ?: effectiveLegDist)
                             val targetStrokeForPreview = if (isRelayMode) {
                                 relayLegs.getOrNull(activeLegIdx)?.stroke ?: currentStrokeType
                             } else {
-                                swimmer.favoriteStroke
+                                currentStrokeType
                             }
-                            val resolvedLegTime = remember(swimmer, targetStrokeForPreview, effectiveLegDist) {
-                                RelayOptimizer.resolveSwimmerTime(swimmer, targetStrokeForPreview, effectiveLegDist)
+                            val resolvedLegTime = remember(swimmer, targetStrokeForPreview, previewDistance) {
+                                RelayOptimizer.resolveSwimmerTime(swimmer, targetStrokeForPreview, previewDistance)
                             }
 
                             Surface(
@@ -979,15 +1004,10 @@ fun AssignSwimmerDialog(
                                         }
                                     }
 
-                                    // Time Badge on the right
+                                    // Time Badge on the right: only display PB or estimated time for the actual configured stroke & distance
                                     val pbToDisplay = resolvedLegTime?.millis
-                                        ?: swimmer.parseCustomPbsMap()[targetStrokeForPreview to effectiveLegDist]
-                                        ?: swimmer.parseCustomPbsMap()[swimmer.favoriteStroke to effectiveLegDist]
-                                        ?: swimmer.pb50mMillis
-                                        ?: swimmer.pb25mMillis
-                                        ?: swimmer.pb100mMillis
                                     if (pbToDisplay != null) {
-                                        val isEst = resolvedLegTime?.isEstimated == true
+                                        val isEst = resolvedLegTime.isEstimated
                                         Surface(
                                             shape = RoundedCornerShape(7.dp),
                                             color = if (isEst) Color(0xFFFFB74D).copy(alpha = 0.15f) else AquaPrimary.copy(alpha = 0.15f),
@@ -1000,14 +1020,14 @@ fun AssignSwimmerDialog(
                                             ) {
                                                 val strokeShort = formatShortStroke(targetStrokeForPreview)
                                                 Text(
-                                                    text = "${effectiveLegDist}m $strokeShort",
+                                                    text = "${previewDistance}m $strokeShort",
                                                     fontSize = 10.sp,
                                                     color = Color.LightGray,
                                                     fontWeight = FontWeight.Medium
                                                 )
                                                 val estPrefix = if (isEst) "~" else ""
                                                 Text(
-                                                    text = "$estPrefix${TimeFormatter.formatMillis(pbToDisplay, shortFormat = effectiveLegDist <= 50)}",
+                                                    text = "$estPrefix${TimeFormatter.formatMillis(pbToDisplay, shortFormat = previewDistance <= 50)}",
                                                     fontFamily = FontFamily.Monospace,
                                                     fontSize = 11.5.sp,
                                                     fontWeight = FontWeight.Bold,

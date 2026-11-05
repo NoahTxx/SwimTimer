@@ -62,15 +62,18 @@ import com.example.ui.StartMode
 import com.example.ui.theme.AquaPrimary
 import com.example.ui.theme.TextWhite
 
-private fun getAvailableSplitOptions(distance: Int): List<Int> = when (distance) {
-    25 -> listOf(25)
-    50 -> listOf(25, 50)
-    100 -> listOf(25, 50, 100)
-    200 -> listOf(25, 50, 100, 200)
-    400 -> listOf(25, 50, 100, 200, 400)
-    800 -> listOf(25, 50, 100, 200, 400, 800)
-    1500 -> listOf(25, 50, 100, 200, 500, 1500)
-    else -> listOf(25, 50, 100)
+private fun getAvailableSplitOptions(distance: Int): List<Int> {
+    val candidates = when (distance) {
+        25 -> listOf(25)
+        50 -> listOf(25, 50)
+        100 -> listOf(25, 50, 100)
+        200 -> listOf(25, 50, 100, 200)
+        400 -> listOf(25, 50, 100, 200, 400)
+        800 -> listOf(25, 50, 100, 200, 400, 800)
+        1500 -> listOf(25, 50, 100, 250, 300, 500, 750, 1500)
+        else -> listOf(25, 50, 100)
+    }
+    return candidates.filter { it > 0 && (distance % it) == 0 }
 }
 
 @Composable
@@ -305,14 +308,15 @@ fun IntervalConfigDialog(
                         }
 
                         if (mode == StartMode.INTERVAL) {
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
                             Text(
                                 text = "Start-Offset pro Bahn:",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = Color.LightGray,
                                 maxLines = 1
                             )
-                            Spacer(modifier = Modifier.height(6.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
+
                             CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
                                 FlowRow(
                                     modifier = Modifier.fillMaxWidth(),
@@ -328,6 +332,92 @@ fun IntervalConfigDialog(
                                                 selectedContainerColor = AquaPrimary,
                                                 selectedLabelColor = Color.Black
                                             )
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (intervalSec > 1) Color(0xFF1B2E46) else Color(0xFF111D2B),
+                                    border = BorderStroke(1.dp, if (intervalSec > 1) AquaPrimary.copy(alpha = 0.6f) else Color(0xFF1E344B)),
+                                    modifier = Modifier
+                                        .height(36.dp)
+                                        .width(52.dp)
+                                        .clickable(
+                                            enabled = intervalSec > 1,
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null
+                                        ) {
+                                            focusManager.clearFocus()
+                                            if (intervalSec > 1) intervalSec--
+                                        }
+                                        .testTag("interval_sec_dec")
+                                ) {
+                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                                        Icon(
+                                            imageVector = Icons.Default.Remove,
+                                            contentDescription = "Intervall verringern",
+                                            tint = if (intervalSec > 1) AquaPrimary else Color.DarkGray,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.width(10.dp))
+
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Color(0xFF0B1623),
+                                    border = BorderStroke(1.5.dp, AquaPrimary),
+                                    modifier = Modifier
+                                        .height(36.dp)
+                                        .width(110.dp)
+                                        .testTag("interval_sec_display")
+                                ) {
+                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                                        Text(
+                                            text = "$intervalSec Sek.",
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = TextWhite,
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.width(10.dp))
+
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (intervalSec < 60) Color(0xFF1B2E46) else Color(0xFF111D2B),
+                                    border = BorderStroke(1.dp, if (intervalSec < 60) AquaPrimary.copy(alpha = 0.6f) else Color(0xFF1E344B)),
+                                    modifier = Modifier
+                                        .height(36.dp)
+                                        .width(52.dp)
+                                        .clickable(
+                                            enabled = intervalSec < 60,
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null
+                                        ) {
+                                            focusManager.clearFocus()
+                                            if (intervalSec < 60) intervalSec++
+                                        }
+                                        .testTag("interval_sec_inc")
+                                ) {
+                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                                        Icon(
+                                            imageVector = Icons.Default.Add,
+                                            contentDescription = "Intervall erhöhen",
+                                            tint = if (intervalSec < 60) AquaPrimary else Color.DarkGray,
+                                            modifier = Modifier.size(18.dp)
                                         )
                                     }
                                 }

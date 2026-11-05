@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -15,6 +16,8 @@ import androidx.compose.ui.test.performScrollTo
 import com.example.data.model.SwimmerEntity
 import com.example.ui.screens.MultiStopwatchScreen
 import com.example.ui.theme.SwimTimerTheme
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -198,6 +201,21 @@ class ComposeUiBehaviorTest {
         composeTestRule.onNodeWithText("4. Schluss ", substring = true).assertExists()
         // Check that swimmer item is rendered in the list
         composeTestRule.onNodeWithText("Lukas Weber").assertExists()
+
+        // Check stepper displays 4 Starter and 200m gesamt
+        composeTestRule.onNodeWithText("4 Starter").assertExists()
+        composeTestRule.onNodeWithText("200m gesamt").assertExists()
+
+        // Increment to 5 starters
+        composeTestRule.onNodeWithTag("assign_relay_inc_starters").performClick()
+        composeTestRule.onNodeWithText("5 Starter").assertExists()
+        composeTestRule.onNodeWithText("250m gesamt").assertExists()
+
+        // Decrement down to 3 starters
+        composeTestRule.onNodeWithTag("assign_relay_dec_starters").performClick()
+        composeTestRule.onNodeWithTag("assign_relay_dec_starters").performClick()
+        composeTestRule.onNodeWithText("3 Starter").assertExists()
+        composeTestRule.onNodeWithText("150m gesamt").assertExists()
     }
 
     @Test
@@ -262,6 +280,189 @@ class ComposeUiBehaviorTest {
         assertTrue(report.contains("SWIMTIMER – TRAININGSBERICHT"))
         assertTrue(report.contains("Max Mustermann"))
         assertTrue(report.contains("0:58.50"))
+    }
+
+    @Test
+    fun intervalConfigDialog_adjustIntervalWithPlusAndMinusButtons() {
+        var savedIntervalSec = 0
+
+        composeTestRule.setContent {
+            SwimTimerTheme {
+                com.example.ui.components.IntervalConfigDialog(
+                    currentStartMode = StartMode.INTERVAL,
+                    currentIntervalSec = 5,
+                    currentPoolLength = 50,
+                    currentDistance = 100,
+                    currentSplitDistance = 50,
+                    currentStroke = "Freistil",
+                    onDismiss = {},
+                    onSave = { _, intervalSec, _, _, _, _, _ ->
+                        savedIntervalSec = intervalSec
+                    }
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithTag("interval_sec_display", useUnmergedTree = true).assertExists()
+
+        // Click plus button twice: 5 -> 6 -> 7
+        composeTestRule.onNodeWithTag("interval_sec_inc", useUnmergedTree = true).performClick()
+        composeTestRule.onNodeWithTag("interval_sec_inc", useUnmergedTree = true).performClick()
+
+        // Click minus button once: 7 -> 6
+        composeTestRule.onNodeWithTag("interval_sec_dec", useUnmergedTree = true).performClick()
+
+        // Click preset chip 15s -> 15s
+        composeTestRule.onNodeWithText("15s").performClick()
+
+        // Plus button once: 15 -> 16
+        composeTestRule.onNodeWithTag("interval_sec_inc", useUnmergedTree = true).performClick()
+
+        // Save
+        composeTestRule.onNodeWithText("Übernehmen")
+            .performScrollTo()
+            .performClick()
+
+        assertEquals(16, savedIntervalSec)
+    }
+
+    @Test
+    fun editSessionDialog_touchSelectionAndDuplicatePrevention() {
+        var savedTitle = ""
+        var savedAssignments: Map<Int, Pair<Long?, String>> = emptyMap()
+
+        val session = com.example.data.model.SessionEntity(
+            id = 1L,
+            title = "100m Brust",
+            timestamp = 1730000000000L,
+            targetDistanceMeters = 100,
+            strokeType = "Brust"
+        )
+        val laps = listOf(
+            com.example.data.model.LapRecordEntity(
+                id = 10L,
+                sessionId = 1L,
+                swimmerName = "Bahn 1",
+                laneNumber = 1,
+                lapIndex = 1,
+                splitTimeMillis = 35000L,
+                lapTimeMillis = 35000L
+            ),
+            com.example.data.model.LapRecordEntity(
+                id = 11L,
+                sessionId = 1L,
+                swimmerName = "Bahn 2",
+                laneNumber = 2,
+                lapIndex = 1,
+                splitTimeMillis = 37000L,
+                lapTimeMillis = 37000L
+            )
+        )
+        val sessionWithLaps = com.example.data.model.SessionWithLaps(session, laps)
+        val swimmers = listOf(
+            SwimmerEntity(id = 1L, name = "Sophie", groupName = "Wettkampf 1"),
+            SwimmerEntity(id = 2L, name = "Lukas", groupName = "Wettkampf 1"),
+            SwimmerEntity(id = 3L, name = "Mia", groupName = "Nachwuchs")
+        )
+
+        composeTestRule.setContent {
+            SwimTimerTheme {
+                com.example.ui.screens.EditSessionDialog(
+                    sessionWithLaps = sessionWithLaps,
+                    swimmers = swimmers,
+                    onDismiss = {},
+                    onSave = { newTitle, laneMap ->
+                        savedTitle = newTitle
+                        savedAssignments = laneMap
+                    }
+                )
+            }
+        }
+
+        // Dialog elements exist
+        composeTestRule.onNodeWithTag("edit_session_dialog").assertExists()
+        composeTestRule.onNodeWithText("Trainingseinheit bearbeiten").assertExists()
+        composeTestRule.onNodeWithTag("edit_session_title_field").assertExists()
+        composeTestRule.onNodeWithTag("pick_swimmer_btn_1").assertExists()
+        composeTestRule.onNodeWithTag("pick_swimmer_btn_2").assertExists()
+
+        // 1. Open picker for Bahn 1 and select Sophie
+        composeTestRule.onNodeWithTag("pick_swimmer_btn_1").performClick()
+        composeTestRule.onNodeWithTag("swimmer_picker_item_1").performClick()
+
+        // Verify Bahn 1 now displays Sophie
+        composeTestRule.onNodeWithTag("pick_swimmer_btn_1").assertExists()
+
+        // 2. Open picker for Bahn 2 - Sophie is already assigned to Bahn 1 and must be disabled/marked as BELEGT
+        composeTestRule.onNodeWithTag("pick_swimmer_btn_2").performClick()
+        composeTestRule.onNodeWithText("BELEGT").assertExists()
+        composeTestRule.onNodeWithText("Bereits auf Bahn 1 eingeteilt").assertExists()
+
+        // Clicking on Sophie must NOT assign her to Bahn 2 (clickable is disabled)
+        composeTestRule.onNodeWithTag("swimmer_picker_item_1").performClick()
+        // The modal picker should still be open because the click was ignored
+        composeTestRule.onNodeWithText("Athlet für Bahn 2 wählen").assertExists()
+
+        // Instead, pick Lukas
+        composeTestRule.onNodeWithTag("swimmer_picker_item_2").performClick()
+
+        // Test clear button on Bahn 2
+        composeTestRule.onNodeWithTag("clear_lane_btn_2").performClick()
+
+        // Save
+        composeTestRule.onNodeWithTag("edit_session_save_btn")
+            .performScrollTo()
+            .performClick()
+
+        assertEquals("100m Brust", savedTitle)
+        assertEquals(Pair(1L, "Sophie"), savedAssignments[1])
+        assertEquals(Pair(null, "Bahn 2"), savedAssignments[2])
+    }
+
+    @Test
+    fun assignSwimmerDialog_strokeAndDistanceResolutionAndPersistentGroup() {
+        var selectedGroup: String? = null
+        var chosenSwimmer: SwimmerEntity? = null
+
+        // Sophie: favorite Freistil 50m: 30.00s, Custom PB Rücken 50m: 35.00s (35000L)
+        val sophie = SwimmerEntity(
+            id = 1L,
+            name = "Sophie",
+            favoriteStroke = "Freistil",
+            pb50mMillis = 30000L,
+            customPbsJson = """{"Rücken_50":35000}""",
+            groupName = "Wettkampf"
+        )
+        val swimmers = listOf(sophie)
+
+        composeTestRule.setContent {
+            SwimTimerTheme {
+                com.example.ui.components.AssignSwimmerDialog(
+                    laneNumber = 1,
+                    swimmers = swimmers,
+                    currentLane = LaneState(laneNumber = 1, swimmerName = "Bahn 1", targetDistanceMeters = 50),
+                    currentStrokeType = "Rücken",
+                    currentSplitDistanceMeters = 50,
+                    selectedGroupFilter = "Wettkampf",
+                    onSelectGroupFilter = { selectedGroup = it },
+                    onDismiss = {},
+                    onSelectSwimmer = { chosenSwimmer = it }
+                )
+            }
+        }
+
+        // Must display 50m Rücken time (35.00), NEVER 50m Freistil (30.00)
+        composeTestRule.onNodeWithText("50m Rücken").assertExists()
+        composeTestRule.onNodeWithText("35.00").assertExists()
+        composeTestRule.onNodeWithText("30.00").assertDoesNotExist()
+
+        // Click on "Alle" chip to reset group filter
+        composeTestRule.onNodeWithText("Alle").performClick()
+        assertNull(selectedGroup)
+
+        // Select swimmer
+        composeTestRule.onNodeWithText("Sophie").performClick()
+        assertEquals(sophie, chosenSwimmer)
     }
 }
 

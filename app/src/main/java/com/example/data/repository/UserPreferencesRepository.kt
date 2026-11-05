@@ -55,7 +55,7 @@ class UserPreferencesRepository(context: Context) {
 
     fun saveCustomGroups(groups: Set<String>) {
         prefs.edit {
-            putStringSet("customGroups", groups)
+            putStringSet("customGroups", HashSet(groups))
         }
     }
 

@@ -57,6 +57,10 @@ import com.example.ui.screens.CoachingToolsScreen
 import com.example.ui.screens.MultiStopwatchScreen
 import com.example.ui.screens.SessionsHistoryScreen
 import com.example.ui.screens.SwimmersManagementScreen
+import com.example.ui.screens.CenteredConfirmDialog
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.platform.LocalContext
+import android.app.Activity
 import com.example.ui.theme.AquaPrimary
 import com.example.ui.theme.DeepOceanBackground
 import com.example.ui.theme.OceanSurface
@@ -162,8 +166,33 @@ fun MainAppContent(
         keyboardController?.hide()
     }
 
+    val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    var showExitConfirmDialog by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+
+    val hasUnsavedOrActiveRun = uiState.hasOpenRun || (uiState.lanes.any { it.allLaps.isNotEmpty() } && !uiState.isCurrentRunSaved)
+
     BackHandler(enabled = currentScreen != AppScreen.STOPWATCH) {
         currentScreen = AppScreen.STOPWATCH
+    }
+
+    BackHandler(enabled = currentScreen == AppScreen.STOPWATCH && hasUnsavedOrActiveRun) {
+        showExitConfirmDialog = true
+    }
+
+    if (showExitConfirmDialog) {
+        CenteredConfirmDialog(
+            title = "App beenden?",
+            message = "Es läuft aktuell eine Zeitmessung oder es gibt ungespeicherte Rundenzeiten. Möchtest du die App wirklich verlassen?",
+            confirmButtonText = "Verlassen",
+            onConfirm = {
+                showExitConfirmDialog = false
+                (context as? Activity)?.finish()
+            },
+            onDismiss = {
+                showExitConfirmDialog = false
+            }
+        )
     }
 
     Column(

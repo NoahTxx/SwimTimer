@@ -66,7 +66,7 @@ data class SwimmerEntity(
         this.copy(manualPbsJson = this.createManualPbsSnapshot())
 
     fun toBaseSwimmer(): SwimmerEntity {
-        if (manualPbsJson.isNullOrBlank()) return this
+        if (manualPbsJson.isNullOrBlank()) return this.withManualPbsSnapshot()
         return try {
             val json = org.json.JSONObject(manualPbsJson)
             fun optLongOrNull(key: String): Long? = if (json.has(key) && !json.isNull(key)) json.getLong(key) else null

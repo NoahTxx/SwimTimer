@@ -284,11 +284,13 @@ object PersonalBestEvaluator {
 
         runs.forEach { seriesLaps ->
             val hasTargetLap = seriesLaps.any { it.lapIndex == expectedSplitsForFullDistance }
-            // A swimmer has completed the full distance ONLY if the target lap was recorded or
-            // at least expectedSplitsForFullDistance splits were completed.
+            // A swimmer has completed the full distance ONLY if:
+            // 1) The target lap was recorded, AND
+            // 2) Either only 1 split was configured/recorded for the entire race (direct finish without intermediate splits),
+            //    or all expected intermediate splits up to expectedSplitsForFullDistance were swum.
             // Early stops via "Ziel" / "Stopp Alle" before all splits were swum MUST NOT award
             // a PB for the full unswum target distance!
-            val completedFullDistance = hasTargetLap || (seriesLaps.size >= expectedSplitsForFullDistance)
+            val completedFullDistance = hasTargetLap && (seriesLaps.size == 1 || seriesLaps.size >= expectedSplitsForFullDistance)
 
             val finishTime = if (completedFullDistance) {
                 seriesLaps.find { it.lapIndex == expectedSplitsForFullDistance }?.splitTimeMillis

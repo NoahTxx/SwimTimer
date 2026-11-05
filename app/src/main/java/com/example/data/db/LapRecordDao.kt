@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 import com.example.data.model.LapRecordEntity
 
 @Dao
@@ -11,6 +12,12 @@ interface LapRecordDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertLaps(laps: List<LapRecordEntity>)
 
+    @Update
+    suspend fun updateLaps(laps: List<LapRecordEntity>)
+
     @Query("DELETE FROM lap_records WHERE sessionId = :sessionId")
     suspend fun deleteLapsForSession(sessionId: Long)
+
+    @Query("UPDATE lap_records SET swimmerId = NULL WHERE swimmerId = :swimmerId")
+    suspend fun clearSwimmerIdForSwimmer(swimmerId: Long)
 }
