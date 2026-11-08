@@ -112,6 +112,9 @@ data class LaneState(
         } else {
             (targetDistanceMeters / splitDistanceMeters).coerceAtLeast(1)
         }
+
+    val isIncompleteRelay: Boolean
+        get() = relayMembers.isNotEmpty() && (status == LaneStatus.FINISHED) && (laps.size < totalSplitsNeeded)
 }
 
 sealed interface UndoAction {
@@ -172,6 +175,9 @@ data class StopwatchUiState(
 ) {
     val hasOpenRun: Boolean
         get() = lanes.any { (it.status == LaneStatus.RUNNING) || (it.status == LaneStatus.COUNTDOWN) || (it.status == LaneStatus.PAUSED) || (it.status == LaneStatus.REST_COUNTDOWN) }
+
+    val hasIncompleteRelay: Boolean
+        get() = lanes.any { it.isIncompleteRelay }
 }
 
 @Immutable
@@ -808,8 +814,8 @@ class StopwatchViewModel(
                         val lapTime = (exactFinalTime - previousSplit).coerceAtLeast(0L)
                         val totalSplitsNeeded = lane.totalSplitsNeeded
 
-                        val nextLapIndex = if (lane.laps.isEmpty()) totalSplitsNeeded else lane.laps.size + 1
-                        val finishLap = if (exactFinalTime > 0L && lane.laps.size < totalSplitsNeeded) {
+                        val finishLap = if (exactFinalTime > 0L && lane.laps.size < totalSplitsNeeded && lane.relayMembers.isEmpty()) {
+                            val nextLapIndex = if (lane.laps.isEmpty()) totalSplitsNeeded else lane.laps.size + 1
                             LapItem(
                                 lapIndex = nextLapIndex,
                                 splitTimeMillis = exactFinalTime,
@@ -833,8 +839,9 @@ class StopwatchViewModel(
                         val previousSplit = lane.laps.lastOrNull()?.splitTimeMillis ?: 0L
                         val lapTime = (exactFinalTime - previousSplit).coerceAtLeast(0L)
                         val totalSplitsNeeded = lane.totalSplitsNeeded
-                        val nextLapIndex = if (lane.laps.isEmpty()) totalSplitsNeeded else lane.laps.size + 1
-                        val finishLap = if (exactFinalTime > 0L && lane.laps.size < totalSplitsNeeded) {
+
+                        val finishLap = if (exactFinalTime > 0L && lane.laps.size < totalSplitsNeeded && lane.relayMembers.isEmpty()) {
+                            val nextLapIndex = if (lane.laps.isEmpty()) totalSplitsNeeded else lane.laps.size + 1
                             LapItem(
                                 lapIndex = nextLapIndex,
                                 splitTimeMillis = exactFinalTime,
@@ -1016,14 +1023,29 @@ class StopwatchViewModel(
             val lapTime = (finalTime - previousSplit).coerceAtLeast(0L)
             val totalSplitsNeeded = lane.totalSplitsNeeded
 
-            val nextLapIndex = if (lane.laps.isEmpty()) totalSplitsNeeded else lane.laps.size + 1
             val finishLap = if (finalTime > 0L && lane.laps.size < totalSplitsNeeded) {
-                LapItem(
-                    lapIndex = nextLapIndex,
-                    splitTimeMillis = finalTime,
-                    lapTimeMillis = lapTime,
-                    seriesIndex = lane.seriesCount
-                )
+                if (lane.relayMembers.isNotEmpty()) {
+                    if (lane.laps.size == totalSplitsNeeded - 1) {
+                        // The anchor leg is reaching the finish wall
+                        LapItem(
+                            lapIndex = totalSplitsNeeded,
+                            splitTimeMillis = finalTime,
+                            lapTimeMillis = lapTime,
+                            seriesIndex = lane.seriesCount
+                        )
+                    } else {
+                        // Premature finish on an earlier leg -> incomplete relay (Fehllauf)
+                        null
+                    }
+                } else {
+                    val nextLapIndex = if (lane.laps.isEmpty()) totalSplitsNeeded else lane.laps.size + 1
+                    LapItem(
+                        lapIndex = nextLapIndex,
+                        splitTimeMillis = finalTime,
+                        lapTimeMillis = lapTime,
+                        seriesIndex = lane.seriesCount
+                    )
+                }
             } else null
 
             val updatedLaps = if (finishLap != null) lane.laps + finishLap else lane.laps
@@ -1797,7 +1819,8 @@ class StopwatchViewModel(
     fun assignRelayTeamToLane(
         laneNumber: Int,
         teamName: String,
-        members: List<com.example.domain.RelayLegAssignment>
+        members: List<com.example.domain.RelayLegAssignment>,
+        closeDialog: Boolean = false
     ) {
         val swimmersById = allSwimmers.value.associateBy { it.id }
         _uiState.update { currentState ->
@@ -1873,8 +1896,8 @@ class StopwatchViewModel(
                 splitDistanceMeters = legDist,
                 seriesConfig = SeriesConfig(isEnabled = false),
                 lanes = updatedLanes,
-                isAssignSwimmerDialogVisible = false,
-                assignSwimmerInitialRelayLeg = null
+                isAssignSwimmerDialogVisible = if (closeDialog) false else currentState.isAssignSwimmerDialogVisible,
+                assignSwimmerInitialRelayLeg = if (closeDialog) null else currentState.assignSwimmerInitialRelayLeg
             )
         }
         savePreferences()
@@ -1884,6 +1907,7 @@ class StopwatchViewModel(
 
     fun saveCurrentSession() {
         if (_uiState.value.isCurrentRunSaved) return
+        if (_uiState.value.hasIncompleteRelay) return
         val activeLanesWithLaps = _uiState.value.lanes.filter { it.allLaps.isNotEmpty() }
         if (activeLanesWithLaps.isEmpty()) return
 
@@ -2323,6 +2347,7 @@ class StopwatchViewModel(
         sessionId: Long,
         newTitle: String,
         laneSwimmerMap: Map<Int, Pair<Long?, String>>,
+        relayLegSwimmerMap: Map<Pair<Int, Int>, Pair<Long?, String>> = emptyMap(),
         autoCreateSwimmers: Boolean = true,
         onComplete: (() -> Unit)? = null
     ) {
@@ -2333,10 +2358,8 @@ class StopwatchViewModel(
             val existingSwimmers = repository.allSwimmers.first().toMutableList()
             val swimmersByName = existingSwimmers.associateBy { it.name.trim().lowercase() }.toMutableMap()
 
-            val finalLaneAssignments = laneSwimmerMap.mapValues { (laneNum, pair) ->
-                val (assignedId, rawName) = pair
+            suspend fun resolveSwimmer(assignedId: Long?, rawName: String, fallbackDefault: String): Pair<Long?, String> {
                 val trimmedName = rawName.trim()
-
                 val isPlaceholder = trimmedName.isBlank() ||
                         trimmedName.equals("Unbekannt", ignoreCase = true) ||
                         trimmedName.matches(Regex("""^(Bahn|Lane)\s*\d+$""", RegexOption.IGNORE_CASE)) ||
@@ -2344,43 +2367,66 @@ class StopwatchViewModel(
                         trimmedName.matches(Regex("""^Starter\s*\d+$""", RegexOption.IGNORE_CASE))
 
                 if (isPlaceholder) {
-                    val fallbackName = if (trimmedName.isNotBlank()) trimmedName else "Bahn $laneNum"
-                    Pair(null, fallbackName)
+                    val fallbackName = if (trimmedName.isNotBlank()) trimmedName else fallbackDefault
+                    return Pair(null, fallbackName)
+                }
+
+                if (assignedId != null && assignedId > 0) {
+                    return Pair(assignedId, trimmedName)
+                }
+
+                val matched = swimmersByName[trimmedName.lowercase()]
+                return if (matched != null) {
+                    Pair(matched.id, matched.name)
+                } else if (autoCreateSwimmers) {
+                    val newSwimmer = SwimmerEntity(id = 0, name = trimmedName)
+                    val newId = repository.insertSwimmer(newSwimmer)
+                    val createdSwimmer = newSwimmer.copy(id = newId)
+                    swimmersByName[trimmedName.lowercase()] = createdSwimmer
+                    Pair(newId, trimmedName)
                 } else {
-                    if (assignedId != null && assignedId > 0) {
-                        Pair(assignedId, trimmedName)
-                    } else {
-                        val matched = swimmersByName[trimmedName.lowercase()]
-                        if (matched != null) {
-                            Pair(matched.id, matched.name)
-                        } else if (autoCreateSwimmers) {
-                            val newSwimmer = SwimmerEntity(id = 0, name = trimmedName)
-                            val newId = repository.insertSwimmer(newSwimmer)
-                            val createdSwimmer = newSwimmer.copy(id = newId)
-                            swimmersByName[trimmedName.lowercase()] = createdSwimmer
-                            Pair(newId, trimmedName)
-                        } else {
-                            Pair(null, trimmedName)
-                        }
-                    }
+                    Pair(null, trimmedName)
                 }
             }
 
+            val finalLaneAssignments = laneSwimmerMap.mapValues { (laneNum, pair) ->
+                resolveSwimmer(pair.first, pair.second, "Bahn $laneNum")
+            }
+
+            val finalRelayLegAssignments = relayLegSwimmerMap.mapValues { (key, pair) ->
+                val (_, legPos) = key
+                resolveSwimmer(pair.first, pair.second, "Starter $legPos")
+            }
+
             val updatedLaps = sessionWithLaps.laps.map { lap ->
-                val newAssignment = finalLaneAssignments[lap.laneNumber]
-                if (newAssignment != null) {
-                    val (newSwimmerId, newSwimmerName) = newAssignment
-                    val isRelayLeg = lap.swimmerName.contains(" • ")
-                    val finalName = if (isRelayLeg) {
-                        val legPart = lap.swimmerName.substringAfter(" • ")
-                        "$newSwimmerName • $legPart"
+                val laneNum = lap.laneNumber
+                val newLaneAssignment = finalLaneAssignments[laneNum]
+                val isRelayLeg = lap.swimmerName.contains(" • ")
+
+                if (isRelayLeg) {
+                    val teamName = newLaneAssignment?.second ?: lap.swimmerName.substringBefore(" • ").trim()
+                    val legPart = lap.swimmerName.substringAfter(" • ").trim()
+                    val parsedLegPos = legPart.substringBefore(".").trim().toIntOrNull() ?: 1
+
+                    val specificLegAssignment = finalRelayLegAssignments[Pair(laneNum, parsedLegPos)]
+                    if (specificLegAssignment != null) {
+                        val (legSwimmerId, legSwimmerName) = specificLegAssignment
+                        lap.copy(
+                            swimmerId = legSwimmerId,
+                            swimmerName = "$teamName • $parsedLegPos. $legSwimmerName"
+                        )
+                    } else if (newLaneAssignment != null) {
+                        lap.copy(
+                            swimmerName = "$teamName • $legPart"
+                        )
                     } else {
-                        newSwimmerName
+                        lap
                     }
-                    val finalSwimmerId = if (isRelayLeg) lap.swimmerId else newSwimmerId
+                } else if (newLaneAssignment != null) {
+                    val (newSwimmerId, newSwimmerName) = newLaneAssignment
                     lap.copy(
-                        swimmerId = finalSwimmerId,
-                        swimmerName = finalName
+                        swimmerId = newSwimmerId,
+                        swimmerName = newSwimmerName
                     )
                 } else {
                     lap

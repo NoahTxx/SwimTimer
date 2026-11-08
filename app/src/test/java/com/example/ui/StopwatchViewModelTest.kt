@@ -1479,6 +1479,149 @@ class StopwatchViewModelTest {
 
         viewModel.onResetAll()
     }
+
+    @Test
+    fun `updateSessionLaneSwimmers with relayLegSwimmerMap updates individual relay starter IDs and recalculates PBs`() = runTest(testDispatcher) {
+        val swimmerA = SwimmerEntity(id = 10L, name = "Lukas", favoriteStroke = "Freistil", pb50mMillis = 35_000L)
+        val swimmerB = SwimmerEntity(id = 20L, name = "Sophie", favoriteStroke = "Freistil", pb50mMillis = 36_000L)
+        val swimmerC = SwimmerEntity(id = 30L, name = "Leon", favoriteStroke = "Freistil", pb50mMillis = 37_000L)
+        fakeRepository.insertSwimmer(swimmerA)
+        fakeRepository.insertSwimmer(swimmerB)
+        fakeRepository.insertSwimmer(swimmerC)
+
+        // Save a 4x50m relay session with placeholder starters
+        val session = com.example.data.model.SessionEntity(
+            id = 100L,
+            title = "4x50m Freistil Staffel",
+            targetDistanceMeters = 200,
+            splitDistanceMeters = 50,
+            strokeType = "Freistil"
+        )
+        val laps = listOf(
+            com.example.data.model.LapRecordEntity(sessionId = 100L, swimmerId = null, swimmerName = "Staffel 1 • 1. Starter 1", laneNumber = 1, lapIndex = 1, splitTimeMillis = 30_000L, lapTimeMillis = 30_000L),
+            com.example.data.model.LapRecordEntity(sessionId = 100L, swimmerId = null, swimmerName = "Staffel 1 • 2. Starter 2", laneNumber = 1, lapIndex = 2, splitTimeMillis = 61_000L, lapTimeMillis = 31_000L),
+            com.example.data.model.LapRecordEntity(sessionId = 100L, swimmerId = null, swimmerName = "Staffel 1 • 3. Starter 3", laneNumber = 1, lapIndex = 3, splitTimeMillis = 93_000L, lapTimeMillis = 32_000L),
+            com.example.data.model.LapRecordEntity(sessionId = 100L, swimmerId = null, swimmerName = "Staffel 1 • 4. Starter 4", laneNumber = 1, lapIndex = 4, splitTimeMillis = 126_000L, lapTimeMillis = 33_000L)
+        )
+        fakeRepository.importSessionsWithLaps(listOf(com.example.data.model.SessionWithLaps(session, laps)))
+
+        // Now edit session: Assign Lukas to Leg 1 and Sophie to Leg 2
+        viewModel.updateSessionLaneSwimmers(
+            sessionId = 100L,
+            newTitle = "Vereinsstaffel Freistil",
+            laneSwimmerMap = mapOf(1 to Pair(null, "A-Staffel")),
+            relayLegSwimmerMap = mapOf(
+                Pair(1, 1) to Pair(10L, "Lukas"),
+                Pair(1, 2) to Pair(20L, "Sophie")
+            )
+        )
+        testScheduler.advanceTimeBy(100)
+
+        val updatedSession = fakeRepository.getSessionWithLapsSync(100L)!!
+        assertEquals("Vereinsstaffel Freistil", updatedSession.session.title)
+
+        // Check Lap 1 has Lukas
+        val lap1 = updatedSession.laps.find { it.lapIndex == 1 }!!
+        assertEquals(10L, lap1.swimmerId)
+        assertEquals("A-Staffel • 1. Lukas", lap1.swimmerName)
+
+        // Check Lap 2 has Sophie
+        val lap2 = updatedSession.laps.find { it.lapIndex == 2 }!!
+        assertEquals(20L, lap2.swimmerId)
+        assertEquals("A-Staffel • 2. Sophie", lap2.swimmerName)
+
+        // Check Lukas got his 30s PB awarded via the relay leg!
+        val lukas = fakeRepository.getSwimmerById(10L)!!
+        assertEquals(30_000L, lukas.pb50mMillis)
+
+        // Check Sophie got her 31s PB awarded!
+        val sophie = fakeRepository.getSwimmerById(20L)!!
+        assertEquals(31_000L, sophie.pb50mMillis)
+    }
+
+    @Test
+    fun relayStoppedPrematurely_marksFehllaufAndDisablesSaving() = runTest {
+        // Setup relay on Lane 1
+        val relayLegs = listOf(
+            com.example.domain.RelayLegAssignment(1, null, "Starter 1", "Freistil", 50, null, false),
+            com.example.domain.RelayLegAssignment(2, null, "Starter 2", "Freistil", 50, null, false),
+            com.example.domain.RelayLegAssignment(3, null, "Starter 3", "Freistil", 50, null, false),
+            com.example.domain.RelayLegAssignment(4, null, "Starter 4", "Freistil", 50, null, false)
+        )
+        viewModel.assignRelayTeamToLane(1, "Staffel 1", relayLegs)
+
+        // Start running
+        viewModel.onStartAll()
+        testScheduler.advanceTimeBy(3000)
+        fakeClock.advance(3000)
+
+        // Immediately stop without recording 4 laps
+        viewModel.onStopAll()
+
+        val lane = viewModel.uiState.value.lanes.find { it.laneNumber == 1 }!!
+        assertEquals(LaneStatus.FINISHED, lane.status)
+        assertTrue(lane.isIncompleteRelay)
+        assertTrue(viewModel.uiState.value.hasIncompleteRelay)
+        // Ensure no fake 200m finish lap was generated for anchor starter
+        assertEquals(0, lane.laps.size)
+
+        // Attempt to save should be blocked
+        viewModel.saveCurrentSession()
+        testScheduler.advanceTimeBy(100)
+        assertFalse(viewModel.uiState.value.isCurrentRunSaved)
+        val sessions = fakeRepository.allSessionsWithLapsSync()
+        assertTrue(sessions.isEmpty())
+    }
+
+    @Test
+    fun assignRelayTeamToLane_closeDialogFalse_keepsDialogVisible() = runTest {
+        viewModel.openAssignSwimmerDialog(1)
+        assertTrue(viewModel.uiState.value.isAssignSwimmerDialogVisible)
+
+        val relayLegs = listOf(
+            com.example.domain.RelayLegAssignment(1, 10L, "Lukas", "Freistil", 50, null, false)
+        )
+        // Select one person without closing dialog
+        viewModel.assignRelayTeamToLane(1, "Staffel 1", relayLegs, closeDialog = false)
+        assertTrue(viewModel.uiState.value.isAssignSwimmerDialogVisible)
+
+        // Explicitly closing dialog
+        viewModel.assignRelayTeamToLane(1, "Staffel 1", relayLegs, closeDialog = true)
+        assertFalse(viewModel.uiState.value.isAssignSwimmerDialogVisible)
+    }
+
+    @Test
+    fun relayFinishedWithAllSplits_marksNotFehllaufAndAllowsSaving() = runTest {
+        val relayLegs = listOf(
+            com.example.domain.RelayLegAssignment(1, null, "Starter 1", "Freistil", 50, null, false),
+            com.example.domain.RelayLegAssignment(2, null, "Starter 2", "Freistil", 50, null, false)
+        )
+        viewModel.assignRelayTeamToLane(1, "Staffel 1", relayLegs)
+
+        viewModel.onStartAll()
+        testScheduler.advanceTimeBy(30_000)
+        fakeClock.advance(30_000)
+
+        // Leg 1 finishes -> Lap 1
+        viewModel.onLapLane(1)
+        testScheduler.advanceTimeBy(32_000)
+        fakeClock.advance(32_000)
+
+        // Leg 2 finishes -> Finish lane
+        viewModel.onFinishLane(1)
+
+        val lane = viewModel.uiState.value.lanes.find { it.laneNumber == 1 }!!
+        assertEquals(LaneStatus.FINISHED, lane.status)
+        assertFalse(lane.isIncompleteRelay)
+        assertFalse(viewModel.uiState.value.hasIncompleteRelay)
+        assertEquals(2, lane.laps.size)
+
+        viewModel.saveCurrentSession()
+        testScheduler.advanceTimeBy(100)
+        assertTrue(viewModel.uiState.value.isCurrentRunSaved)
+        val sessions = fakeRepository.allSessionsWithLapsSync()
+        assertEquals(1, sessions.size)
+    }
 }
 
 

@@ -17,6 +17,7 @@ import com.example.data.model.SwimmerEntity
 import com.example.ui.screens.MultiStopwatchScreen
 import com.example.ui.theme.SwimTimerTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -371,7 +372,7 @@ class ComposeUiBehaviorTest {
                     sessionWithLaps = sessionWithLaps,
                     swimmers = swimmers,
                     onDismiss = {},
-                    onSave = { newTitle, laneMap ->
+                    onSave = { newTitle, laneMap, _ ->
                         savedTitle = newTitle
                         savedAssignments = laneMap
                     }
@@ -417,6 +418,73 @@ class ComposeUiBehaviorTest {
         assertEquals("100m Brust", savedTitle)
         assertEquals(Pair(1L, "Sophie"), savedAssignments[1])
         assertEquals(Pair(null, "Bahn 2"), savedAssignments[2])
+    }
+
+    @Test
+    fun editSessionDialog_relaySession_rendersAllStarterCardsAndAllowsAssigningLegs() {
+        var savedTitle = ""
+        var savedAssignments = mapOf<Int, Pair<Long?, String>>()
+        var savedLegAssignments = mapOf<Pair<Int, Int>, Pair<Long?, String>>()
+
+        val session = com.example.data.model.SessionEntity(
+            id = 200L,
+            title = "4x50m Freistil Staffel",
+            targetDistanceMeters = 200,
+            splitDistanceMeters = 50,
+            strokeType = "Freistil"
+        )
+        val laps = listOf(
+            com.example.data.model.LapRecordEntity(sessionId = 200L, swimmerId = null, swimmerName = "Staffel Bahn 1 • 1. Starter 1", laneNumber = 1, lapIndex = 1, splitTimeMillis = 30_000L, lapTimeMillis = 30_000L),
+            com.example.data.model.LapRecordEntity(sessionId = 200L, swimmerId = null, swimmerName = "Staffel Bahn 1 • 2. Starter 2", laneNumber = 1, lapIndex = 2, splitTimeMillis = 61_000L, lapTimeMillis = 31_000L),
+            com.example.data.model.LapRecordEntity(sessionId = 200L, swimmerId = null, swimmerName = "Staffel Bahn 1 • 3. Starter 3", laneNumber = 1, lapIndex = 3, splitTimeMillis = 93_000L, lapTimeMillis = 32_000L),
+            com.example.data.model.LapRecordEntity(sessionId = 200L, swimmerId = null, swimmerName = "Staffel Bahn 1 • 4. Starter 4", laneNumber = 1, lapIndex = 4, splitTimeMillis = 126_000L, lapTimeMillis = 33_000L)
+        )
+        val sessionWithLaps = com.example.data.model.SessionWithLaps(session, laps)
+        val swimmers = listOf(
+            SwimmerEntity(id = 10L, name = "Lukas", groupName = "Wettkampf 1"),
+            SwimmerEntity(id = 20L, name = "Sophie", groupName = "Wettkampf 1")
+        )
+
+        composeTestRule.setContent {
+            SwimTimerTheme {
+                com.example.ui.screens.EditSessionDialog(
+                    sessionWithLaps = sessionWithLaps,
+                    swimmers = swimmers,
+                    onDismiss = {},
+                    onSave = { newTitle, laneMap, legMap ->
+                        savedTitle = newTitle
+                        savedAssignments = laneMap
+                        savedLegAssignments = legMap
+                    }
+                )
+            }
+        }
+
+        // Verify relay starter picking button exists for Leg 1 and Leg 2
+        composeTestRule.onNodeWithTag("pick_relay_swimmer_1_1").performScrollTo().assertExists()
+        composeTestRule.onNodeWithTag("pick_relay_swimmer_1_2").performScrollTo().assertExists()
+
+        // Click on Leg 1 to open picker and assign Lukas
+        composeTestRule.onNodeWithTag("pick_relay_swimmer_1_1").performClick()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("swimmer_picker_item_10").performClick()
+        composeTestRule.waitForIdle()
+
+        // Click on Leg 2 to open picker and assign Sophie
+        composeTestRule.onNodeWithTag("pick_relay_swimmer_1_2").performScrollTo().performClick()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("swimmer_picker_item_20").performClick()
+        composeTestRule.waitForIdle()
+
+        // Save
+        composeTestRule.onNodeWithTag("edit_session_save_btn")
+            .performScrollTo()
+            .performClick()
+
+        assertEquals("4x50m Freistil Staffel", savedTitle)
+        assertEquals("Staffel Bahn 1", savedAssignments[1]?.second)
+        assertEquals(Pair(10L, "Lukas"), savedLegAssignments[Pair(1, 1)])
+        assertEquals(Pair(20L, "Sophie"), savedLegAssignments[Pair(1, 2)])
     }
 
     @Test

@@ -500,7 +500,8 @@ fun MultiStopwatchScreen(
                             fontSize = 14.sp,
                             letterSpacing = 0.sp,
                             maxLines = 1,
-                            softWrap = false
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 } else {
@@ -524,15 +525,18 @@ fun MultiStopwatchScreen(
                             fontWeight = FontWeight.Black,
                             fontSize = 15.sp,
                             letterSpacing = 0.5.sp,
-                            maxLines = 1
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
 
-                // Right: Speichern / Save (Protected against accidental double-saving and premature saving during open runs)
+                // Right: Speichern / Save (Protected against accidental double-saving, open runs, and incomplete relay runs)
+                val canSave = anyLapsRecorded && !uiState.hasOpenRun && !uiState.isCurrentRunSaved && !uiState.hasIncompleteRelay
                 Button(
                     onClick = { HapticUtil.vibrateHeavy(context); viewModel.saveCurrentSession() },
-                    enabled = anyLapsRecorded && !uiState.hasOpenRun && !uiState.isCurrentRunSaved,
+                    enabled = canSave,
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (uiState.isCurrentRunSaved) PaceGreen else AquaPrimary,

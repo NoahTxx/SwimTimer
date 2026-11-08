@@ -654,23 +654,31 @@ fun IntervalConfigDialog(
                                 color = Color(0xFFFFD600),
                                 fontSize = 15.sp
                             )
-                            Switch(
-                                checked = isSeriesEnabled,
-                                onCheckedChange = { enabled ->
-                                    focusManager.clearFocus()
-                                    isSeriesEnabled = enabled
-                                    if (enabled) {
-                                        isRelaySelected = false
-                                    }
-                                },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = Color.Black,
-                                    checkedTrackColor = AquaPrimary,
-                                    uncheckedThumbColor = Color.Gray,
-                                    uncheckedTrackColor = Color(0xFF1A2B3C)
-                                ),
-                                modifier = Modifier.testTag("config_series_switch")
-                            )
+                            CompositionLocalProvider(
+                                LocalMinimumInteractiveComponentSize provides 0.dp,
+                                androidx.compose.material3.LocalRippleConfiguration provides null
+                            ) {
+                                Switch(
+                                    checked = isSeriesEnabled,
+                                    onCheckedChange = { enabled ->
+                                        focusManager.clearFocus()
+                                        isSeriesEnabled = enabled
+                                        if (enabled) {
+                                            isRelaySelected = false
+                                        }
+                                    },
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = Color.Black,
+                                        checkedTrackColor = AquaPrimary,
+                                        checkedBorderColor = Color.Transparent,
+                                        uncheckedThumbColor = Color.Gray,
+                                        uncheckedTrackColor = Color(0xFF1A2B3C),
+                                        uncheckedBorderColor = Color.Transparent
+                                    ),
+                                    modifier = Modifier.testTag("config_series_switch")
+                                )
+                            }
                         }
 
                         if (isSeriesEnabled) {
@@ -990,30 +998,38 @@ fun IntervalConfigDialog(
                                 color = Color(0xFFFFD600),
                                 fontSize = 15.sp
                             )
-                            Switch(
-                                checked = isRelaySelected,
-                                onCheckedChange = { enabled ->
-                                    focusManager.clearFocus()
-                                    isRelaySelected = enabled
-                                    if (enabled) {
-                                        isSeriesEnabled = false
-                                        mode = StartMode.MASS
-                                        val legDist = if (splitDistance in listOf(25, 50, 100)) splitDistance else 50
-                                        splitDistance = legDist
-                                        distance = legDist * relayStarterCount
-                                        if (legDist == 25) {
-                                            poolLength = 25
+                            CompositionLocalProvider(
+                                LocalMinimumInteractiveComponentSize provides 0.dp,
+                                androidx.compose.material3.LocalRippleConfiguration provides null
+                            ) {
+                                Switch(
+                                    checked = isRelaySelected,
+                                    onCheckedChange = { enabled ->
+                                        focusManager.clearFocus()
+                                        isRelaySelected = enabled
+                                        if (enabled) {
+                                            isSeriesEnabled = false
+                                            mode = StartMode.MASS
+                                            val legDist = if (splitDistance in listOf(25, 50, 100)) splitDistance else 50
+                                            splitDistance = legDist
+                                            distance = legDist * relayStarterCount
+                                            if (legDist == 25) {
+                                                poolLength = 25
+                                            }
                                         }
-                                    }
-                                },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = Color.Black,
-                                    checkedTrackColor = AquaPrimary,
-                                    uncheckedThumbColor = Color.Gray,
-                                    uncheckedTrackColor = Color(0xFF1A2B3C)
-                                ),
-                                modifier = Modifier.testTag("config_mode_relay")
-                            )
+                                    },
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = Color.Black,
+                                        checkedTrackColor = AquaPrimary,
+                                        checkedBorderColor = Color.Transparent,
+                                        uncheckedThumbColor = Color.Gray,
+                                        uncheckedTrackColor = Color(0xFF1A2B3C),
+                                        uncheckedBorderColor = Color.Transparent
+                                    ),
+                                    modifier = Modifier.testTag("config_mode_relay")
+                                )
+                            }
                         }
 
                         if (isRelaySelected) {

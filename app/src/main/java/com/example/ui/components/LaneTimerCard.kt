@@ -103,13 +103,14 @@ fun LaneTimerCard(
         LaneColors.getOrElse((lane.laneNumber - 1) % LaneColors.size) { AquaPrimary }
     }
 
-    val cardBorderColor = remember(lane.status, laneAccentColor) {
-        when (lane.status) {
-            LaneStatus.RUNNING -> laneAccentColor
-            LaneStatus.PAUSED -> Color(0xFFF57C00)
-            LaneStatus.COUNTDOWN, LaneStatus.REST_COUNTDOWN -> Color(0xFFFFD600)
-            LaneStatus.FINISHED -> Color(0xFF78909C)
-            LaneStatus.IDLE -> OceanBorder
+    val cardBorderColor = remember(lane.status, lane.isIncompleteRelay, laneAccentColor) {
+        when {
+            lane.isIncompleteRelay -> PaceRed
+            lane.status == LaneStatus.RUNNING -> laneAccentColor
+            lane.status == LaneStatus.PAUSED -> Color(0xFFF57C00)
+            lane.status == LaneStatus.COUNTDOWN || lane.status == LaneStatus.REST_COUNTDOWN -> Color(0xFFFFD600)
+            lane.status == LaneStatus.FINISHED -> Color(0xFF78909C)
+            else -> OceanBorder
         }
     }
 
@@ -139,6 +140,7 @@ fun LaneTimerCard(
                 swimmerName = lane.swimmerName,
                 isRelay = isRelay,
                 relayFormatBadge = if (isRelay) "${lane.relayMembers.size}×${lane.splitDistanceMeters}m" else null,
+                isIncompleteRelay = lane.isIncompleteRelay,
                 seriesCount = lane.seriesCount,
                 maxSeriesCount = maxSeriesCount,
                 isSeriesEnabled = isSeriesEnabled,
@@ -158,6 +160,7 @@ fun LaneTimerCard(
                 laneStartTimeRealtime = lane.laneStartTimeRealtime,
                 finishTimeMillis = lane.finishTimeMillis,
                 finishRealtimeMillis = lane.finishRealtimeMillis,
+                isIncompleteRelay = lane.isIncompleteRelay,
                 isSeriesEnabled = isSeriesEnabled,
                 seriesMode = seriesMode,
                 sendOffDurationSec = sendOffDurationSec,
@@ -170,10 +173,13 @@ fun LaneTimerCard(
                     relayMembers = lane.relayMembers,
                     currentRunLaps = lane.laps,
                     status = lane.status,
+                    laneStartTimeRealtime = lane.laneStartTimeRealtime,
+                    pausedElapsedMillis = lane.currentElapsedMillis,
                     splitsPerLeg = splitsPerLeg,
                     activeLegIdx = activeRelayLegIdx,
                     isLagenRelay = lane.strokeType.equals("Lagen", ignoreCase = true),
-                    onLegClick = if (lane.status == LaneStatus.IDLE) {
+                    clock = clock,
+                    onLegClick = if (lane.status == LaneStatus.IDLE || lane.status == LaneStatus.FINISHED) {
                         { legPos -> onAssignRelayLegClick?.invoke(legPos) ?: onAssignSwimmerClick() }
                     } else null
                 )
@@ -184,6 +190,7 @@ fun LaneTimerCard(
                 targetDistanceMeters = effectiveTargetDist,
                 splitDistanceMeters = lane.splitDistanceMeters,
                 strokeType = lane.strokeType,
+                isIncompleteRelay = lane.isIncompleteRelay,
                 currentRunLaps = lane.laps,
                 allLaps = lane.allLaps,
                 seriesCount = lane.seriesCount,
@@ -229,6 +236,7 @@ private fun LaneHeader(
     swimmerName: String,
     isRelay: Boolean = false,
     relayFormatBadge: String? = null,
+    isIncompleteRelay: Boolean = false,
     seriesCount: Int,
     maxSeriesCount: Int? = null,
     isSeriesEnabled: Boolean = false,
@@ -247,7 +255,7 @@ private fun LaneHeader(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                color = laneAccentColor,
+                color = if (isIncompleteRelay) PaceRed else laneAccentColor,
                 shape = CircleShape,
                 modifier = Modifier.size(32.dp)
             ) {
@@ -276,7 +284,7 @@ private fun LaneHeader(
                 Icon(
                     imageVector = if (isRelay) Icons.Default.Groups else Icons.Default.Person,
                     contentDescription = "Schwimmer zuweisen",
-                    tint = if (isRelay) AquaPrimary else TextWhite.copy(alpha = 0.7f),
+                    tint = if (isIncompleteRelay) PaceRed else if (isRelay) AquaPrimary else TextWhite.copy(alpha = 0.7f),
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(5.dp))
@@ -289,7 +297,24 @@ private fun LaneHeader(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false)
                 )
-                if (relayFormatBadge != null) {
+                if (isIncompleteRelay) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Surface(
+                        color = PaceRed.copy(alpha = 0.16f),
+                        shape = RoundedCornerShape(6.dp),
+                        border = BorderStroke(1.dp, PaceRed)
+                    ) {
+                        Text(
+                            text = "FEHHLAUF",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PaceRed,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
+                } else if (relayFormatBadge != null) {
                     Spacer(modifier = Modifier.width(6.dp))
                     Surface(
                         color = AquaPrimary.copy(alpha = 0.16f),
@@ -351,13 +376,34 @@ private fun RelayLineupSection(
     relayMembers: List<RelayLegAssignment>,
     currentRunLaps: List<LapItem>,
     status: LaneStatus,
+    laneStartTimeRealtime: Long? = null,
+    pausedElapsedMillis: Long = 0L,
     splitsPerLeg: Int,
     activeLegIdx: Int,
     isLagenRelay: Boolean,
+    clock: MonotonicClock = AndroidMonotonicClock(),
     onLegClick: ((legPosition: Int) -> Unit)? = null
 ) {
     val isRacing = status == LaneStatus.RUNNING || status == LaneStatus.PAUSED
-    val isFinished = status == LaneStatus.FINISHED || status == LaneStatus.REST_COUNTDOWN
+
+    var liveNowMillis by remember { mutableLongStateOf(clock.nowMillis()) }
+
+    LaunchedEffect(status, laneStartTimeRealtime) {
+        if (status == LaneStatus.RUNNING && laneStartTimeRealtime != null) {
+            while (true) {
+                liveNowMillis = clock.nowMillis()
+                delay(30L)
+            }
+        }
+    }
+
+    val totalLiveElapsed = if (status == LaneStatus.PAUSED) {
+        pausedElapsedMillis
+    } else if (status == LaneStatus.RUNNING && laneStartTimeRealtime != null) {
+        (liveNowMillis - laneStartTimeRealtime).coerceAtLeast(0L)
+    } else {
+        0L
+    }
 
     Surface(
         shape = RoundedCornerShape(12.dp),
@@ -390,6 +436,11 @@ private fun RelayLineupSection(
                         val isActiveNow = isRacing && !isCompleted && memberIdx == activeLegIdx
                         val isPlaceholder = member.swimmerId == null && member.swimmerName.startsWith("Starter")
 
+                        val activeLiveLegTimeMs = if (isActiveNow) {
+                            val legBaseSplit = startSplitMs ?: 0L
+                            (totalLiveElapsed - legBaseSplit).coerceAtLeast(0L)
+                        } else null
+
                         val cellBg = when {
                             isActiveNow -> AquaPrimary.copy(alpha = 0.16f)
                             isCompleted -> Color(0xFF0E281D)
@@ -406,13 +457,6 @@ private fun RelayLineupSection(
                             else -> member.stroke
                         }
                         val isAnchorLeg = !isLagenRelay && member.legPosition == relayMembers.size && relayMembers.size >= 2
-                        val posLabel = if (isLagenRelay) {
-                            "${member.legPosition}. $shortStroke"
-                        } else if (isAnchorLeg) {
-                            "${member.legPosition}. Schluss"
-                        } else {
-                            "${member.legPosition}. Starter"
-                        }
                         val legModifier = Modifier.weight(1f).fillMaxHeight()
 
                         Surface(
@@ -435,213 +479,147 @@ private fun RelayLineupSection(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .fillMaxHeight()
-                                    .padding(horizontal = 8.dp, vertical = 5.dp),
+                                    .padding(horizontal = 9.dp, vertical = 7.dp),
                                 verticalArrangement = Arrangement.SpaceBetween
                             ) {
-                                // TIER 1: Header (Position Tag + Status Badge)
+                                // Top row: Swimmer name pill in top-left, estimated/PB time in center, status / checkmark / stroke on right
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
+                                    val displayName = if (isPlaceholder && onLegClick != null) "Wählen…" else member.swimmerName
                                     Surface(
-                                        shape = RoundedCornerShape(5.dp),
+                                        shape = RoundedCornerShape(6.dp),
                                         color = when {
-                                            isActiveNow -> AquaPrimary.copy(alpha = 0.22f)
+                                            isActiveNow -> if (status == LaneStatus.PAUSED) Color(0xFFFFA726).copy(alpha = 0.22f) else AquaPrimary.copy(alpha = 0.22f)
                                             isCompleted -> PaceGreen.copy(alpha = 0.2f)
                                             isAnchorLeg -> Color(0xFFFFD600).copy(alpha = 0.2f)
                                             else -> Color(0xFF16283C)
-                                        }
+                                        },
+                                        modifier = Modifier.weight(1f, fill = false)
                                     ) {
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                         ) {
+                                            Text(
+                                                text = "${member.legPosition}. $displayName",
+                                                fontSize = 11.5.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = when {
+                                                    isActiveNow -> if (status == LaneStatus.PAUSED) Color(0xFFFFA726) else AquaPrimary
+                                                    isCompleted -> PaceGreen
+                                                    isAnchorLeg -> Color(0xFFFFD600)
+                                                    else -> Color(0xFFB0BEC5)
+                                                },
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false))
+                                            )
                                             if (isAnchorLeg) {
-                                                Text(
-                                                    text = "${member.legPosition}. Schluss ",
-                                                    fontSize = 9.5.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = Color(0xFFFFD600),
-                                                    style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false))
-                                                )
+                                                Spacer(modifier = Modifier.width(3.dp))
                                                 Icon(
                                                     imageVector = Icons.Default.Star,
                                                     contentDescription = null,
                                                     tint = Color(0xFFFFD600),
-                                                    modifier = Modifier.size(9.5.dp)
-                                                )
-                                            } else {
-                                                Text(
-                                                    text = posLabel,
-                                                    fontSize = 9.5.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = when {
-                                                        isActiveNow -> AquaPrimary
-                                                        isCompleted -> PaceGreen
-                                                        else -> Color(0xFF90A4AE)
-                                                    },
-                                                    style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false))
+                                                    modifier = Modifier.size(10.dp)
                                                 )
                                             }
                                         }
                                     }
 
+                                    if (member.timeMillis != null) {
+                                        val estPrefix = if (member.isEstimated) "~" else "PB "
+                                        Text(
+                                            text = "$estPrefix${TimeFormatter.formatMillis(member.timeMillis, shortFormat = true)}",
+                                            fontFamily = FontFamily.Monospace,
+                                            fontSize = 9.5.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = if (member.isEstimated) Color(0xFFFFB74D).copy(alpha = 0.9f) else Color(0xFF90A4AE),
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            modifier = Modifier.padding(horizontal = 2.dp)
+                                        )
+                                    }
+
                                     when {
-                                        completedLegTimeMs != null -> {
-                                            Surface(
-                                                shape = RoundedCornerShape(5.dp),
-                                                color = PaceGreen.copy(alpha = 0.18f),
-                                                border = BorderStroke(1.dp, PaceGreen.copy(alpha = 0.45f))
-                                            ) {
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    modifier = Modifier.padding(horizontal = 4.5.dp, vertical = 1.5.dp)
-                                                ) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.Check,
-                                                        contentDescription = null,
-                                                        tint = PaceGreen,
-                                                        modifier = Modifier.size(10.dp)
-                                                    )
-                                                    Spacer(modifier = Modifier.width(2.dp))
-                                                    Text(
-                                                        text = TimeFormatter.formatMillis(completedLegTimeMs, shortFormat = true),
-                                                        fontFamily = FontFamily.Monospace,
-                                                        fontSize = 10.sp,
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = PaceGreen,
-                                                        maxLines = 1,
-                                                        softWrap = false
-                                                    )
-                                                }
-                                            }
+                                        isCompleted -> {
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = "Abgeschlossen",
+                                                tint = PaceGreen,
+                                                modifier = Modifier.size(13.dp)
+                                            )
                                         }
                                         isActiveNow -> {
                                             Surface(
-                                                shape = RoundedCornerShape(4.dp),
-                                                color = AquaPrimary
+                                                shape = RoundedCornerShape(3.dp),
+                                                color = if (status == LaneStatus.PAUSED) Color(0xFFFFA726) else AquaPrimary
                                             ) {
                                                 Text(
-                                                    text = "AKTIV",
+                                                    text = if (status == LaneStatus.PAUSED) "PAUSE" else "AKTIV",
                                                     fontSize = 8.5.sp,
                                                     fontWeight = FontWeight.Black,
                                                     color = Color.Black,
-                                                    modifier = Modifier.padding(horizontal = 4.5.dp, vertical = 1.5.dp),
-                                                    maxLines = 1
+                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                                                 )
                                             }
-                                        }
-                                        member.timeMillis != null && !isFinished -> {
-                                            val estPrefix = if (member.isEstimated) "~" else "PB "
-                                            Text(
-                                                text = "$estPrefix${TimeFormatter.formatMillis(member.timeMillis, shortFormat = true)}",
-                                                fontFamily = FontFamily.Monospace,
-                                                fontSize = 9.5.sp,
-                                                fontWeight = if (member.isEstimated) FontWeight.SemiBold else FontWeight.Medium,
-                                                color = if (member.isEstimated) Color(0xFFFFB74D) else Color(0xFF90A4AE),
-                                                maxLines = 1,
-                                                softWrap = false
-                                            )
                                         }
                                         else -> {
-                                            Surface(
-                                                shape = RoundedCornerShape(4.dp),
-                                                color = Color(0xFF142436)
-                                            ) {
-                                                Text(
-                                                    text = "${member.distanceMeters}m",
-                                                    fontSize = 9.sp,
-                                                    fontWeight = FontWeight.Medium,
-                                                    color = Color(0xFF90A4AE),
-                                                    modifier = Modifier.padding(horizontal = 3.5.dp, vertical = 1.dp),
-                                                    maxLines = 1
-                                                )
-                                            }
+                                            Text(
+                                                text = shortStroke,
+                                                fontSize = 9.5.sp,
+                                                color = Color(0xFF607D8B),
+                                                fontWeight = FontWeight.Medium,
+                                                maxLines = 1
+                                            )
                                         }
                                     }
                                 }
 
                                 Spacer(modifier = Modifier.height(2.dp))
 
-                                // TIER 2: Athlete Info (Avatar + Name + Subtitle)
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically
+                                // Center: Large prominent time display (ONLY actual stopwatch recorded / live times)
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = when {
-                                            isActiveNow -> AquaPrimary.copy(alpha = 0.25f)
-                                            isCompleted -> PaceGreen.copy(alpha = 0.25f)
-                                            isPlaceholder -> Color(0xFF142436)
-                                            else -> Color(0xFF162A3E)
-                                        },
-                                        border = BorderStroke(
-                                            width = 1.dp,
-                                            color = when {
-                                                isActiveNow -> AquaPrimary
-                                                isCompleted -> PaceGreen.copy(alpha = 0.6f)
-                                                isPlaceholder -> Color(0xFF223A52)
-                                                else -> AquaPrimary.copy(alpha = 0.35f)
-                                            }
-                                        ),
-                                        modifier = Modifier.size(24.dp)
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            if (isPlaceholder) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Person,
-                                                    contentDescription = null,
-                                                    tint = Color.Gray,
-                                                    modifier = Modifier.size(13.dp)
-                                                )
-                                            } else {
-                                                Text(
-                                                    text = member.swimmerName.take(1).uppercase(),
-                                                    fontSize = 11.sp,
-                                                    fontWeight = FontWeight.Black,
-                                                    color = when {
-                                                        isActiveNow -> AquaPrimary
-                                                        isCompleted -> PaceGreen
-                                                        else -> TextWhite
-                                                    }
-                                                )
-                                            }
+                                    when {
+                                        isActiveNow && activeLiveLegTimeMs != null -> {
+                                            Text(
+                                                text = TimeFormatter.formatMillis(activeLiveLegTimeMs, shortFormat = true),
+                                                fontFamily = FontFamily.Monospace,
+                                                fontSize = 20.sp,
+                                                fontWeight = FontWeight.Black,
+                                                color = if (status == LaneStatus.PAUSED) Color(0xFFFFA726) else AquaPrimary,
+                                                maxLines = 1,
+                                                softWrap = false
+                                            )
                                         }
-                                    }
-
-                                    Spacer(modifier = Modifier.width(6.dp))
-
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = if (isPlaceholder && onLegClick != null) "Wählen…" else member.swimmerName,
-                                            fontSize = 13.sp,
-                                            fontWeight = if (isActiveNow) FontWeight.Black else if (isPlaceholder) FontWeight.Normal else FontWeight.Bold,
-                                            color = if (isPlaceholder) AquaPrimary.copy(alpha = 0.85f) else TextWhite,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        val subText = when {
-                                            isCompleted -> "Split: ${TimeFormatter.formatMillis(completedLegTimeMs, shortFormat = true)}"
-                                            isActiveNow -> "Im Wasser • ${member.distanceMeters}m $shortStroke"
-                                            isPlaceholder -> "Tippen zum Zuweisen"
-                                            else -> "${member.distanceMeters}m $shortStroke"
+                                        isCompleted -> {
+                                            Text(
+                                                text = TimeFormatter.formatMillis(completedLegTimeMs, shortFormat = true),
+                                                fontFamily = FontFamily.Monospace,
+                                                fontSize = 20.sp,
+                                                fontWeight = FontWeight.Black,
+                                                color = PaceGreen,
+                                                maxLines = 1,
+                                                softWrap = false
+                                            )
                                         }
-                                        val subColor = when {
-                                            isCompleted -> PaceGreen
-                                            isActiveNow -> AquaPrimary
-                                            isPlaceholder -> Color.Gray
-                                            else -> Color(0xFF90A4AE)
+                                        else -> {
+                                            Text(
+                                                text = "--:--",
+                                                fontFamily = FontFamily.Monospace,
+                                                fontSize = 17.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                color = Color(0xFF37474F),
+                                                maxLines = 1
+                                            )
                                         }
-                                        Text(
-                                            text = subText,
-                                            fontSize = 10.5.sp,
-                                            fontWeight = FontWeight.Normal,
-                                            color = subColor,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
                                     }
                                 }
                             }
@@ -665,6 +643,7 @@ private fun DigitalTimerDisplay(
     laneStartTimeRealtime: Long?,
     finishTimeMillis: Long?,
     finishRealtimeMillis: Long? = null,
+    isIncompleteRelay: Boolean = false,
     isSeriesEnabled: Boolean = false,
     seriesMode: SeriesModeType = SeriesModeType.MANUAL,
     sendOffDurationSec: Int = 0,
@@ -750,6 +729,7 @@ private fun DigitalTimerDisplay(
     }
 
     val displayColor = when {
+        isIncompleteRelay -> PaceRed
         isOverrunning -> PaceRed
         status == LaneStatus.RUNNING && isSendOffMode -> AquaPrimary
         status == LaneStatus.PAUSED && isSendOffMode -> AquaPrimary
@@ -787,7 +767,19 @@ private fun DigitalTimerDisplay(
                 overflow = TextOverflow.Ellipsis
             )
 
-            if (status == LaneStatus.REST_COUNTDOWN) {
+            if (isIncompleteRelay) {
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(
+                    text = "⚠ Fehllauf – Nicht alle Staffelzeiten erfasst",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = PaceRed,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            } else if (status == LaneStatus.REST_COUNTDOWN) {
                 Spacer(modifier = Modifier.height(2.dp))
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -863,6 +855,7 @@ private fun LaneProgressAndLaps(
     targetDistanceMeters: Int,
     splitDistanceMeters: Int,
     strokeType: String,
+    isIncompleteRelay: Boolean = false,
     currentRunLaps: List<LapItem>,
     allLaps: List<LapItem>,
     seriesCount: Int,
@@ -870,7 +863,9 @@ private fun LaneProgressAndLaps(
     isExpanded: Boolean,
     onExpandClick: () -> Unit
 ) {
-    val completedDistance = if (status == LaneStatus.FINISHED || status == LaneStatus.REST_COUNTDOWN) {
+    val completedDistance = if (isIncompleteRelay) {
+        (currentRunLaps.size * splitDistanceMeters).coerceAtMost(targetDistanceMeters)
+    } else if (status == LaneStatus.FINISHED || status == LaneStatus.REST_COUNTDOWN) {
         val totalExpectedSplits = (targetDistanceMeters / splitDistanceMeters).coerceAtLeast(1)
         if (currentRunLaps.isEmpty() || currentRunLaps.any { it.lapIndex >= totalExpectedSplits }) {
             targetDistanceMeters
@@ -894,15 +889,15 @@ private fun LaneProgressAndLaps(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Surface(
-                color = OceanSurface,
+                color = if (isIncompleteRelay) PaceRed.copy(alpha = 0.16f) else OceanSurface,
                 shape = RoundedCornerShape(8.dp),
-                border = BorderStroke(1.dp, OceanBorder)
+                border = BorderStroke(1.dp, if (isIncompleteRelay) PaceRed.copy(alpha = 0.5f) else OceanBorder)
             ) {
                 Text(
-                    text = "${completedDistance}m / ${targetDistanceMeters}m",
+                    text = if (isIncompleteRelay) "Fehllauf (${completedDistance}m / ${targetDistanceMeters}m)" else "${completedDistance}m / ${targetDistanceMeters}m",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
-                    color = AquaPrimary,
+                    color = if (isIncompleteRelay) PaceRed else AquaPrimary,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
